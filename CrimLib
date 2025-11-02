@@ -1,8 +1,7 @@
 --[[
-    CrimLibrary.lua (Скрипт 1: Библиотека)
-    - ЗАГРУЗИ ЭТОТ ФАЙЛ НА GITHUB
-    - Этот файл -- ЧИСТО GUI. Он не знает о читах.
-    - Он предоставляет функции, которые принимает "Callback"
+MADE BY 
+(telegramm) @yabl9
+(discord) bestik_
 ]]
 
 local CrimLib = {}
