@@ -1,0 +1,1486 @@
+--[[
+    CrimLibrary.lua (Скрипт 1: Библиотека)
+    - Загрузи этот файл на GitHub (или pastebin, etc.)
+    - Он содержит всю логику GUI и читов.
+]]
+
+local CrimLib = {}
+
+-- [[ 1. ЦЕНТРАЛЬНЫЙ КОНФИГ ]]
+-- Вся логика чита будет читать напрямую из этой таблицы.
+CrimLib.Config = {
+    AimBot = {
+        Enabled = false, TeamCheck = false, WallCheck = false, StickyAim = false, Prediction = false,
+        PredictionAmmount = 1, UseMouse = true, MouseBind = "MouseButton2", Keybind = Enum.KeyCode.E,
+        ShowFov = false, Fov = 360, Smoothing = 3, AimPart = "Head", Thickness = 1,
+        FovFillColor = Color3.fromRGB(100, 0, 100), FovColor = Color3.fromRGB(100, 0, 100),
+        FovFillTransparency = 1, FovTransparency = 0, IsAimKeyDown = false, Target = nil, CameraTween = nil
+    },
+    esp = {
+        Enabled = false, TeamCheck = false, MaxDistance = 200, CharacterSize = Vector2.new(5, 6),
+        Box = {
+            Box = false, Name = false, Distance = false, Health = false, HealthBar = false,
+            Color = Color3.fromRGB(255, 255, 255), Outline = false, OutlineColor = Color3.fromRGB(0, 0, 0)
+        },
+        Tracer = {
+            TeamColor = false, Tracer = false, Color = Color3.fromRGB(255, 255, 255),
+            Outline = false, OutlineColor = Color3.fromRGB(0, 0, 0)
+        },
+        Hilights = {
+            Hilights = false, AllWaysVisible = false, OutlineTransparency = 0.5, FillTransparency = 0.5,
+            OutlineColor = Color3.fromRGB(255, 0, 0), FillColor = Color3.fromRGB(255, 255, 255)
+        }
+    },
+    -- Добавим секцию для настроек самого GUI
+    Settings = {
+        Transparency = 100 
+    }
+}
+
+
+-- [[ 2. ХЕЛПЕРЫ И СЕРВИСЫ ]]
+-- (Скопировано из Crim.lua и ClickGui.lua)
+
+local PlayersService = game:GetService("Players")
+repeat task.wait() until PlayersService.LocalPlayer
+local localPlayer = PlayersService.LocalPlayer
+local cameraObject = game.Workspace.CurrentCamera
+local tweenService = game:GetService("TweenService")
+local userInputService = game:GetService("UserInputService")
+local getMouseLocationFunc = userInputService.GetMouseLocation
+local CoreGui = game:FindFirstChild('CoreGui')
+local ESP_PARENT = CoreGui or PlayersService.LocalPlayer:WaitForChild("PlayerGui")
+
+local connections = {}
+local ESPObjects = {}
+local ScreenGui -- Объявляем здесь, чтобы быть доступным везде
+local fovCircle -- Для ShowFov
+
+-- Хелперы для Config (для работы с Flag)
+local function setConfigValue(path, value)
+    local parts = string.split(path, ".")
+    local t = CrimLib.Config
+    for i = 1, #parts - 1 do
+        local part = parts[i]
+        if not t[part] then t[part] = {} end
+        t = t[part]
+    end
+    t[parts[#parts]] = value
+end
+
+local function getConfigValue(path)
+    local t = CrimLib.Config
+    for part in string.gmatch(path, "([^.]+)") do
+        if t[part] == nil then return nil end
+        t = t[part]
+    end
+    return t
+end
+
+
+-- [[ 3. ЛОГИКА ЧИТА (AIMBOT, ESP) ]]
+-- (Весь код IsValidTarget, getPlayerTeam, isVisible, CameraGetClosestToMouse, GetBoxPoints, CreateESP, UpdateESP... из Crim.lua)
+-- **ВАЖНО**: Все `Config.` были заменены на `CrimLib.Config.`
+
+local function IsValidTarget(player)
+    if player and player.Character and player.Character:FindFirstChild('HumanoidRootPart') and player.Character:FindFirstChild('Humanoid') and player.Character.Humanoid.Health > 0 then
+        return true
+    end
+    return false
+end
+
+local function getPlayerTeam(player)
+    if not localPlayer.Neutral then
+        return player.Team and game.Teams[player.Team.Name] or nil
+    end
+    return true
+end
+
+local function isVisible(targetPosition, ...)
+    if not CrimLib.Config.AimBot.WallCheck then
+        return true
+    end
+    return #cameraObject:GetPartsObscuringTarget({targetPosition}, {cameraObject, localPlayer.Character, ...}) == 0
+end
+
+local function CameraGetClosestToMouse()
+    local currentFovDistance = CrimLib.Config.AimBot.Fov
+    local closestPlayer
+    for _, otherPlayer in pairs(PlayersService:GetPlayers()) do
+        if otherPlayer ~= localPlayer then
+            if not CrimLib.Config.AimBot.TeamCheck or getPlayerTeam(otherPlayer) ~= getPlayerTeam(localPlayer) then
+                if IsValidTarget(otherPlayer) then
+                    local viewportPoint, isOnScreen = cameraObject:WorldToViewportPoint(otherPlayer.Character[CrimLib.Config.AimBot.AimPart].Position)
+                    local screenPosition = Vector2.new(viewportPoint.X, viewportPoint.Y)
+                    local distanceToMouse = (screenPosition - getMouseLocationFunc(userInputService)).Magnitude
+                    if isOnScreen and distanceToMouse < currentFovDistance and isVisible(otherPlayer.Character[CrimLib.Config.AimBot.AimPart].Position, otherPlayer.Character.Head.Parent) then
+                        currentFovDistance = distanceToMouse
+                        closestPlayer = otherPlayer
+                    end
+                end
+            end
+        end
+    end
+    return closestPlayer
+end
+
+local function GetBoxPoints(character)
+    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    if not rootPart then return nil end
+    local charSize = CrimLib.Config.esp.CharacterSize
+    local center = rootPart.Position
+    local headPos = center + Vector3.new(0, charSize.Y / 2, 0)
+    local headViewportPos, headOnScreen = cameraObject:WorldToViewportPoint(headPos)
+    local feetPos = center - Vector3.new(0, charSize.Y / 2, 0)
+    local feetViewportPos, feetOnScreen = cameraObject:WorldToViewportPoint(feetPos)
+    if headOnScreen and feetOnScreen then
+        local bottom = Vector2.new(feetViewportPos.X, feetViewportPos.Y)
+        local top = Vector2.new(headViewportPos.X, headViewportPos.Y)
+        local height = top.Y - bottom.Y
+        local width = height * (charSize.X / charSize.Y)
+        local boxSize = Vector2.new(width, -height)
+        local boxPosition = bottom - Vector2.new(boxSize.X / 2, 0)
+        return boxPosition, boxSize
+    end
+    return nil
+end
+
+local function CreateESP(character, player)
+    if ESPObjects[player.Name] then
+        return ESPObjects[player.Name]
+    end
+    local espFolder = Instance.new("Folder", ESP_PARENT)
+    espFolder.Name = player.Name .. "_ESP"
+    local boxGui = Instance.new("ScreenGui", espFolder)
+    boxGui.Name = "Box"
+    boxGui.DisplayOrder = 2
+    local tracerGui = Instance.new("ScreenGui", espFolder)
+    tracerGui.Name = "Tracer"
+    local highlightFolder = Instance.new("Folder", espFolder)
+    highlightFolder.Name = "Highlight"
+    local topLine = Instance.new("Frame", boxGui)
+    topLine.BackgroundColor3 = CrimLib.Config.esp.Box.Color
+    topLine.Visible = false
+    topLine.BorderSizePixel = 0
+    local bottomLine = topLine:Clone()
+    bottomLine.Parent = boxGui
+    local leftLine = topLine:Clone()
+    leftLine.Parent = boxGui
+    local rightLine = topLine:Clone()
+    rightLine.Parent = boxGui
+    local outlineTop = Instance.new("Frame", boxGui)
+    outlineTop.BackgroundColor3 = CrimLib.Config.esp.Box.OutlineColor
+    outlineTop.Visible = false
+    local outlineBottom = outlineTop:Clone()
+    outlineBottom.Parent = boxGui
+    local outlineLeft = outlineTop:Clone()
+    outlineLeft.Parent = boxGui
+    local outlineRight = outlineTop:Clone()
+    outlineRight.Parent = boxGui
+    local nameLabel = Instance.new("TextLabel", boxGui)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text = player.Name
+    nameLabel.Visible = false
+    nameLabel.AnchorPoint = Vector2.new(0.5, 0.5)
+    nameLabel.TextSize = 12
+    nameLabel.Font = Enum.Font.SourceSans
+    nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    local distanceLabel = nameLabel:Clone()
+    distanceLabel.Parent = boxGui
+    distanceLabel.Text = ""
+    local healthBackground = Instance.new("Frame", boxGui)
+    healthBackground.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    healthBackground.Visible = false
+    local healthFill = Instance.new("Frame", boxGui)
+    healthFill.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+    healthFill.Visible = false
+    local healthText = nameLabel:Clone()
+    healthText.Parent = boxGui
+    healthText.Visible = false
+    local tracerOutline = Instance.new("Frame", tracerGui)
+    tracerOutline.BackgroundColor3 = CrimLib.Config.esp.Tracer.OutlineColor
+    tracerOutline.Visible = false
+    local tracerLine = Instance.new("Frame", tracerGui)
+    tracerLine.BackgroundColor3 = CrimLib.Config.esp.Tracer.Color
+    tracerLine.Visible = false
+    local highlight = Instance.new("Highlight", highlightFolder)
+    highlight.Enabled = false
+    local espConnections = {}
+
+    local function UpdateESP()
+        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+        local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+        local head = character and character:FindFirstChild("Head")
+        local isVisible = CrimLib.Config.esp.Enabled and IsValidTarget(player) and (not CrimLib.Config.esp.TeamCheck or getPlayerTeam(player) ~= getPlayerTeam(localPlayer))
+
+        if not isVisible or not character then
+            boxGui.Enabled = false
+            tracerGui.Enabled = false
+            highlight.Enabled = false
+            return
+        end
+
+        local distance = (cameraObject.CFrame.Position - rootPart.Position).Magnitude
+
+        if distance > CrimLib.Config.esp.MaxDistance then
+            boxGui.Enabled = false
+            tracerGui.Enabled = false
+            highlight.Enabled = false
+            return
+        end
+
+        boxGui.Enabled = true
+        tracerGui.Enabled = true
+
+        local boxPos, boxSize = GetBoxPoints(character)
+        if not boxPos or not boxSize then
+            boxGui.Enabled = false
+            tracerGui.Enabled = false
+            return
+        end
+        local boxEnabled = CrimLib.Config.esp.Box.Box
+        local outlineEnabled = CrimLib.Config.esp.Box.Outline
+        local thickness = 1
+        boxGui.Enabled = boxEnabled or CrimLib.Config.esp.Box.Name or CrimLib.Config.esp.Box.Distance or CrimLib.Config.esp.Box.Health
+        if boxEnabled then
+            local X, Y = boxSize.X, boxSize.Y
+            local Px, Py = boxPos.X, boxPos.Y
+            topLine.Visible = true
+            bottomLine.Visible = true
+            leftLine.Visible = true
+            rightLine.Visible = true
+            outlineTop.Visible = outlineEnabled
+            outlineBottom.Visible = outlineEnabled
+            outlineLeft.Visible = outlineEnabled
+            outlineRight.Visible = outlineEnabled
+            topLine.Position = UDim2.fromOffset(Px, Py)
+            topLine.Size = UDim2.fromOffset(X, thickness)
+            bottomLine.Position = UDim2.fromOffset(Px, Py + Y - thickness)
+            bottomLine.Size = UDim2.fromOffset(X, thickness)
+            leftLine.Position = UDim2.fromOffset(Px, Py + thickness)
+            leftLine.Size = UDim2.fromOffset(thickness, Y - thickness * 2)
+            rightLine.Position = UDim2.fromOffset(Px + X - thickness, Py + thickness)
+            rightLine.Size = UDim2.fromOffset(thickness, Y - thickness * 2)
+            if outlineEnabled then
+                outlineTop.Position = UDim2.fromOffset(Px - thickness, Py - thickness)
+                outlineTop.Size = UDim2.fromOffset(X + thickness * 2, thickness)
+                outlineBottom.Position = UDim2.fromOffset(Px - thickness, Py + Y)
+                outlineBottom.Size = UDim2.fromOffset(X + thickness * 2, thickness)
+                outlineLeft.Position = UDim2.fromOffset(Px - thickness, Py)
+                outlineLeft.Size = UDim2.fromOffset(thickness, Y)
+                outlineRight.Position = UDim2.fromOffset(Px + X, Py)
+                outlineRight.Size = UDim2.fromOffset(thickness, Y)
+            end
+        else
+            topLine.Visible = false
+            bottomLine.Visible = false
+            leftLine.Visible = false
+            rightLine.Visible = false
+            outlineTop.Visible = false
+            outlineBottom.Visible = false
+            outlineLeft.Visible = false
+            outlineRight.Visible = false
+        end
+        nameLabel.Visible = CrimLib.Config.esp.Box.Name
+        if nameLabel.Visible then
+            nameLabel.Position = UDim2.fromOffset(boxPos.X + boxSize.X / 2, boxPos.Y - nameLabel.TextBounds.Y)
+        end
+        local distanceText = math.floor(distance) .. "м"
+        distanceLabel.Text = distanceText
+        distanceLabel.Visible = CrimLib.Config.esp.Box.Distance
+        if distanceLabel.Visible then
+            distanceLabel.Position = UDim2.fromOffset(boxPos.X + boxSize.X / 2, boxPos.Y + boxSize.Y + distanceLabel.TextBounds.Y / 2)
+        end
+        if humanoid and (CrimLib.Config.esp.Box.Health or CrimLib.Config.esp.Box.HealthBar) then
+            local maxHealth = humanoid.MaxHealth
+            local health = humanoid.Health
+            local healthRatio = math.clamp(health / maxHealth, 0, 1)
+            local fillHeight = boxSize.Y * healthRatio
+            local barWidth = 4
+            local barX = boxPos.X - barWidth - 2
+            healthBackground.Visible = CrimLib.Config.esp.Box.HealthBar
+            healthFill.Visible = CrimLib.Config.esp.Box.HealthBar
+            healthText.Visible = CrimLib.Config.esp.Box.Health
+            if CrimLib.Config.esp.Box.HealthBar then
+                healthBackground.Size = UDim2.fromOffset(barWidth, boxSize.Y)
+                healthBackground.Position = UDim2.fromOffset(barX, boxPos.Y)
+                healthFill.Size = UDim2.fromOffset(barWidth, fillHeight)
+                healthFill.Position = UDim2.fromOffset(barX, boxPos.Y + boxSize.Y - fillHeight)
+                healthFill.BackgroundColor3 = Color3.fromHSV(healthRatio * (1 / 3), 1, 1)
+            end
+            if CrimLib.Config.esp.Box.Health then
+                healthText.Text = math.floor(health)
+                healthText.Position = UDim2.fromOffset(barX, boxPos.Y - healthText.TextBounds.Y)
+            end
+        else
+            healthBackground.Visible = false
+            healthFill.Visible = false
+            healthText.Visible = false
+        end
+        local tracerEnabled = CrimLib.Config.esp.Tracer.Tracer
+        tracerGui.Enabled = tracerEnabled
+        if tracerEnabled then
+            local startPoint = Vector2.new(cameraObject.ViewportSize.X / 2, cameraObject.ViewportSize.Y)
+            local endPoint = boxPos + Vector2.new(boxSize.X / 2, boxSize.Y / 2)
+            local length = (endPoint - startPoint).Magnitude
+            local angle = math.atan2(endPoint.Y - startPoint.Y, endPoint.X - startPoint.X)
+            tracerLine.Visible = true
+            tracerOutline.Visible = CrimLib.Config.esp.Tracer.Outline
+            tracerLine.Position = UDim2.fromOffset(startPoint.X + (endPoint.X - startPoint.X) / 2, startPoint.Y + (endPoint.Y - startPoint.Y) / 2)
+            tracerLine.Size = UDim2.fromOffset(length, 1)
+            tracerLine.Rotation = math.deg(angle)
+            tracerLine.BackgroundColor3 = (CrimLib.Config.esp.Tracer.TeamColor and getPlayerTeam(player) and getPlayerTeam(player).TeamColor.Color) or CrimLib.Config.esp.Tracer.Color
+            if CrimLib.Config.esp.Tracer.Outline then
+                tracerOutline.Position = tracerLine.Position
+                tracerOutline.Size = UDim2.fromOffset(length + 2, 3)
+                tracerOutline.Rotation = tracerLine.Rotation
+            end
+        end
+        local hilightEnabled = CrimLib.Config.esp.Hilights.Hilights
+        highlight.Enabled = hilightEnabled
+        if hilightEnabled then
+            highlight.Adornee = character
+            highlight.FillTransparency = CrimLib.Config.esp.Hilights.FillTransparency
+            highlight.OutlineTransparency = CrimLib.Config.esp.Hilights.OutlineTransparency
+            highlight.OutlineColor = CrimLib.Config.esp.Hilights.OutlineColor
+            highlight.FillColor = CrimLib.Config.esp.Hilights.FillColor
+            if not CrimLib.Config.esp.Hilights.AllWaysVisible then
+                local obscured = cameraObject:GetPartsObscuringTarget({head.Position}, {cameraObject, localPlayer.Character, head})
+                highlight.DepthMode = (obscured[1] and "Occluded") or "AlwaysOnTop"
+            else
+                highlight.DepthMode = "AlwaysOnTop"
+            end
+        end
+    end
+
+    local function Cleanup()
+        for _, connection in ipairs(espConnections) do
+            connection:Disconnect()
+        end
+        espConnections = {}
+        espFolder:Destroy()
+        ESPObjects[player.Name] = nil
+    end
+
+    table.insert(espConnections, character.AncestryChanged:Connect(function(_, parent)
+        if not parent then
+            Cleanup()
+        end
+    end))
+
+    table.insert(espConnections, PlayersService.PlayerRemoving:Connect(function(removedPlayer)
+        if removedPlayer == player then
+            Cleanup()
+        end
+    end))
+
+    coroutine.wrap(function()
+        while espFolder.Parent and character.Parent do
+            UpdateESP()
+            game:GetService("RunService").RenderStepped:Wait()
+        end
+        Cleanup()
+    end)()
+
+    ESPObjects[player.Name] = {Folder = espFolder, Update = UpdateESP, Cleanup = Cleanup}
+    return ESPObjects[player.Name]
+end
+
+for _, character in ipairs(workspace.Characters:GetChildren()) do
+    local player = PlayersService:GetPlayerFromCharacter(character)
+    if player and player ~= localPlayer then
+        CreateESP(character, player)
+    end
+end
+
+table.insert(connections, workspace.Characters.ChildAdded:Connect(function(character)
+    local player = PlayersService:GetPlayerFromCharacter(character)
+    if player and player ~= localPlayer then
+        CreateESP(character, player)
+    end
+end))
+
+-- (Обработчики инпутов)
+table.insert(connections, userInputService.InputBegan:Connect(function(inputObject)
+    if inputObject.KeyCode == CrimLib.Config.AimBot.Keybind and not CrimLib.Config.AimBot.UseMouse then
+        CrimLib.Config.AimBot.Target = CameraGetClosestToMouse()
+        CrimLib.Config.AimBot.IsAimKeyDown = true
+    end
+end))
+
+table.insert(connections, userInputService.InputEnded:Connect(function(inputObject)
+    if inputObject.KeyCode == CrimLib.Config.AimBot.Keybind and not CrimLib.Config.AimBot.UseMouse then
+        CrimLib.Config.AimBot.Target = nil
+        CrimLib.Config.AimBot.IsAimKeyDown = false
+        if CrimLib.Config.AimBot.CameraTween then
+            CrimLib.Config.AimBot.CameraTween:Cancel()
+        end
+    end
+end))
+
+table.insert(connections, localPlayer:GetMouse().Button1Down:Connect(function()
+    if CrimLib.Config.AimBot.MouseBind == 'MouseButton1' and CrimLib.Config.AimBot.UseMouse then
+        if CrimLib.Config.AimBot.IsAimKeyDown then
+            CrimLib.Config.AimBot.Target = nil
+            CrimLib.Config.AimBot.IsAimKeyDown = false
+            if CrimLib.Config.AimBot.CameraTween then
+                CrimLib.Config.AimBot.CameraTween:Cancel()
+            end
+        else
+            CrimLib.Config.AimBot.Target = CameraGetClosestToMouse()
+            CrimLib.Config.AimBot.IsAimKeyDown = true
+        end
+    end
+end))
+
+table.insert(connections, localPlayer:GetMouse().Button1Up:Connect(function()
+    if CrimLib.Config.AimBot.MouseBind == 'MouseButton1' and CrimLib.Config.AimBot.UseMouse then
+        CrimLib.Config.AimBot.Target = nil
+        CrimLib.Config.AimBot.IsAimKeyDown = false
+        if CrimLib.Config.AimBot.CameraTween then
+            CrimLib.Config.AimBot.CameraTween:Cancel()
+        end
+    end
+end))
+
+table.insert(connections, localPlayer:GetMouse().Button2Down:Connect(function()
+    if CrimLib.Config.AimBot.MouseBind == 'MouseButton2' and CrimLib.Config.AimBot.UseMouse then
+        CrimLib.Config.AimBot.Target = CameraGetClosestToMouse()
+        CrimLib.Config.AimBot.IsAimKeyDown = true
+    end
+end))
+
+table.insert(connections, localPlayer:GetMouse().Button2Up:Connect(function()
+    if CrimLib.Config.AimBot.MouseBind == 'MouseButton2' and CrimLib.Config.AimBot.UseMouse then
+        CrimLib.Config.AimBot.Target = nil
+        CrimLib.Config.AimBot.IsAimKeyDown = false
+        if CrimLib.Config.AimBot.CameraTween then
+            CrimLib.Config.AimBot.CameraTween:Cancel()
+        end
+    end
+end))
+
+-- (Heartbeat Aimbot)
+table.insert(connections, game:GetService('RunService').Heartbeat:Connect(function()
+    if CrimLib.Config.AimBot.Enabled then
+        if CrimLib.Config.AimBot.IsAimKeyDown then
+            if CrimLib.Config.AimBot.StickyAim then
+                if CrimLib.Config.AimBot.Target then
+                    if not IsValidTarget(CrimLib.Config.AimBot.Target) then
+                        local newTargetPlayer = CameraGetClosestToMouse()
+                        CrimLib.Config.AimBot.Target = newTargetPlayer
+                        if newTargetPlayer then
+                            CrimLib.Config.AimBot.CameraTween = tweenService:Create(cameraObject, TweenInfo.new(CrimLib.Config.AimBot.Smoothing, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {CFrame = CFrame.new(cameraObject.CFrame.Position, newTargetPlayer.Character[CrimLib.Config.AimBot.AimPart].Position + (CrimLib.Config.AimBot.Prediction and (newTargetPlayer.Character[CrimLib.Config.AimBot.AimPart].Velocity * localPlayer:GetNetworkPing() * CrimLib.Config.AimBot.PredictionAmmount) or Vector3.new()))})
+                            CrimLib.Config.AimBot.CameraTween:Play()
+                        end
+                    else
+                        CrimLib.Config.AimBot.CameraTween = tweenService:Create(cameraObject, TweenInfo.new(CrimLib.Config.AimBot.Smoothing, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {CFrame = CFrame.new(cameraObject.CFrame.Position, CrimLib.Config.AimBot.Target.Character[CrimLib.Config.AimBot.AimPart].Position + (CrimLib.Config.AimBot.Prediction and (CrimLib.Config.AimBot.Target.Character[CrimLib.Config.AimBot.AimPart].Velocity * localPlayer:GetNetworkPing() * CrimLib.Config.AimBot.PredictionAmmount) or Vector3.new()))})
+                        CrimLib.Config.AimBot.CameraTween:Play()
+                    end
+                end
+            else
+                local targetPlayer = CameraGetClosestToMouse()
+                if targetPlayer then
+                    CrimLib.Config.AimBot.CameraTween = tweenService:Create(cameraObject, TweenInfo.new(CrimLib.Config.AimBot.Smoothing, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {CFrame = CFrame.new(cameraObject.CFrame.Position, targetPlayer.Character[CrimLib.Config.AimBot.AimPart].Position + (CrimLib.Config.AimBot.Prediction and (targetPlayer.Character[CrimLib.Config.AimBot.AimPart].Velocity * localPlayer:GetNetworkPing() * CrimLib.Config.AimBot.PredictionAmmount) or Vector3.new()))})
+                    CrimLib.Config.AimBot.CameraTween:Play()
+                elseif CrimLib.Config.AimBot.CameraTween then
+                    CrimLib.Config.AimBot.CameraTween:Cancel()
+                end
+            end
+        end
+    end
+end))
+
+-- (Heartbeat ShowFov)
+table.insert(connections, game:GetService('RunService').Heartbeat:Connect(function()
+    if CrimLib.Config.AimBot.Enabled and CrimLib.Config.AimBot.ShowFov then
+        fovCircle.Position = userInputService:GetMouseLocation()
+        fovCircle.Radius = CrimLib.Config.AimBot.Fov
+        fovCircle.Thickness = CrimLib.Config.AimBot.Thickness
+        fovCircle.Transparency = 1 - CrimLib.Config.AimBot.FovTransparency
+        fovCircle.Filled = CrimLib.Config.AimBot.FovFillTransparency < 1
+        fovCircle.Color = CrimLib.Config.AimBot.FovColor
+        if fovCircle.Filled then
+            fovCircle.Color = CrimLib.Config.AimBot.FovFillColor
+        end
+        fovCircle.Visible = true
+    elseif fovCircle.Visible then
+        fovCircle.Visible = false
+    end
+end))
+
+
+-- [[ 4. ВНУТРЕННИЕ ФУНКЦИИ СОЗДАНИЯ UI ]]
+-- (Хелперы для создания GUI-элементов)
+
+-- **ВАЖНО**: Используем `createToggle` из ClickGui.lua для анимации
+local function internalCreateToggle(parent, yPos, label, enabled, callback)
+    local toggleState = enabled
+    
+    local ToggleFrame = Instance.new("Frame")
+    ToggleFrame.Parent = parent
+    ToggleFrame.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+    ToggleFrame.BorderSizePixel = 0
+    ToggleFrame.Position = UDim2.new(0, 15, 0, yPos)
+    ToggleFrame.Size = UDim2.new(1, -30, 0, 30)
+    ToggleFrame.ClipsDescendants = false
+    ToggleFrame.ZIndex = 5
+    ToggleFrame:SetAttribute("HasBackground", true) -- Добавлено для setTransparency
+
+    local ToggleCorner = Instance.new("UICorner")
+    ToggleCorner.CornerRadius = UDim.new(0, 4)
+    ToggleCorner.Parent = ToggleFrame
+    
+    local Label = Instance.new("TextLabel")
+    Label.Parent = ToggleFrame
+    Label.BackgroundTransparency = 1
+    Label.Position = UDim2.new(0, 12, 0, 0)
+    Label.Size = UDim2.new(0, 200, 1, 0)
+    Label.Font = Enum.Font.Gotham
+    Label.Text = label
+    Label.TextColor3 = toggleState and Color3.fromRGB(255, 200, 50) or Color3.fromRGB(200, 200, 200)
+    Label.TextSize = 13
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.ZIndex = 6
+    
+    local ToggleBg = Instance.new("Frame")
+    ToggleBg.Parent = ToggleFrame
+    ToggleBg.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    ToggleBg.BorderSizePixel = 0
+    ToggleBg.Position = UDim2.new(1, -38, 0.5, -10)
+    ToggleBg.Size = UDim2.new(0, 32, 0, 20)
+    ToggleBg.ZIndex = 6
+    ToggleBg:SetAttribute("HasBackground", true) -- Добавлено
+
+    local BgCorner = Instance.new("UICorner")
+    BgCorner.CornerRadius = UDim.new(1, 0)
+    BgCorner.Parent = ToggleBg
+    
+    local ToggleButton = Instance.new("Frame")
+    ToggleButton.Parent = ToggleBg
+    ToggleButton.BackgroundColor3 = toggleState and Color3.fromRGB(60, 160, 255) or Color3.fromRGB(60, 60, 60)
+    ToggleButton.BorderSizePixel = 0
+    ToggleButton.Position = toggleState and UDim2.new(0, 14, 0, 2) or UDim2.new(0, 2, 0, 2)
+    ToggleButton.Size = UDim2.new(0, 16, 0, 16)
+    ToggleButton.ZIndex = 7
+    ToggleButton:SetAttribute("HasBackground", true) -- Добавлено
+
+    local ButtonCorner = Instance.new("UICorner")
+    ButtonCorner.CornerRadius = UDim.new(1, 0)
+    ButtonCorner.Parent = ToggleButton
+    
+    local ClickButton = Instance.new("TextButton")
+    ClickButton.Parent = ToggleFrame
+    ClickButton.BackgroundTransparency = 1
+    ClickButton.Size = UDim2.new(1, 0, 1, 0)
+    ClickButton.Text = ""
+    ClickButton.ZIndex = 8
+    
+    ClickButton.MouseButton1Click:Connect(function()
+        toggleState = not toggleState
+        
+        -- Animate toggle
+        tweenService:Create(ToggleButton, TweenInfo.new(0.15, Enum.EasingStyle.Quad), {
+            Position = toggleState and UDim2.new(0, 14, 0, 2) or UDim2.new(0, 2, 0, 2),
+            BackgroundColor3 = toggleState and Color3.fromRGB(60, 160, 255) or Color3.fromRGB(60, 60, 60)
+        }):Play()
+        
+        tweenService:Create(Label, TweenInfo.new(0.15, Enum.EasingStyle.Quad), {
+            TextColor3 = toggleState and Color3.fromRGB(255, 200, 50) or Color3.fromRGB(200, 200, 200)
+        }):Play()
+        
+        if callback then
+            callback(toggleState)
+        end
+    end)
+    
+    -- Hover effect
+    ClickButton.MouseEnter:Connect(function()
+        tweenService:Create(ToggleFrame, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {
+            BackgroundColor3 = Color3.fromRGB(32, 32, 32)
+        }):Play()
+    end)
+    
+    ClickButton.MouseLeave:Connect(function()
+        tweenService:Create(ToggleFrame, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {
+            BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+        }):Play()
+    end)
+
+    return ToggleFrame, toggleState
+end
+
+-- Используем `createSlider` из Crim.lua
+local function internalCreateSlider(parent, yPos, label, defaultValue, minValue, maxValue, hasOverride, onValueChanged)
+    local sliderValue = defaultValue
+    local dragging = false
+    local SliderFrame = Instance.new("Frame")
+    SliderFrame.Parent = parent
+    SliderFrame.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+    SliderFrame.BorderSizePixel = 0
+    SliderFrame.Position = UDim2.new(0, 15, 0, yPos)
+    SliderFrame.Size = UDim2.new(1, -30, 0, 30)
+    SliderFrame:SetAttribute("HasBackground", true)
+
+    local SliderCorner = Instance.new("UICorner")
+    SliderCorner.CornerRadius = UDim.new(0, 4)
+    SliderCorner.Parent = SliderFrame
+
+    local Label = Instance.new("TextLabel")
+    Label.Parent = SliderFrame
+    Label.BackgroundTransparency = 1
+    Label.Position = UDim2.new(0, 12, 0, 0)
+    Label.Size = UDim2.new(0, 150, 1, 0)
+    Label.Font = Enum.Font.Gotham
+    Label.Text = label
+    Label.TextColor3 = Color3.fromRGB(200, 200, 200)
+    Label.TextSize = 13
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+
+    if hasOverride then
+        local OverrideLabel = Instance.new("TextLabel")
+        OverrideLabel.Parent = SliderFrame
+        OverrideLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+        OverrideLabel.BorderSizePixel = 0
+        OverrideLabel.Position = UDim2.new(0, 165, 0.5, -8)
+        OverrideLabel.Size = UDim2.new(0, 22, 0, 16)
+        OverrideLabel.Font = Enum.Font.GothamBold
+        OverrideLabel.Text = "HB"
+        OverrideLabel.TextColor3 = Color3.fromRGB(130, 130, 130)
+        OverrideLabel.TextSize = 8
+        OverrideLabel:SetAttribute("HasBackground", true)
+
+        local OverrideCorner = Instance.new("UICorner")
+        OverrideCorner.CornerRadius = UDim.new(0, 2)
+        OverrideCorner.Parent = OverrideLabel
+    end
+
+    local ValueLabel = Instance.new("TextLabel")
+    ValueLabel.Parent = SliderFrame
+    ValueLabel.BackgroundTransparency = 1
+    ValueLabel.Position = UDim2.new(1, -35, 0, 0)
+    ValueLabel.Size = UDim2.new(0, 38, 1, 0)
+    ValueLabel.Font = Enum.Font.GothamBold
+    ValueLabel.Text = tostring(defaultValue)
+    ValueLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    ValueLabel.TextSize = 13
+    ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
+
+    local SliderTrack = Instance.new("Frame")
+    SliderTrack.Parent = SliderFrame
+    SliderTrack.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    SliderTrack.BorderSizePixel = 0
+    SliderTrack.Position = UDim2.new(0, hasOverride and 180 or 160, 0.5, -2)
+    SliderTrack.Size = UDim2.new(1, hasOverride and -245 or -225, 0, 4)
+    SliderTrack:SetAttribute("HasBackground", true)
+
+    local TrackCorner = Instance.new("UICorner")
+    TrackCorner.CornerRadius = UDim.new(0, 2)
+    TrackCorner.Parent = SliderTrack
+
+    local SliderFill = Instance.new("Frame")
+    SliderFill.Parent = SliderTrack
+    SliderFill.BackgroundColor3 = Color3.fromRGB(60, 160, 255)
+    SliderFill.BorderSizePixel = 0
+    SliderFill.Position = UDim2.new(0, 0, 0, 0)
+    SliderFill.Size = UDim2.new(0, 0, 1, 0)
+    SliderFill:SetAttribute("HasBackground", true)
+
+    local FillCorner = Instance.new("UICorner")
+    FillCorner.CornerRadius = UDim.new(0, 2)
+    FillCorner.Parent = SliderFill
+
+    local SliderThumb = Instance.new("Frame")
+    SliderThumb.Parent = SliderFill
+    SliderThumb.BackgroundColor3 = Color3.fromRGB(60, 160, 255)
+    SliderThumb.BorderSizePixel = 0
+    SliderThumb.Position = UDim2.new(1, 0, 0.5, -5)
+    SliderThumb.Size = UDim2.new(0, 10, 0, 10)
+    SliderThumb.ZIndex = 2
+    SliderThumb:SetAttribute("HasBackground", true)
+
+    local ThumbCorner = Instance.new("UICorner")
+    ThumbCorner.CornerRadius = UDim.new(0, 5)
+    ThumbCorner.Parent = SliderThumb
+
+    local function updateSlider(input)
+        local mousePos = input.Position.X
+        local trackAbsolutePos = SliderTrack.AbsolutePosition.X
+        local trackSize = SliderTrack.AbsoluteSize.X
+        local xOffset = math.clamp(mousePos - trackAbsolutePos, 0, trackSize)
+        local percent = xOffset / trackSize
+        local newValue = math.floor((minValue + (maxValue - minValue) * percent) + 0.5)
+        
+        -- Округление до 2 знаков после запятой, если minValue/maxValue - дроби
+        if minValue < 1 or maxValue < 1 then
+             newValue = math.floor((minValue + (maxValue - minValue) * percent) * 100 + 0.5) / 100
+        end
+
+        sliderValue = newValue
+        ValueLabel.Text = tostring(newValue)
+        SliderFill.Size = UDim2.new(percent, 0, 1, 0)
+        if onValueChanged then
+            onValueChanged(newValue)
+        end
+    end
+
+    local initialPercent = (defaultValue - minValue) / (maxValue - minValue)
+    SliderFill.Size = UDim2.new(initialPercent, 0, 1, 0)
+
+    table.insert(connections, userInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            updateSlider(input)
+        end
+    end))
+
+    table.insert(connections, userInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end))
+
+    table.insert(connections, SliderThumb.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+        end
+    end))
+    
+    -- Добавляем клик по самому треку
+    local TrackButton = Instance.new("TextButton", SliderTrack)
+    TrackButton.BackgroundTransparency = 1
+    TrackButton.Size = UDim2.new(1, 0, 1, 0)
+    TrackButton.Text = ""
+    TrackButton.ZIndex = 1
+    TrackButton.InputBegan:Connect(function(input)
+         if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            updateSlider(input)
+        end
+    end)
+
+
+    table.insert(connections, SliderFrame.MouseEnter:Connect(function()
+        tweenService:Create(SliderFrame, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {BackgroundColor3 = Color3.fromRGB(32, 32, 32)}):Play()
+    end))
+
+    table.insert(connections, SliderFrame.MouseLeave:Connect(function()
+        tweenService:Create(SliderFrame, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {BackgroundColor3 = Color3.fromRGB(28, 28, 28)}):Play()
+    end))
+
+    return SliderFrame, sliderValue
+end
+
+-- Используем `createDropdown` из Crim.lua
+local function internalCreateDropdown(parent, yPos, label, options, defaultOption, onSelected)
+    local selected = defaultOption
+    local DropdownFrame = Instance.new("Frame")
+    DropdownFrame.Parent = parent
+    DropdownFrame.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+    DropdownFrame.BorderSizePixel = 0
+    DropdownFrame.Position = UDim2.new(0, 15, 0, yPos)
+    DropdownFrame.Size = UDim2.new(1, -30, 0, 30)
+    DropdownFrame:SetAttribute("HasBackground", true)
+
+    local DropdownCorner = Instance.new("UICorner")
+    DropdownCorner.CornerRadius = UDim.new(0, 4)
+    DropdownCorner.Parent = DropdownFrame
+
+    local Label = Instance.new("TextLabel")
+    Label.Parent = DropdownFrame
+    Label.BackgroundTransparency = 1
+    Label.Position = UDim2.new(0, 12, 0, 0)
+    Label.Size = UDim2.new(0, 150, 1, 0)
+    Label.Font = Enum.Font.Gotham
+    Label.Text = label
+    Label.TextColor3 = Color3.fromRGB(200, 200, 200)
+    Label.TextSize = 13
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+
+    local SelectedLabel = Instance.new("TextLabel")
+    SelectedLabel.Parent = DropdownFrame
+    SelectedLabel.BackgroundTransparency = 1
+    SelectedLabel.Position = UDim2.new(1, -100, 0, 0)
+    SelectedLabel.Size = UDim2.new(0, 80, 1, 0)
+    SelectedLabel.Font = Enum.Font.GothamBold
+    SelectedLabel.Text = selected
+    SelectedLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    SelectedLabel.TextSize = 13
+    SelectedLabel.TextXAlignment = Enum.TextXAlignment.Right
+
+    local DropButton = Instance.new("TextButton")
+    DropButton.Parent = DropdownFrame
+    DropButton.BackgroundTransparency = 1
+    DropButton.Size = UDim2.new(1, 0, 1, 0)
+    DropButton.Text = ""
+
+    local expanded = false
+    local OptionsFrame = Instance.new("Frame")
+    OptionsFrame.Parent = DropdownFrame
+    OptionsFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    OptionsFrame.BorderSizePixel = 0
+    OptionsFrame.Position = UDim2.new(0, 0, 1, 5)
+    OptionsFrame.Size = UDim2.new(1, 0, 0, 0)
+    OptionsFrame.Visible = false
+    OptionsFrame.ClipsDescendants = true
+    OptionsFrame:SetAttribute("HasBackground", true)
+
+    local OptionsCorner = Instance.new("UICorner")
+    OptionsCorner.CornerRadius = UDim.new(0, 4)
+    OptionsCorner.Parent = OptionsFrame
+
+    for i, option in ipairs(options) do
+        local OptionButton = Instance.new("TextButton")
+        OptionButton.Parent = OptionsFrame
+        OptionButton.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+        OptionButton.BorderSizePixel = 0
+        OptionButton.Position = UDim2.new(0, 0, 0, (i - 1) * 30)
+        OptionButton.Size = UDim2.new(1, 0, 0, 30)
+        OptionButton.Font = Enum.Font.Gotham
+        OptionButton.Text = option
+        OptionButton.TextColor3 = Color3.fromRGB(200, 200, 200)
+        OptionButton.TextSize = 13
+        OptionButton.TextXAlignment = Enum.TextXAlignment.Left
+        OptionButton:SetAttribute("HasBackground", true)
+
+        local OptionText = Instance.new("TextLabel")
+        OptionText.Parent = OptionButton
+        OptionText.BackgroundTransparency = 1
+        OptionText.Position = UDim2.new(0, 12, 0, 0)
+        OptionText.Size = UDim2.new(1, -24, 1, 0)
+        OptionText.Font = Enum.Font.Gotham
+        OptionText.Text = option
+        OptionText.TextColor3 = Color3.fromRGB(200, 200, 200)
+        OptionText.TextSize = 13
+        OptionText.TextXAlignment = Enum.TextXAlignment.Left
+
+        table.insert(connections, OptionButton.MouseButton1Click:Connect(function()
+            selected = option
+            SelectedLabel.Text = option
+            if onSelected then
+                onSelected(option)
+            end
+            tweenService:Create(OptionsFrame, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, 0)}):Play()
+            task.wait(0.2)
+            OptionsFrame.Visible = false
+            expanded = false
+        end))
+
+        table.insert(connections, OptionButton.MouseEnter:Connect(function()
+            tweenService:Create(OptionButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(30, 30, 30)}):Play()
+        end))
+
+        table.insert(connections, OptionButton.MouseLeave:Connect(function()
+            tweenService:Create(OptionButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(25, 25, 25)}):Play()
+        end))
+    end
+
+    table.insert(connections, DropButton.MouseButton1Click:Connect(function()
+        expanded = not expanded
+        if expanded then
+            OptionsFrame.Visible = true
+            tweenService:Create(OptionsFrame, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, 30 * #options)}):Play()
+        else
+            tweenService:Create(OptionsFrame, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, 0)}):Play()
+            task.wait(0.2)
+            OptionsFrame.Visible = false
+        end
+    end))
+
+    table.insert(connections, DropdownFrame.MouseEnter:Connect(function()
+        tweenService:Create(DropdownFrame, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(32, 32, 32)}):Play()
+    end))
+
+    table.insert(connections, DropdownFrame.MouseLeave:Connect(function()
+        tweenService:Create(DropdownFrame, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(28, 28, 28)}):Play()
+    end))
+
+    return DropdownFrame, selected
+end
+
+-- Используем `createKeybind` из Crim.lua
+local function internalCreateKeybind(parent, yPos, label, defaultKey, onBind)
+    local currentKey = defaultKey
+    local KeybindFrame = Instance.new("Frame")
+    KeybindFrame.Parent = parent
+    KeybindFrame.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+    KeybindFrame.BorderSizePixel = 0
+    KeybindFrame.Position = UDim2.new(0, 15, 0, yPos)
+    KeybindFrame.Size = UDim2.new(1, -30, 0, 30)
+    KeybindFrame:SetAttribute("HasBackground", true)
+
+    local KeybindCorner = Instance.new("UICorner")
+    KeybindCorner.CornerRadius = UDim.new(0, 4)
+    KeybindCorner.Parent = KeybindFrame
+
+    local Label = Instance.new("TextLabel")
+    Label.Parent = KeybindFrame
+    Label.BackgroundTransparency = 1
+    Label.Position = UDim2.new(0, 12, 0, 0)
+    Label.Size = UDim2.new(0, 150, 1, 0)
+    Label.Font = Enum.Font.Gotham
+    Label.Text = label
+    Label.TextColor3 = Color3.fromRGB(200, 200, 200)
+    Label.TextSize = 13
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+
+    local KeyLabel = Instance.new("TextLabel")
+    KeyLabel.Parent = KeybindFrame
+    KeyLabel.BackgroundTransparency = 1
+    KeyLabel.Position = UDim2.new(1, -100, 0, 0)
+    KeyLabel.Size = UDim2.new(0, 80, 1, 0)
+    KeyLabel.Font = Enum.Font.GothamBold
+    KeyLabel.Text = currentKey.Name
+    KeyLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    KeyLabel.TextSize = 13
+    KeyLabel.TextXAlignment = Enum.TextXAlignment.Right
+
+    local KeyButton = Instance.new("TextButton")
+    KeyButton.Parent = KeybindFrame
+    KeyButton.BackgroundTransparency = 1
+    KeyButton.Size = UDim2.new(1, 0, 1, 0)
+    KeyButton.Text = ""
+
+    local binding = false
+    table.insert(connections, KeyButton.MouseButton1Click:Connect(function()
+        binding = true
+        KeyLabel.Text = "..."
+    end))
+
+    table.insert(connections, userInputService.InputBegan:Connect(function(input)
+        if binding and input.KeyCode ~= Enum.KeyCode.Unknown then
+            binding = false
+            currentKey = input.KeyCode
+            KeyLabel.Text = currentKey.Name
+            if onBind then
+                onBind(currentKey)
+            end
+        end
+    end))
+
+    table.insert(connections, KeybindFrame.MouseEnter:Connect(function()
+        tweenService:Create(KeybindFrame, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(32, 32, 32)}):Play()
+    end))
+
+    table.insert(connections, KeybindFrame.MouseLeave:Connect(function()
+        tweenService:Create(KeybindFrame, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(28, 28, 28)}):Play()
+    end))
+
+    return KeybindFrame
+end
+
+-- Используем `createColorPicker` из Crim.lua
+local function internalCreateColorPicker(parent, yPos, label, defaultColor, onColorChanged)
+    local currentColor = defaultColor
+    local expanded = false
+    local ColorPickerFrame = Instance.new("Frame")
+    ColorPickerFrame.Parent = parent
+    ColorPickerFrame.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+    ColorPickerFrame.BorderSizePixel = 0
+    ColorPickerFrame.Position = UDim2.new(0, 15, 0, yPos)
+    ColorPickerFrame.Size = UDim2.new(1, -30, 0, 30)
+    ColorPickerFrame:SetAttribute("HasBackground", true)
+
+    local ColorPickerCorner = Instance.new("UICorner")
+    ColorPickerCorner.CornerRadius = UDim.new(0, 4)
+    ColorPickerCorner.Parent = ColorPickerFrame
+
+    local Label = Instance.new("TextLabel")
+    Label.Parent = ColorPickerFrame
+    Label.BackgroundTransparency = 1
+    Label.Position = UDim2.new(0, 12, 0, 0)
+    Label.Size = UDim2.new(0, 150, 1, 0)
+    Label.Font = Enum.Font.Gotham
+    Label.Text = label
+    Label.TextColor3 = Color3.fromRGB(200, 200, 200)
+    Label.TextSize = 13
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+
+    local ColorPreview = Instance.new("Frame")
+    ColorPreview.Parent = ColorPickerFrame
+    ColorPreview.BackgroundColor3 = currentColor
+    ColorPreview.BorderSizePixel = 0
+    ColorPreview.Position = UDim2.new(1, -40, 0.5, -10)
+    ColorPreview.Size = UDim2.new(0, 20, 0, 20)
+    ColorPreview:SetAttribute("HasBackground", true)
+
+    local PreviewCorner = Instance.new("UICorner")
+    PreviewCorner.CornerRadius = UDim.new(0, 4)
+    PreviewCorner.Parent = ColorPreview
+
+    local ColorButton = Instance.new("TextButton")
+    ColorButton.Parent = ColorPickerFrame
+    ColorButton.BackgroundTransparency = 1
+    ColorButton.Size = UDim2.new(1, 0, 1, 0)
+    ColorButton.Text = ""
+
+    local PickerFrame = Instance.new("Frame")
+    PickerFrame.Parent = ColorPickerFrame
+    PickerFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    PickerFrame.BorderSizePixel = 0
+    PickerFrame.Position = UDim2.new(0, 0, 1, 5)
+    PickerFrame.Size = UDim2.new(1, 0, 0, 0)
+    PickerFrame.Visible = false
+    PickerFrame.ClipsDescendants = true
+    PickerFrame:SetAttribute("HasBackground", true)
+
+    local PickerCorner = Instance.new("UICorner")
+    PickerCorner.CornerRadius = UDim.new(0, 4)
+    PickerCorner.Parent = PickerFrame
+
+    local function updateColor()
+        ColorPreview.BackgroundColor3 = currentColor
+        if onColorChanged then
+            onColorChanged(currentColor)
+        end
+    end
+
+    local rSlider = internalCreateSlider(PickerFrame, 0, "R", currentColor.R * 255, 0, 255, false, function(value)
+        currentColor = Color3.fromRGB(value, currentColor.G * 255, currentColor.B * 255)
+        updateColor()
+    end)
+
+    local gSlider = internalCreateSlider(PickerFrame, 40, "G", currentColor.G * 255, 0, 255, false, function(value)
+        currentColor = Color3.fromRGB(currentColor.R * 255, value, currentColor.B * 255)
+        updateColor()
+    end)
+
+    local bSlider = internalCreateSlider(PickerFrame, 80, "B", currentColor.B * 255, 0, 255, false, function(value)
+        currentColor = Color3.fromRGB(currentColor.R * 255, currentColor.G * 255, value)
+        updateColor()
+    end)
+
+    table.insert(connections, ColorButton.MouseButton1Click:Connect(function()
+        expanded = not expanded
+        if expanded then
+            PickerFrame.Visible = true
+            tweenService:Create(PickerFrame, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, 120)}):Play()
+        else
+            tweenService:Create(PickerFrame, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, 0)}):Play()
+            task.wait(0.2)
+            PickerFrame.Visible = false
+        end
+    end))
+
+    table.insert(connections, ColorPickerFrame.MouseEnter:Connect(function()
+        tweenService:Create(ColorPickerFrame, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(32, 32, 32)}):Play()
+    end))
+
+    table.insert(connections, ColorPickerFrame.MouseLeave:Connect(function()
+        tweenService:Create(ColorPickerFrame, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(28, 28, 28)}):Play()
+    end))
+
+    return ColorPickerFrame
+end
+
+-- Функция прозрачности из Crim.lua
+local function internalSetTransparency(transparency)
+    local function recurse(obj)
+        if (obj:IsA("Frame") or obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("ImageLabel") or obj:IsA("ImageButton")) and obj:GetAttribute("HasBackground") then
+            obj.BackgroundTransparency = transparency
+        end
+        for _, child in ipairs(obj:GetChildren()) do
+            recurse(child)
+        end
+    end
+    recurse(ScreenGui)
+end
+
+
+-- [[ 5. ИНИЦИАЛИЗАЦИЯ И API БИБЛИОТЕКИ ]]
+
+CrimLib.Tabs = {}
+CrimLib.yOffsets = {
+    CombatLeft = 10,
+    CombatRight = 10,
+    EnemyLeft = 10,
+    EnemyRight = 10,
+    Settings = 40 -- yOffset для вкладки Settings
+}
+
+-- :Initialize() создает весь каркас GUI
+function CrimLib:Initialize()
+    -- (Весь код создания GUI из Crim.lua)
+    ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "RagebotUI"
+    ScreenGui.Parent = CoreGui
+    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    ScreenGui.ResetOnSpawn = false
+
+    local MainFrame = Instance.new("Frame")
+    MainFrame.Name = "MainFrame"
+    MainFrame.Parent = ScreenGui
+    MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    MainFrame.BorderSizePixel = 0
+    MainFrame.Position = UDim2.new(0.5, -421.5, 0.5, -287.5)
+    MainFrame.Size = UDim2.new(0, 843, 0, 575)
+    MainFrame.Visible = false
+    MainFrame.Active = true
+    MainFrame:SetAttribute("HasBackground", true)
+
+    local MainCorner = Instance.new("UICorner")
+    MainCorner.CornerRadius = UDim.new(0, 8)
+    MainCorner.Parent = MainFrame
+
+    local Header = Instance.new("Frame")
+    Header.Name = "Header"
+    Header.Parent = MainFrame
+    Header.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+    Header.BorderSizePixel = 0
+    Header.Size = UDim2.new(1, 0, 0, 60)
+    Header:SetAttribute("HasBackground", true)
+
+    local HeaderCorner = Instance.new("UICorner")
+    HeaderCorner.CornerRadius = UDim.new(0, 8)
+    HeaderCorner.Parent = Header
+
+    local LogoIcon = Instance.new("ImageLabel")
+    LogoIcon.Parent = Header
+    LogoIcon.BackgroundTransparency = 1
+    LogoIcon.Position = UDim2.new(0, 20, 0, 12)
+    LogoIcon.Size = UDim2.new(0, 36, 0, 36)
+    LogoIcon.Image = "rbxassetid://97446581390925" -- Ты использовал этот, так что я его оставил
+    LogoIcon.ImageColor3 = Color3.fromRGB(255, 255, 255)
+    LogoIcon.ScaleType = Enum.ScaleType.Fit
+
+    local Title = Instance.new("TextLabel")
+    Title.Parent = Header
+    Title.BackgroundTransparency = 1
+    Title.Position = UDim2.new(0, 70, 0, 18)
+    Title.Size = UDim2.new(0, 200, 0, 24)
+    Title.Font = Enum.Font.GothamBold
+    Title.Text = "Sapphire" -- Название из твоего Crim.lua
+    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title.TextSize = 20
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+
+    local Sidebar = Instance.new("Frame")
+    Sidebar.Name = "Sidebar"
+    Sidebar.Parent = MainFrame
+    Sidebar.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+    Sidebar.BorderSizePixel = 0
+    Sidebar.Position = UDim2.new(0, 0, 0, 60)
+    Sidebar.Size = UDim2.new(0, 70, 0, 515)
+    Sidebar:SetAttribute("HasBackground", true)
+
+    local currentTab = 2
+    local tabs = {}
+    local sidebarIcons = {
+        {icon = "rbxassetid://98370306170658", y = 15, name = "Legitbot", size = {16.9, 16.9}},
+        {icon = "rbxassetid://107512202152283", y = 85, active = true, name = "Combat", size = {19, 19}}, -- Изменено "Ragebot" на "Combat"
+        {icon = "rbxassetid://127827492424396", y = 155, name = "Enemy", size = {28, 26}},
+        {icon = "rbxassetid://100545076798978", y = 225, name = "World", size = {32, 32}},
+        {icon = "rbxassetid://107710676270056", y = 295, name = "SkinChanger", size = {48, 46}},
+        {icon = "rbxassetid://103915348216097", y = 365, name = "Misc", size = {37, 35}},
+        {icon = "rbxassetid://97047003599965", y = 435, name = "Settings", size = {20, 20}} -- Изменено "Config" на "Settings"
+    }
+
+    local ContentFrame = Instance.new("Frame")
+    ContentFrame.Name = "ContentFrame"
+    ContentFrame.Parent = MainFrame
+    ContentFrame.BackgroundTransparency = 1
+    ContentFrame.Position = UDim2.new(0, 70, 0, 60)
+    ContentFrame.Size = UDim2.new(1, -70, 1, -60)
+    ContentFrame.ClipsDescendants = true
+
+    local TabContainer = Instance.new("Frame")
+    TabContainer.Name = "TabContainer"
+    TabContainer.Parent = ContentFrame
+    TabContainer.BackgroundTransparency = 1
+    TabContainer.Size = UDim2.new(1, 0, 1, 0)
+    TabContainer.Visible = true
+
+    local EnemyContainer = Instance.new("Frame")
+    EnemyContainer.Name = "EnemyContainer"
+    EnemyContainer.Parent = ContentFrame
+    EnemyContainer.BackgroundTransparency = 1
+    EnemyContainer.Size = UDim2.new(1, 0, 1, 0)
+    EnemyContainer.Visible = false
+
+    local SettingsContainer = Instance.new("Frame")
+    SettingsContainer.Name = "SettingsContainer"
+    SettingsContainer.Parent = ContentFrame
+    SettingsContainer.BackgroundTransparency = 1
+    SettingsContainer.Size = UDim2.new(1, 0, 1, 0)
+    SettingsContainer.Visible = false
+
+    -- Логика переключения вкладок
+    for index, iconData in ipairs(sidebarIcons) do
+        local IconFrame = Instance.new("Frame")
+        IconFrame.Parent = Sidebar
+        IconFrame.Name = "Tab_" .. index
+        IconFrame.BackgroundColor3 = iconData.active and Color3.fromRGB(25, 25, 25) or Color3.fromRGB(18, 18, 18)
+        IconFrame.BorderSizePixel = 0
+        IconFrame.Position = UDim2.new(0, 0, 0, iconData.y)
+        IconFrame.Size = UDim2.new(1, 0, 0, 60)
+        IconFrame:SetAttribute("HasBackground", true)
+
+        local ActiveIndicator = Instance.new("Frame")
+        ActiveIndicator.Parent = IconFrame
+        ActiveIndicator.Name = "Indicator"
+        ActiveIndicator.BackgroundColor3 = Color3.fromRGB(60, 160, 255)
+        ActiveIndicator.BorderSizePixel = 0
+        ActiveIndicator.Position = UDim2.new(0, 0, 0, 0)
+        ActiveIndicator.Size = UDim2.new(0, iconData.active and 4 or 0, 1, 0)
+        ActiveIndicator:SetAttribute("HasBackground", true)
+
+        if iconData.isText then
+            -- (код для текстовой иконки, если нужен)
+        else
+            local Icon = Instance.new("ImageLabel")
+            Icon.Parent = IconFrame
+            Icon.BackgroundTransparency = 1
+            Icon.Position = UDim2.new(0.5, -iconData.size[1] / 2, 0.5, -iconData.size[2] / 2)
+            Icon.Size = UDim2.new(0, iconData.size[1], 0, iconData.size[2])
+            Icon.Image = iconData.icon
+            Icon.ImageColor3 = Color3.fromRGB(200, 200, 200)
+            Icon.ScaleType = Enum.ScaleType.Fit
+        end
+
+        local TabButton = Instance.new("TextButton")
+        TabButton.Parent = IconFrame
+        TabButton.BackgroundTransparency = 1
+        TabButton.Size = UDim2.new(1, 0, 1, 0)
+        TabButton.Text = ""
+        TabButton.ZIndex = 3
+
+        table.insert(connections, TabButton.MouseButton1Click:Connect(function()
+            for i, tab in ipairs(tabs) do
+                local frame = Sidebar:FindFirstChild("Tab_" .. i)
+                if frame then
+                    local indicator = frame:FindFirstChild("Indicator")
+                    tweenService:Create(frame, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(18, 18, 18)}):Play()
+                    tweenService:Create(indicator, TweenInfo.new(0.2), {Size = UDim2.new(0, 0, 1, 0)}):Play()
+                end
+                if tab.content then
+                    tab.content.Visible = false
+                end
+            end
+            currentTab = index
+            tweenService:Create(IconFrame, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(25, 25, 25)}):Play()
+            tweenService:Create(ActiveIndicator, TweenInfo.new(0.2), {Size = UDim2.new(0, 4, 1, 0)}):Play()
+            Title.Text = "Sapphire | " .. iconData.name
+            if tabs[index] and tabs[index].content then
+                tabs[index].content.Visible = true
+            end
+        end))
+        
+        -- (Hover эффекты)
+        table.insert(connections, TabButton.MouseEnter:Connect(function()
+            if currentTab ~= index then
+                tweenService:Create(IconFrame, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(22, 22, 22)}):Play()
+            end
+        end))
+        table.insert(connections, TabButton.MouseLeave:Connect(function()
+            if currentTab ~= index then
+                tweenService:Create(IconFrame, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(18, 18, 18)}):Play()
+            end
+        end))
+
+        tabs[index] = {name = iconData.name, frame = IconFrame, content = nil}
+    end
+    
+    -- Создаем колонки и сохраняем ссылки на них
+    local LeftColumn = Instance.new("Frame")
+    LeftColumn.Name = "LeftColumn"
+    LeftColumn.Parent = TabContainer
+    LeftColumn.BackgroundTransparency = 1
+    LeftColumn.Position = UDim2.new(0, 0, 0, 0)
+    LeftColumn.Size = UDim2.new(0.5, 0, 1, 0)
+
+    local RightColumn = Instance.new("Frame")
+    RightColumn.Name = "RightColumn"
+    RightColumn.Parent = TabContainer
+    RightColumn.BackgroundTransparency = 1
+    RightColumn.Position = UDim2.new(0.5, 0, 0, 0)
+    RightColumn.Size = UDim2.new(0.5, 0, 1, 0)
+
+    local EnemyLeftColumn = Instance.new("Frame")
+    EnemyLeftColumn.Name = "LeftColumn"
+    EnemyLeftColumn.Parent = EnemyContainer
+    EnemyLeftColumn.BackgroundTransparency = 1
+    EnemyLeftColumn.Position = UDim2.new(0, 0, 0, 0)
+    EnemyLeftColumn.Size = UDim2.new(0.5, 0, 1, 0)
+
+    local EnemyRightColumn = Instance.new("Frame")
+    EnemyRightColumn.Name = "RightColumn"
+    EnemyRightColumn.Parent = EnemyContainer
+    EnemyRightColumn.BackgroundTransparency = 1
+    EnemyRightColumn.Position = UDim2.new(0.5, 0, 0, 0)
+    EnemyRightColumn.Size = UDim2.new(0.5, 0, 1, 0)
+    
+    -- Сохраняем ссылки для API
+    CrimLib.Tabs["CombatLeft"] = LeftColumn
+    CrimLib.Tabs["CombatRight"] = RightColumn
+    CrimLib.Tabs["EnemyLeft"] = EnemyLeftColumn
+    CrimLib.Tabs["EnemyRight"] = EnemyRightColumn
+    CrimLib.Tabs["Settings"] = SettingsContainer
+    
+    -- Привязка контента к табам из Crim.lua
+    tabs[2].content = TabContainer
+    tabs[3].content = EnemyContainer
+    tabs[7].content = SettingsContainer
+    
+    -- Логика перетаскивания (Drag and Drop)
+    local dragging = false
+    local dragInput
+    local dragStart
+    local startPos
+
+    local function update(input)
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+
+    local function dragStartFunc(input)
+        dragging = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
+        input.InputChanged:Connect(update)
+    end
+
+    local function dragEndFunc(input)
+        dragging = false
+    end
+
+    Header.InputBegan:Connect(dragStartFunc)
+    Header.InputEnded:Connect(dragEndFunc)
+    
+    -- FOV Circle
+    fovCircle = Drawing.new("Circle")
+    fovCircle.Thickness = CrimLib.Config.AimBot.Thickness
+    fovCircle.NumSides = 100
+    fovCircle.Radius = CrimLib.Config.AimBot.Fov
+    fovCircle.Color = CrimLib.Config.AimBot.FovColor
+    fovCircle.Transparency = 1 - CrimLib.Config.AimBot.FovTransparency
+    fovCircle.Filled = CrimLib.Config.AimBot.FovFillTransparency < 1
+    fovCircle.Visible = false
+
+    -- Логика биндов INSERT и DELETE
+    local menuVisible = false
+    table.insert(connections, userInputService.InputBegan:Connect(function(input)
+        if input.KeyCode == Enum.KeyCode.Insert then
+            menuVisible = not menuVisible
+            MainFrame.Visible = menuVisible
+        elseif input.KeyCode == Enum.KeyCode.Delete then
+            for _, connection in ipairs(connections) do
+                connection:Disconnect()
+            end
+            connections = {}
+
+            if fovCircle then
+                fovCircle:Remove()
+            end
+            if ScreenGui then
+                ScreenGui:Destroy()
+            end
+
+            for _, esp in pairs(ESPObjects) do
+                if esp.Folder then
+                    esp.Folder:Destroy()
+                end
+            end
+            ESPObjects = {}
+        end
+    end))
+    
+    -- Устанавливаем начальную прозрачность
+    -- (Перемещено в :AddSlider, чтобы оно обновлялось)
+    -- internalSetTransparency(1 - (CrimLib.Config.Settings.Transparency / 100))
+end
+
+-- :AddToggle (использует `settings.Flag` для привязки к Config)
+function CrimLib:AddToggle(tabName, settings)
+    local parent = CrimLib.Tabs[tabName]
+    if not parent then warn("CrimLib: Invalid tabName for AddToggle: " .. tabName) return end
+    
+    local yPos = CrimLib.yOffsets[tabName]
+    local defaultValue = getConfigValue(settings.Flag)
+    
+    local callback = function(toggled)
+        setConfigValue(settings.Flag, toggled)
+    end
+    
+    internalCreateToggle(parent, yPos, settings.Name, defaultValue, callback)
+    
+    CrimLib.yOffsets[tabName] = yPos + 40
+end
+
+-- :AddSlider
+function CrimLib:AddSlider(tabName, settings)
+    local parent = CrimLib.Tabs[tabName]
+    if not parent then warn("CrimLib: Invalid tabName for AddSlider: " .. tabName) return end
+
+    local yPos = CrimLib.yOffsets[tabName]
+    local defaultValue = getConfigValue(settings.Flag)
+    
+    local callback = function(value)
+        setConfigValue(settings.Flag, value)
+        -- Особый случай для прозрачности
+        if settings.Flag == "Settings.Transparency" then
+            internalSetTransparency(1 - (value / 100))
+        end
+    end
+    
+    internalCreateSlider(parent, yPos, settings.Name, defaultValue, settings.Min, settings.Max, settings.Override or false, callback)
+    
+    CrimLib.yOffsets[tabName] = yPos + 40
+end
+
+-- :AddDropdown
+function CrimLib:AddDropdown(tabName, settings)
+    local parent = CrimLib.Tabs[tabName]
+    if not parent then warn("CrimLib: Invalid tabName for AddDropdown: " .. tabName) return end
+
+    local yPos = CrimLib.yOffsets[tabName]
+    local defaultValue = getConfigValue(settings.Flag)
+    
+    local callback = function(selected)
+        setConfigValue(settings.Flag, selected)
+    end
+    
+    internalCreateDropdown(parent, yPos, settings.Name, settings.Options, defaultValue, callback)
+    
+    CrimLib.yOffsets[tabName] = yPos + 40
+end
+
+-- :AddKeybind
+function CrimLib:AddKeybind(tabName, settings)
+    local parent = CrimLib.Tabs[tabName]
+    if not parent then warn("CrimLib: Invalid tabName for AddKeybind: " .. tabName) return end
+
+    local yPos = CrimLib.yOffsets[tabName]
+    local defaultValue = getConfigValue(settings.Flag)
+    
+    local callback = function(key)
+        setConfigValue(settings.Flag, key)
+        -- Особый случай из твоего Crim.lua
+        if settings.Flag == "AimBot.Keybind" then
+            setConfigValue("AimBot.UseMouse", false)
+        end
+    end
+    
+    internalCreateKeybind(parent, yPos, settings.Name, defaultValue, callback)
+    
+    CrimLib.yOffsets[tabName] = yPos + 40
+end
+
+-- :AddColorPicker
+function CrimLib:AddColorPicker(tabName, settings)
+    local parent = CrimLib.Tabs[tabName]
+    if not parent then warn("CrimLib: Invalid tabName for AddColorPicker: " .. tabName) return end
+
+    local yPos = CrimLib.yOffsets[tabName]
+    local defaultValue = getConfigValue(settings.Flag)
+    
+    local callback = function(color)
+        setConfigValue(settings.Flag, color)
+    end
+    
+    internalCreateColorPicker(parent, yPos, settings.Name, defaultValue, callback)
+    
+    -- В Crim.lua отступ был 40. Если нужно больше - измени здесь.
+    CrimLib.yOffsets[tabName] = yPos + 40
+end
+
+
+return CrimLib
