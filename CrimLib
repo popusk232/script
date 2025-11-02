@@ -890,7 +890,8 @@ function CrimLib:AddToggle(tabName, settings)
     if not parent then warn("CrimLib: Invalid tabName for AddToggle: " .. tabName) return end
     
     local yPos = CrimLib.yOffsets[tabName]
-    internalCreateToggle(parent, yPos, settings.Name, settings.DefaultValue, settings.Callback)
+    -- ИСПРАВЛЕНИЕ: Используем settings.name, settings.default, settings.callback
+    internalCreateToggle(parent, yPos, settings.name, settings.default, settings.callback)
     CrimLib.yOffsets[tabName] = yPos + 40
 end
 
@@ -900,7 +901,8 @@ function CrimLib:AddSlider(tabName, settings)
     if not parent then warn("CrimLib: Invalid tabName for AddSlider: " .. tabName) return end
 
     local yPos = CrimLib.yOffsets[tabName]
-    internalCreateSlider(parent, yPos, settings.Name, settings.DefaultValue, settings.Min, settings.Max, settings.Override or false, settings.Callback)
+    -- ИСПРАВЛЕНИЕ: Используем settings.name, settings.default, settings.min, settings.max, settings.callback
+    internalCreateSlider(parent, yPos, settings.name, settings.default, settings.min, settings.max, settings.override or false, settings.callback)
     CrimLib.yOffsets[tabName] = yPos + 40
 end
 
@@ -910,7 +912,8 @@ function CrimLib:AddDropdown(tabName, settings)
     if not parent then warn("CrimLib: Invalid tabName for AddDropdown: " .. tabName) return end
 
     local yPos = CrimLib.yOffsets[tabName]
-    internalCreateDropdown(parent, yPos, settings.Name, settings.Options, settings.DefaultValue, settings.Callback)
+    -- ИСПРАВЛЕНИЕ: Используем settings.name, settings.options, settings.default, settings.callback
+    internalCreateDropdown(parent, yPos, settings.name, settings.options, settings.default, settings.callback)
     CrimLib.yOffsets[tabName] = yPos + 40
 end
 
@@ -920,7 +923,8 @@ function CrimLib:AddKeybind(tabName, settings)
     if not parent then warn("CrimLib: Invalid tabName for AddKeybind: " .. tabName) return end
 
     local yPos = CrimLib.yOffsets[tabName]
-    internalCreateKeybind(parent, yPos, settings.Name, settings.DefaultValue, settings.Callback)
+    -- ИСПРАВЛЕНИЕ: Используем settings.name, settings.default, settings.callback
+    internalCreateKeybind(parent, yPos, settings.name, settings.default, settings.callback)
     CrimLib.yOffsets[tabName] = yPos + 40
 end
 
@@ -930,7 +934,8 @@ function CrimLib:AddColorPicker(tabName, settings)
     if not parent then warn("CrimLib: Invalid tabName for AddColorPicker: " .. tabName) return end
 
     local yPos = CrimLib.yOffsets[tabName]
-    internalCreateColorPicker(parent, yPos, settings.Name, settings.DefaultValue, settings.Callback)
+    -- ИСПРАВЛЕНИЕ: Используем settings.name, settings.default, settings.callback
+    internalCreateColorPicker(parent, yPos, settings.name, settings.default, settings.callback)
     CrimLib.yOffsets[tabName] = yPos + 40
 end
 
