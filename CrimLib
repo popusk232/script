@@ -6,8 +6,8 @@
 
 local CrimLib = {}
 local connections = {}
-local tweenService -- Инициализация отложена до CrimLib:Initialize
-local userInputService -- Инициализация отложена до CrimLib:Initialize
+local tweenService = game:GetService("TweenService")
+local userInputService = game:GetService("UserInputService")
 local CoreGui = game:FindFirstChild('CoreGui')
 local ScreenGui
 local UnloadCallbacks = {}
@@ -564,10 +564,6 @@ end
 
 -- :Initialize
 function CrimLib:Initialize(titleName, UnloadKey, MenuKey)
-    -- Инициализация сервисов здесь, чтобы избежать ошибки "nil value" при загрузке скрипта
-    tweenService = game:GetService("TweenService")
-    userInputService = game:GetService("UserInputService")
-    
     ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "CrimLibUI"
     ScreenGui.Parent = CoreGui or game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
