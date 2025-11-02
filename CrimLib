@@ -1,8 +1,7 @@
 --[[
-    CrimLibrary.lua (Скрипт 1: Библиотека)
-    - ЗАГРУЗИ ЭТОТ ФАЙЛ НА GITHUB
-    - Этот файл -- ЧИСТО GUI. Он не знает о читах.
-    - Он предоставляет функции, которые принимает "Callback"
+    CrimLibrary.lua (Скрипт 1: Библиотека GUI)
+    - НЕ СОДЕРЖИТ ЛОГИКИ ЧИТА
+    - Предоставляет API для создания элементов GUI: :AddToggle, :AddSlider и т.д.
 ]]
 
 local CrimLib = {}
@@ -10,7 +9,7 @@ local connections = {}
 local tweenService = game:GetService("TweenService")
 local userInputService = game:GetService("UserInputService")
 local CoreGui = game:FindFirstChild('CoreGui')
-local ScreenGui -- Будет определен в Initialize
+local ScreenGui 
 
 -- Хранилище для вкладок и колонок
 CrimLib.Tabs = {}
@@ -22,9 +21,8 @@ CrimLib.yOffsets = {
     Settings = 40
 }
 
--- [[ ВНУТРЕННИЕ ФУНКЦИИ ОТРИСОВКИ (ИЗ CRIM.LUA И CLICKGUI.LUA) ]]
+-- [[ ВНУТРЕННИЕ ФУНКЦИИ ОТРИСОВКИ ]]
 
--- (Взято из ClickGui.lua для красивой анимации)
 local function internalCreateToggle(parent, yPos, label, enabled, callback)
     local toggleState = enabled
     
@@ -49,7 +47,7 @@ local function internalCreateToggle(parent, yPos, label, enabled, callback)
     Label.Size = UDim2.new(0, 200, 1, 0)
     Label.Font = Enum.Font.Gotham
     Label.Text = label
-    Label.TextColor3 = toggleState and Color3.fromRGB(255, 200, 50) or Color3.fromRGB(200, 200, 200)
+    Label.TextColor3 = toggleState and Color3.fromRGB(60, 160, 255) or Color3.fromRGB(200, 200, 200)
     Label.TextSize = 13
     Label.TextXAlignment = Enum.TextXAlignment.Left
     Label.ZIndex = 6
@@ -96,7 +94,7 @@ local function internalCreateToggle(parent, yPos, label, enabled, callback)
         }):Play()
         
         tweenService:Create(Label, TweenInfo.new(0.15, Enum.EasingStyle.Quad), {
-            TextColor3 = toggleState and Color3.fromRGB(255, 200, 50) or Color3.fromRGB(200, 200, 200)
+            TextColor3 = toggleState and Color3.fromRGB(60, 160, 255) or Color3.fromRGB(200, 200, 200)
         }):Play()
         
         if callback then
@@ -115,7 +113,6 @@ local function internalCreateToggle(parent, yPos, label, enabled, callback)
     return ToggleFrame, toggleState
 end
 
--- (Взято из Crim.lua)
 local function internalCreateSlider(parent, yPos, label, defaultValue, minValue, maxValue, hasOverride, onValueChanged)
     local sliderValue = defaultValue
     local dragging = false
@@ -141,24 +138,6 @@ local function internalCreateSlider(parent, yPos, label, defaultValue, minValue,
     Label.TextColor3 = Color3.fromRGB(200, 200, 200)
     Label.TextSize = 13
     Label.TextXAlignment = Enum.TextXAlignment.Left
-
-    if hasOverride then
-        local OverrideLabel = Instance.new("TextLabel")
-        OverrideLabel.Parent = SliderFrame
-        OverrideLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-        OverrideLabel.BorderSizePixel = 0
-        OverrideLabel.Position = UDim2.new(0, 165, 0.5, -8)
-        OverrideLabel.Size = UDim2.new(0, 22, 0, 16)
-        OverrideLabel.Font = Enum.Font.GothamBold
-        OverrideLabel.Text = "HB"
-        OverrideLabel.TextColor3 = Color3.fromRGB(130, 130, 130)
-        OverrideLabel.TextSize = 8
-        OverrideLabel:SetAttribute("HasBackground", true)
-
-        local OverrideCorner = Instance.new("UICorner")
-        OverrideCorner.CornerRadius = UDim.new(0, 2)
-        OverrideCorner.Parent = OverrideLabel
-    end
 
     local ValueLabel = Instance.new("TextLabel")
     ValueLabel.Parent = SliderFrame
@@ -219,12 +198,12 @@ local function internalCreateSlider(parent, yPos, label, defaultValue, minValue,
         local rawValue = minValue + (valueRange * percent)
         local newValue
         
-        -- Округление в зависимости от типа (дробное или целое)
-        if minValue < 1 or maxValue < 1 or tostring(minValue):find("%.") or tostring(maxValue):find("%.") then
-             newValue = math.floor(rawValue * 100 + 0.5) / 100 -- до 2 знаков
-        else
-             newValue = math.floor(rawValue + 0.5) -- до целого
-        end
+        -- Округление до целого или до 2 знаков после запятой
+        local precision = 1
+        if maxValue > 100 then precision = 0 else precision = 2 end
+        
+        local factor = 10^precision
+        newValue = math.round(rawValue * factor) / factor
 
         sliderValue = newValue
         ValueLabel.Text = tostring(newValue)
@@ -236,37 +215,40 @@ local function internalCreateSlider(parent, yPos, label, defaultValue, minValue,
 
     local initialPercent = (defaultValue - minValue) / (maxValue - minValue)
     SliderFill.Size = UDim2.new(initialPercent, 0, 1, 0)
-
-    table.insert(connections, userInputService.InputChanged:Connect(function(input)
+    
+    local dragConnection = userInputService.InputChanged:Connect(function(input)
         if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
             updateSlider(input)
         end
-    end))
+    end)
+    table.insert(connections, dragConnection)
 
-    table.insert(connections, userInputService.InputEnded:Connect(function(input)
+    local endConnection = userInputService.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = false
         end
-    end))
+    end)
+    table.insert(connections, endConnection)
 
-    table.insert(connections, SliderThumb.InputBegan:Connect(function(input)
+    local thumbBeginConnection = SliderThumb.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = true
         end
-    end))
+    end)
+    table.insert(connections, thumbBeginConnection)
     
     local TrackButton = Instance.new("TextButton", SliderTrack)
     TrackButton.BackgroundTransparency = 1
     TrackButton.Size = UDim2.new(1, 0, 1, 0)
     TrackButton.Text = ""
     TrackButton.ZIndex = 1
-    TrackButton.InputBegan:Connect(function(input)
+    local trackBeginConnection = TrackButton.InputBegan:Connect(function(input)
          if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = true
             updateSlider(input)
         end
     end)
-
+    table.insert(connections, trackBeginConnection)
 
     table.insert(connections, SliderFrame.MouseEnter:Connect(function()
         tweenService:Create(SliderFrame, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {BackgroundColor3 = Color3.fromRGB(32, 32, 32)}):Play()
@@ -279,7 +261,6 @@ local function internalCreateSlider(parent, yPos, label, defaultValue, minValue,
     return SliderFrame, sliderValue
 end
 
--- (Взято из Crim.lua)
 local function internalCreateDropdown(parent, yPos, label, options, defaultOption, onSelected)
     local selected = defaultOption
     local DropdownFrame = Instance.new("Frame")
@@ -312,7 +293,7 @@ local function internalCreateDropdown(parent, yPos, label, options, defaultOptio
     SelectedLabel.Size = UDim2.new(0, 80, 1, 0)
     SelectedLabel.Font = Enum.Font.GothamBold
     SelectedLabel.Text = selected
-    SelectedLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    SelectedLabel.TextColor3 = Color3.fromRGB(60, 160, 255)
     SelectedLabel.TextSize = 13
     SelectedLabel.TextXAlignment = Enum.TextXAlignment.Right
 
@@ -406,7 +387,6 @@ local function internalCreateDropdown(parent, yPos, label, options, defaultOptio
     return DropdownFrame, selected
 end
 
--- (Взято из Crim.lua)
 local function internalCreateKeybind(parent, yPos, label, defaultKey, onBind)
     local currentKey = defaultKey
     local KeybindFrame = Instance.new("Frame")
@@ -439,7 +419,7 @@ local function internalCreateKeybind(parent, yPos, label, defaultKey, onBind)
     KeyLabel.Size = UDim2.new(0, 80, 1, 0)
     KeyLabel.Font = Enum.Font.GothamBold
     KeyLabel.Text = currentKey.Name
-    KeyLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    KeyLabel.TextColor3 = Color3.fromRGB(60, 160, 255)
     KeyLabel.TextSize = 13
     KeyLabel.TextXAlignment = Enum.TextXAlignment.Right
 
@@ -477,7 +457,6 @@ local function internalCreateKeybind(parent, yPos, label, defaultKey, onBind)
     return KeybindFrame
 end
 
--- (Взято из Crim.lua)
 local function internalCreateColorPicker(parent, yPos, label, defaultColor, onColorChanged)
     local currentColor = defaultColor
     local expanded = false
@@ -536,7 +515,8 @@ local function internalCreateColorPicker(parent, yPos, label, defaultColor, onCo
     PickerCorner.CornerRadius = UDim.new(0, 4)
     PickerCorner.Parent = PickerFrame
 
-    local function updateColor()
+    local function updateColor(r, g, b)
+        currentColor = Color3.fromRGB(r, g, b)
         ColorPreview.BackgroundColor3 = currentColor
         if onColorChanged then
             onColorChanged(currentColor) -- ВЫЗЫВАЕМ ВНЕШНЮЮ ЛОГИКУ
@@ -544,18 +524,15 @@ local function internalCreateColorPicker(parent, yPos, label, defaultColor, onCo
     end
 
     local rSlider = internalCreateSlider(PickerFrame, 0, "R", currentColor.R * 255, 0, 255, false, function(value)
-        currentColor = Color3.fromRGB(value, currentColor.G * 255, currentColor.B * 255)
-        updateColor()
+        updateColor(value, currentColor.G * 255, currentColor.B * 255)
     end)
 
     local gSlider = internalCreateSlider(PickerFrame, 40, "G", currentColor.G * 255, 0, 255, false, function(value)
-        currentColor = Color3.fromRGB(currentColor.R * 255, value, currentColor.B * 255)
-        updateColor()
+        updateColor(currentColor.R * 255, value, currentColor.B * 255)
     end)
 
     local bSlider = internalCreateSlider(PickerFrame, 80, "B", currentColor.B * 255, 0, 255, false, function(value)
-        currentColor = Color3.fromRGB(currentColor.R * 255, currentColor.G * 255, value)
-        updateColor()
+        updateColor(currentColor.R * 255, currentColor.G * 255, value)
     end)
 
     table.insert(connections, ColorButton.MouseButton1Click:Connect(function()
@@ -578,10 +555,9 @@ local function internalCreateColorPicker(parent, yPos, label, defaultColor, onCo
         tweenService:Create(ColorPickerFrame, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(28, 28, 28)}):Play()
     end))
 
-    return ColorPickerFrame
+    return ColorPickerFrame, currentColor
 end
 
--- (Взято из Crim.lua)
 local function internalSetTransparency(transparency)
     local function recurse(obj)
         if (obj:IsA("Frame") or obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("ImageLabel") or obj:IsA("ImageButton")) and obj:GetAttribute("HasBackground") then
@@ -591,18 +567,14 @@ local function internalSetTransparency(transparency)
             recurse(child)
         end
     end
-    -- Убедимся, что ScreenGui существует
     if ScreenGui then
         recurse(ScreenGui)
     end
 end
 
+-- [[ ИНИЦИАЛИЗАЦИЯ И API БИБЛИОТЕКИ ]]
 
--- [[ 6. ИНИЦИАЛИЗАЦИЯ И API БИБЛИОТЕКИ ]]
-
--- :Initialize() создает весь каркас GUI
 function CrimLib:Initialize(TitleName, MenuKey, UnloadKey)
-    -- (Весь код создания GUI из Crim.lua)
     ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "RagebotUI"
     ScreenGui.Parent = CoreGui
@@ -636,15 +608,6 @@ function CrimLib:Initialize(TitleName, MenuKey, UnloadKey)
     HeaderCorner.CornerRadius = UDim.new(0, 8)
     HeaderCorner.Parent = Header
 
-    local LogoIcon = Instance.new("ImageLabel")
-    LogoIcon.Parent = Header
-    LogoIcon.BackgroundTransparency = 1
-    LogoIcon.Position = UDim2.new(0, 20, 0, 12)
-    LogoIcon.Size = UDim2.new(0, 36, 0, 36)
-    LogoIcon.Image = "rbxassetid://97446581390925"
-    LogoIcon.ImageColor3 = Color3.fromRGB(255, 255, 255)
-    LogoIcon.ScaleType = Enum.ScaleType.Fit
-
     local Title = Instance.new("TextLabel")
     Title.Parent = Header
     Title.BackgroundTransparency = 1
@@ -652,10 +615,10 @@ function CrimLib:Initialize(TitleName, MenuKey, UnloadKey)
     Title.Size = UDim2.new(0, 200, 0, 24)
     Title.Font = Enum.Font.GothamBold
     Title.Text = TitleName or "CrimLib"
-    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title.TextColor3 = Color3.fromRGB(60, 160, 255)
     Title.TextSize = 20
     Title.TextXAlignment = Enum.TextXAlignment.Left
-
+    
     local Sidebar = Instance.new("Frame")
     Sidebar.Name = "Sidebar"
     Sidebar.Parent = MainFrame
@@ -686,7 +649,7 @@ function CrimLib:Initialize(TitleName, MenuKey, UnloadKey)
     ContentFrame.ClipsDescendants = true
 
     local TabContainer = Instance.new("Frame")
-    TabContainer.Name = "TabContainer"
+    TabContainer.Name = "CombatContainer"
     TabContainer.Parent = ContentFrame
     TabContainer.BackgroundTransparency = 1
     TabContainer.Size = UDim2.new(1, 0, 1, 0)
@@ -698,7 +661,7 @@ function CrimLib:Initialize(TitleName, MenuKey, UnloadKey)
     EnemyContainer.BackgroundTransparency = 1
     EnemyContainer.Size = UDim2.new(1, 0, 1, 0)
     EnemyContainer.Visible = false
-
+    
     local SettingsContainer = Instance.new("Frame")
     SettingsContainer.Name = "SettingsContainer"
     SettingsContainer.Parent = ContentFrame
@@ -706,7 +669,6 @@ function CrimLib:Initialize(TitleName, MenuKey, UnloadKey)
     SettingsContainer.Size = UDim2.new(1, 0, 1, 0)
     SettingsContainer.Visible = false
 
-    -- Логика переключения вкладок
     for index, iconData in ipairs(sidebarIcons) do
         local IconFrame = Instance.new("Frame")
         IconFrame.Parent = Sidebar
@@ -726,18 +688,14 @@ function CrimLib:Initialize(TitleName, MenuKey, UnloadKey)
         ActiveIndicator.Size = UDim2.new(0, iconData.active and 4 or 0, 1, 0)
         ActiveIndicator:SetAttribute("HasBackground", true)
 
-        if iconData.isText then
-            -- (код для текстовой иконки)
-        else
-            local Icon = Instance.new("ImageLabel")
-            Icon.Parent = IconFrame
-            Icon.BackgroundTransparency = 1
-            Icon.Position = UDim2.new(0.5, -iconData.size[1] / 2, 0.5, -iconData.size[2] / 2)
-            Icon.Size = UDim2.new(0, iconData.size[1], 0, iconData.size[2])
-            Icon.Image = iconData.icon
-            Icon.ImageColor3 = Color3.fromRGB(200, 200, 200)
-            Icon.ScaleType = Enum.ScaleType.Fit
-        end
+        local Icon = Instance.new("ImageLabel")
+        Icon.Parent = IconFrame
+        Icon.BackgroundTransparency = 1
+        Icon.Position = UDim2.new(0.5, -iconData.size[1] / 2, 0.5, -iconData.size[2] / 2)
+        Icon.Size = UDim2.new(0, iconData.size[1], 0, iconData.size[2])
+        Icon.Image = iconData.icon
+        Icon.ImageColor3 = Color3.fromRGB(200, 200, 200)
+        Icon.ScaleType = Enum.ScaleType.Fit
 
         local TabButton = Instance.new("TextButton")
         TabButton.Parent = IconFrame
@@ -781,7 +739,6 @@ function CrimLib:Initialize(TitleName, MenuKey, UnloadKey)
         tabs[index] = {name = iconData.name, frame = IconFrame, content = nil}
     end
     
-    -- Создаем колонки и сохраняем ссылки на них
     local LeftColumn = Instance.new("Frame")
     LeftColumn.Name = "LeftColumn"
     LeftColumn.Parent = TabContainer
@@ -810,21 +767,17 @@ function CrimLib:Initialize(TitleName, MenuKey, UnloadKey)
     EnemyRightColumn.Position = UDim2.new(0.5, 0, 0, 0)
     EnemyRightColumn.Size = UDim2.new(0.5, 0, 1, 0)
     
-    -- Сохраняем ссылки для API
     CrimLib.Tabs["CombatLeft"] = LeftColumn
     CrimLib.Tabs["CombatRight"] = RightColumn
     CrimLib.Tabs["EnemyLeft"] = EnemyLeftColumn
     CrimLib.Tabs["EnemyRight"] = EnemyRightColumn
     CrimLib.Tabs["Settings"] = SettingsContainer
     
-    -- Привязка контента к табам из Crim.lua
     tabs[2].content = TabContainer
     tabs[3].content = EnemyContainer
     tabs[7].content = SettingsContainer
     
-    -- Логика перетаскивания (Drag and Drop)
     local dragging = false
-    local dragInput
     local dragStart
     local startPos
 
@@ -832,32 +785,41 @@ function CrimLib:Initialize(TitleName, MenuKey, UnloadKey)
         local delta = input.Position - dragStart
         MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
     end
-
-    local function dragStartFunc(input)
-        dragging = true
-        dragStart = input.Position
-        startPos = MainFrame.Position
-        input.InputChanged:Connect(update)
-    end
-
-    local function dragEndFunc(input)
-        dragging = false
-    end
-
-    Header.InputBegan:Connect(dragStartFunc)
-    Header.InputEnded:Connect(dragEndFunc)
-
-    -- Логика биндов INSERT и DELETE
-    local menuVisible = false
-    local unloadKey = UnloadKey or Enum.KeyCode.Delete
-    local menuKey = MenuKey or Enum.KeyCode.Insert
     
+    Header.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = MainFrame.Position
+            
+            local moveConnection = userInputService.InputChanged:Connect(function(input2)
+                if dragging and input2.UserInputType == Enum.UserInputType.MouseMovement then
+                    update(input2)
+                end
+            end)
+            
+            local endConnection = userInputService.InputEnded:Connect(function(input3)
+                if input3.UserInputType == Enum.UserInputType.MouseButton1 then
+                    dragging = false
+                    moveConnection:Disconnect()
+                    endConnection:Disconnect()
+                end
+            end)
+            
+            table.insert(connections, moveConnection)
+            table.insert(connections, endConnection)
+        end
+    end)
+
+
+    local menuKey = MenuKey or Enum.KeyCode.Insert
+    local unloadKey = UnloadKey or Enum.KeyCode.Delete
+
     table.insert(connections, userInputService.InputBegan:Connect(function(input)
         if input.KeyCode == menuKey then
             menuVisible = not menuVisible
             MainFrame.Visible = menuVisible
         elseif input.KeyCode == unloadKey then
-            -- Вызываем функцию очистки, если она есть
             if CrimLib.Unload then
                 CrimLib.Unload()
             end
@@ -865,7 +827,6 @@ function CrimLib:Initialize(TitleName, MenuKey, UnloadKey)
             for _, connection in ipairs(connections) do
                 connection:Disconnect()
             end
-            connections = {}
             if ScreenGui then
                 ScreenGui:Destroy()
             end
@@ -873,19 +834,16 @@ function CrimLib:Initialize(TitleName, MenuKey, UnloadKey)
     end))
 end
 
--- Публичная функция для установки прозрачности
 function CrimLib:SetTransparency(value)
     internalSetTransparency(value)
 end
 
--- Публичная функция для очистки (вызывается из Loader.lua)
 function CrimLib:AddUnloadCallback(callback)
     CrimLib.Unload = callback
 end
 
--- [[ 7. ПУБЛИЧНЫЕ API ФУНКЦИИ (ПЕРЕМЕННЫЕ) ]]
+-- [[ ПУБЛИЧНЫЕ API ФУНКЦИИ ]]
 
--- :AddToggle
 function CrimLib:AddToggle(tabName, settings)
     local parent = CrimLib.Tabs[tabName]
     if not parent then warn("CrimLib: Invalid tabName for AddToggle: " .. tabName) return end
@@ -895,7 +853,6 @@ function CrimLib:AddToggle(tabName, settings)
     CrimLib.yOffsets[tabName] = yPos + 40
 end
 
--- :AddSlider
 function CrimLib:AddSlider(tabName, settings)
     local parent = CrimLib.Tabs[tabName]
     if not parent then warn("CrimLib: Invalid tabName for AddSlider: " .. tabName) return end
@@ -905,7 +862,6 @@ function CrimLib:AddSlider(tabName, settings)
     CrimLib.yOffsets[tabName] = yPos + 40
 end
 
--- :AddDropdown
 function CrimLib:AddDropdown(tabName, settings)
     local parent = CrimLib.Tabs[tabName]
     if not parent then warn("CrimLib: Invalid tabName for AddDropdown: " .. tabName) return end
@@ -915,7 +871,6 @@ function CrimLib:AddDropdown(tabName, settings)
     CrimLib.yOffsets[tabName] = yPos + 40
 end
 
--- :AddKeybind
 function CrimLib:AddKeybind(tabName, settings)
     local parent = CrimLib.Tabs[tabName]
     if not parent then warn("CrimLib: Invalid tabName for AddKeybind: " .. tabName) return end
@@ -925,7 +880,6 @@ function CrimLib:AddKeybind(tabName, settings)
     CrimLib.yOffsets[tabName] = yPos + 40
 end
 
--- :AddColorPicker
 function CrimLib:AddColorPicker(tabName, settings)
     local parent = CrimLib.Tabs[tabName]
     if not parent then warn("CrimLib: Invalid tabName for AddColorPicker: " .. tabName) return end
@@ -933,6 +887,16 @@ function CrimLib:AddColorPicker(tabName, settings)
     local yPos = CrimLib.yOffsets[tabName]
     internalCreateColorPicker(parent, yPos, settings.Name, settings.DefaultValue, settings.Callback)
     CrimLib.yOffsets[tabName] = yPos + 40
+end
+
+function CrimLib:AddCustomElement(tabName, element)
+    local parent = CrimLib.Tabs[tabName]
+    if not parent then warn("CrimLib: Invalid tabName for AddCustomElement: " .. tabName) return end
+
+    local yPos = CrimLib.yOffsets[tabName]
+    element.Position = UDim2.new(0, 15, 0, yPos)
+    element.Parent = parent
+    CrimLib.yOffsets[tabName] = yPos + element.Size.Y.Offset + 10 -- Добавляем отступ в 10
 end
 
 
