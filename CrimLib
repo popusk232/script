@@ -9,10 +9,7 @@ local connections = {}
 local tweenService = game:GetService("TweenService")
 local userInputService = game:GetService("UserInputService")
 local CoreGui = game:FindFirstChild('CoreGui')
-
--- Переменные, которые должны быть доступны в API
-local ScreenGui
-local MainFrame
+local ScreenGui -- Будет определен в Initialize
 
 -- Хранилище для вкладок и колонок
 CrimLib.Tabs = {}
@@ -24,7 +21,7 @@ CrimLib.yOffsets = {
     Settings = 40
 }
 
--- [[ ВНУТРЕННИЕ ФУНКЦИИ ОТРИСОВКИ ]]
+-- [[ ВНУТРЕННИЕ ФУНКЦИИ ОТРИСОВКИ (ИЗ CRIM.LUA И CLICKGUI.LUA) ]]
 
 -- (Взято из ClickGui.lua для красивой анимации)
 local function internalCreateToggle(parent, yPos, label, enabled, callback)
@@ -222,7 +219,7 @@ local function internalCreateSlider(parent, yPos, label, defaultValue, minValue,
         local newValue
         
         -- Округление в зависимости от типа (дробное или целое)
-        if rawValue < 1 or maxValue < 1 or tostring(minValue):find("%.") or tostring(maxValue):find("%.") then
+        if minValue < 1 or maxValue < 1 or tostring(minValue):find("%.") or tostring(maxValue):find("%.") then
              newValue = math.floor(rawValue * 100 + 0.5) / 100 -- до 2 знаков
         else
              newValue = math.floor(rawValue + 0.5) -- до целого
@@ -351,6 +348,7 @@ local function internalCreateDropdown(parent, yPos, label, options, defaultOptio
         OptionButton.TextColor3 = Color3.fromRGB(200, 200, 200)
         OptionButton.TextSize = 13
         OptionButton.TextXAlignment = Enum.TextXAlignment.Left
+        OptionButton:SetAttribute("HasBackground", true)
 
         local OptionText = Instance.new("TextLabel")
         OptionText.Parent = OptionButton
@@ -610,7 +608,7 @@ function CrimLib:Initialize(TitleName, MenuKey, UnloadKey)
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     ScreenGui.ResetOnSpawn = false
 
-    MainFrame = Instance.new("Frame") -- <-- Присваиваем внешней локальной переменной
+    local MainFrame = Instance.new("Frame")
     MainFrame.Name = "MainFrame"
     MainFrame.Parent = ScreenGui
     MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
@@ -874,15 +872,6 @@ function CrimLib:Initialize(TitleName, MenuKey, UnloadKey)
     end))
 end
 
--- [[ 7. ОСНОВНЫЕ МЕТОДЫ ]]
-
--- ДОБАВЛЕНО ИСПРАВЛЕНИЕ: Функция :Render()
-function CrimLib:Render()
-    if MainFrame then
-        MainFrame.Visible = true
-    end
-end
-
 -- Публичная функция для установки прозрачности
 function CrimLib:SetTransparency(value)
     internalSetTransparency(value)
@@ -893,7 +882,7 @@ function CrimLib:AddUnloadCallback(callback)
     CrimLib.Unload = callback
 end
 
--- [[ 8. ПУБЛИЧНЫЕ API ФУНКЦИИ (ПЕРЕМЕННЫЕ) ]]
+-- [[ 7. ПУБЛИЧНЫЕ API ФУНКЦИИ (ПЕРЕМЕННЫЕ) ]]
 
 -- :AddToggle
 function CrimLib:AddToggle(tabName, settings)
@@ -901,7 +890,7 @@ function CrimLib:AddToggle(tabName, settings)
     if not parent then warn("CrimLib: Invalid tabName for AddToggle: " .. tabName) return end
     
     local yPos = CrimLib.yOffsets[tabName]
-    internalCreateToggle(parent, yPos, settings.name, settings.default, settings.callback)
+    internalCreateToggle(parent, yPos, settings.Name, settings.DefaultValue, settings.Callback)
     CrimLib.yOffsets[tabName] = yPos + 40
 end
 
@@ -911,7 +900,7 @@ function CrimLib:AddSlider(tabName, settings)
     if not parent then warn("CrimLib: Invalid tabName for AddSlider: " .. tabName) return end
 
     local yPos = CrimLib.yOffsets[tabName]
-    internalCreateSlider(parent, yPos, settings.name, settings.default, settings.min, settings.max, settings.override or false, settings.callback)
+    internalCreateSlider(parent, yPos, settings.Name, settings.DefaultValue, settings.Min, settings.Max, settings.Override or false, settings.Callback)
     CrimLib.yOffsets[tabName] = yPos + 40
 end
 
@@ -921,7 +910,7 @@ function CrimLib:AddDropdown(tabName, settings)
     if not parent then warn("CrimLib: Invalid tabName for AddDropdown: " .. tabName) return end
 
     local yPos = CrimLib.yOffsets[tabName]
-    internalCreateDropdown(parent, yPos, settings.name, settings.options, settings.default, settings.callback)
+    internalCreateDropdown(parent, yPos, settings.Name, settings.Options, settings.DefaultValue, settings.Callback)
     CrimLib.yOffsets[tabName] = yPos + 40
 end
 
@@ -931,7 +920,7 @@ function CrimLib:AddKeybind(tabName, settings)
     if not parent then warn("CrimLib: Invalid tabName for AddKeybind: " .. tabName) return end
 
     local yPos = CrimLib.yOffsets[tabName]
-    internalCreateKeybind(parent, yPos, settings.name, settings.default, settings.callback)
+    internalCreateKeybind(parent, yPos, settings.Name, settings.DefaultValue, settings.Callback)
     CrimLib.yOffsets[tabName] = yPos + 40
 end
 
@@ -941,7 +930,7 @@ function CrimLib:AddColorPicker(tabName, settings)
     if not parent then warn("CrimLib: Invalid tabName for AddColorPicker: " .. tabName) return end
 
     local yPos = CrimLib.yOffsets[tabName]
-    internalCreateColorPicker(parent, yPos, settings.name, settings.default, settings.callback)
+    internalCreateColorPicker(parent, yPos, settings.Name, settings.DefaultValue, settings.Callback)
     CrimLib.yOffsets[tabName] = yPos + 40
 end
 
