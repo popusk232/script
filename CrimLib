@@ -1,939 +1,372 @@
---[[
-    CrimLibrary.lua (Скрипт 1: Библиотека)
-    - ЗАГРУЗИ ЭТОТ ФАЙЛ НА GITHUB
-    - Этот файл -- ЧИСТО GUI. Он не знает о читах.
-    - Он предоставляет функции, которые принимает "Callback"
-]]
+-- CrimLib.lua
 
 local CrimLib = {}
-local connections = {}
-local tweenService = game:GetService("TweenService")
-local userInputService = game:GetService("UserInputService")
-local CoreGui = game:FindFirstChild('CoreGui')
-local ScreenGui -- Будет определен в Initialize
 
--- Хранилище для вкладок и колонок
-CrimLib.Tabs = {}
-CrimLib.yOffsets = {
-    CombatLeft = 10,
-    CombatRight = 10,
-    EnemyLeft = 10,
-    EnemyRight = 10,
-    Settings = 40
-}
+-- Services
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
 
--- [[ ВНУТРЕННИЕ ФУНКЦИИ ОТРИСОВКИ (ИЗ CRIM.LUA И CLICKGUI.LUA) ]]
+-- GUI Constants
+local COLOR_MAIN = Color3.fromRGB(25, 25, 25)
+local COLOR_TOPBAR = Color3.fromRGB(35, 35, 35)
+local COLOR_SIDEBAR = Color3.fromRGB(45, 45, 45)
+local COLOR_ACCENT = Color3.fromRGB(70, 200, 70) -- Зеленый (ON)
+local COLOR_OFF = Color3.fromRGB(35, 35, 35)    -- Серый (OFF)
+local COLOR_TEXT = Color3.fromRGB(255, 255, 255)
+local COLOR_BINDING = Color3.fromRGB(255, 165, 0) -- Оранжевый (Binding)
+local FONT = Enum.Font.Gotham
 
--- (Взято из ClickGui.lua для красивой анимации)
-local function internalCreateToggle(parent, yPos, label, enabled, callback)
-    local toggleState = enabled
-    
-    local ToggleFrame = Instance.new("Frame")
-    ToggleFrame.Parent = parent
-    ToggleFrame.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
-    ToggleFrame.BorderSizePixel = 0
-    ToggleFrame.Position = UDim2.new(0, 15, 0, yPos)
-    ToggleFrame.Size = UDim2.new(1, -30, 0, 30)
-    ToggleFrame.ClipsDescendants = false
-    ToggleFrame.ZIndex = 5
-    ToggleFrame:SetAttribute("HasBackground", true) 
+-- Local State
+local CurrentTab = nil
 
-    local ToggleCorner = Instance.new("UICorner")
-    ToggleCorner.CornerRadius = UDim.new(0, 4)
-    ToggleCorner.Parent = ToggleFrame
-    
-    local Label = Instance.new("TextLabel")
-    Label.Parent = ToggleFrame
-    Label.BackgroundTransparency = 1
-    Label.Position = UDim2.new(0, 12, 0, 0)
-    Label.Size = UDim2.new(0, 200, 1, 0)
-    Label.Font = Enum.Font.Gotham
-    Label.Text = label
-    Label.TextColor3 = toggleState and Color3.fromRGB(255, 200, 50) or Color3.fromRGB(200, 200, 200)
-    Label.TextSize = 13
-    Label.TextXAlignment = Enum.TextXAlignment.Left
-    Label.ZIndex = 6
-    
-    local ToggleBg = Instance.new("Frame")
-    ToggleBg.Parent = ToggleFrame
-    ToggleBg.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    ToggleBg.BorderSizePixel = 0
-    ToggleBg.Position = UDim2.new(1, -38, 0.5, -10)
-    ToggleBg.Size = UDim2.new(0, 32, 0, 20)
-    ToggleBg.ZIndex = 6
-    ToggleBg:SetAttribute("HasBackground", true) 
+-- === Utility Functions ===
 
-    local BgCorner = Instance.new("UICorner")
-    BgCorner.CornerRadius = UDim.new(1, 0)
-    BgCorner.Parent = ToggleBg
-    
-    local ToggleButton = Instance.new("Frame")
-    ToggleButton.Parent = ToggleBg
-    ToggleButton.BackgroundColor3 = toggleState and Color3.fromRGB(60, 160, 255) or Color3.fromRGB(60, 60, 60)
-    ToggleButton.BorderSizePixel = 0
-    ToggleButton.Position = toggleState and UDim2.new(0, 14, 0, 2) or UDim2.new(0, 2, 0, 2)
-    ToggleButton.Size = UDim2.new(0, 16, 0, 16)
-    ToggleButton.ZIndex = 7
-    ToggleButton:SetAttribute("HasBackground", true) 
-
-    local ButtonCorner = Instance.new("UICorner")
-    ButtonCorner.CornerRadius = UDim.new(1, 0)
-    ButtonCorner.Parent = ToggleButton
-    
-    local ClickButton = Instance.new("TextButton")
-    ClickButton.Parent = ToggleFrame
-    ClickButton.BackgroundTransparency = 1
-    ClickButton.Size = UDim2.new(1, 0, 1, 0)
-    ClickButton.Text = ""
-    ClickButton.ZIndex = 8
-    
-    ClickButton.MouseButton1Click:Connect(function()
-        toggleState = not toggleState
-        
-        tweenService:Create(ToggleButton, TweenInfo.new(0.15, Enum.EasingStyle.Quad), {
-            Position = toggleState and UDim2.new(0, 14, 0, 2) or UDim2.new(0, 2, 0, 2),
-            BackgroundColor3 = toggleState and Color3.fromRGB(60, 160, 255) or Color3.fromRGB(60, 60, 60)
-        }):Play()
-        
-        tweenService:Create(Label, TweenInfo.new(0.15, Enum.EasingStyle.Quad), {
-            TextColor3 = toggleState and Color3.fromRGB(255, 200, 50) or Color3.fromRGB(200, 200, 200)
-        }):Play()
-        
-        if callback then
-            callback(toggleState) -- ВЫЗЫВАЕМ ВНЕШНЮЮ ЛОГИКУ
-        end
-    end)
-    
-    ClickButton.MouseEnter:Connect(function()
-        tweenService:Create(ToggleFrame, TweenInfo.new(0.1, Enum.EasingStyle.Quad), { BackgroundColor3 = Color3.fromRGB(32, 32, 32) }):Play()
-    end)
-    
-    ClickButton.MouseLeave:Connect(function()
-        tweenService:Create(ToggleFrame, TweenInfo.new(0.1, Enum.EasingStyle.Quad), { BackgroundColor3 = Color3.fromRGB(28, 28, 28) }):Play()
-    end)
-
-    return ToggleFrame, toggleState
-end
-
--- (Взято из Crim.lua)
-local function internalCreateSlider(parent, yPos, label, defaultValue, minValue, maxValue, hasOverride, onValueChanged)
-    local sliderValue = defaultValue
-    local dragging = false
-    local SliderFrame = Instance.new("Frame")
-    SliderFrame.Parent = parent
-    SliderFrame.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
-    SliderFrame.BorderSizePixel = 0
-    SliderFrame.Position = UDim2.new(0, 15, 0, yPos)
-    SliderFrame.Size = UDim2.new(1, -30, 0, 30)
-    SliderFrame:SetAttribute("HasBackground", true)
-
-    local SliderCorner = Instance.new("UICorner")
-    SliderCorner.CornerRadius = UDim.new(0, 4)
-    SliderCorner.Parent = SliderFrame
-
-    local Label = Instance.new("TextLabel")
-    Label.Parent = SliderFrame
-    Label.BackgroundTransparency = 1
-    Label.Position = UDim2.new(0, 12, 0, 0)
-    Label.Size = UDim2.new(0, 150, 1, 0)
-    Label.Font = Enum.Font.Gotham
-    Label.Text = label
-    Label.TextColor3 = Color3.fromRGB(200, 200, 200)
-    Label.TextSize = 13
-    Label.TextXAlignment = Enum.TextXAlignment.Left
-
-    if hasOverride then
-        local OverrideLabel = Instance.new("TextLabel")
-        OverrideLabel.Parent = SliderFrame
-        OverrideLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-        OverrideLabel.BorderSizePixel = 0
-        OverrideLabel.Position = UDim2.new(0, 165, 0.5, -8)
-        OverrideLabel.Size = UDim2.new(0, 22, 0, 16)
-        OverrideLabel.Font = Enum.Font.GothamBold
-        OverrideLabel.Text = "HB"
-        OverrideLabel.TextColor3 = Color3.fromRGB(130, 130, 130)
-        OverrideLabel.TextSize = 8
-        OverrideLabel:SetAttribute("HasBackground", true)
-
-        local OverrideCorner = Instance.new("UICorner")
-        OverrideCorner.CornerRadius = UDim.new(0, 2)
-        OverrideCorner.Parent = OverrideLabel
-    end
-
-    local ValueLabel = Instance.new("TextLabel")
-    ValueLabel.Parent = SliderFrame
-    ValueLabel.BackgroundTransparency = 1
-    ValueLabel.Position = UDim2.new(1, -35, 0, 0)
-    ValueLabel.Size = UDim2.new(0, 38, 1, 0)
-    ValueLabel.Font = Enum.Font.GothamBold
-    ValueLabel.Text = tostring(defaultValue)
-    ValueLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-    ValueLabel.TextSize = 13
-    ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
-
-    local SliderTrack = Instance.new("Frame")
-    SliderTrack.Parent = SliderFrame
-    SliderTrack.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    SliderTrack.BorderSizePixel = 0
-    SliderTrack.Position = UDim2.new(0, hasOverride and 180 or 160, 0.5, -2)
-    SliderTrack.Size = UDim2.new(1, hasOverride and -245 or -225, 0, 4)
-    SliderTrack:SetAttribute("HasBackground", true)
-
-    local TrackCorner = Instance.new("UICorner")
-    TrackCorner.CornerRadius = UDim.new(0, 2)
-    TrackCorner.Parent = SliderTrack
-
-    local SliderFill = Instance.new("Frame")
-    SliderFill.Parent = SliderTrack
-    SliderFill.BackgroundColor3 = Color3.fromRGB(60, 160, 255)
-    SliderFill.BorderSizePixel = 0
-    SliderFill.Position = UDim2.new(0, 0, 0, 0)
-    SliderFill.Size = UDim2.new(0, 0, 1, 0)
-    SliderFill:SetAttribute("HasBackground", true)
-
-    local FillCorner = Instance.new("UICorner")
-    FillCorner.CornerRadius = UDim.new(0, 2)
-    FillCorner.Parent = SliderFill
-
-    local SliderThumb = Instance.new("Frame")
-    SliderThumb.Parent = SliderFill
-    SliderThumb.BackgroundColor3 = Color3.fromRGB(60, 160, 255)
-    SliderThumb.BorderSizePixel = 0
-    SliderThumb.Position = UDim2.new(1, 0, 0.5, -5)
-    SliderThumb.Size = UDim2.new(0, 10, 0, 10)
-    SliderThumb.ZIndex = 2
-    SliderThumb:SetAttribute("HasBackground", true)
-
-    local ThumbCorner = Instance.new("UICorner")
-    ThumbCorner.CornerRadius = UDim.new(0, 5)
-    ThumbCorner.Parent = SliderThumb
-
-    local function updateSlider(input)
-        local mousePos = input.Position.X
-        local trackAbsolutePos = SliderTrack.AbsolutePosition.X
-        local trackSize = SliderTrack.AbsoluteSize.X
-        local xOffset = math.clamp(mousePos - trackAbsolutePos, 0, trackSize)
-        local percent = xOffset / trackSize
-        
-        local valueRange = maxValue - minValue
-        local rawValue = minValue + (valueRange * percent)
-        local newValue
-        
-        -- Округление в зависимости от типа (дробное или целое)
-        if minValue < 1 or maxValue < 1 or tostring(minValue):find("%.") or tostring(maxValue):find("%.") then
-             newValue = math.floor(rawValue * 100 + 0.5) / 100 -- до 2 знаков
-        else
-             newValue = math.floor(rawValue + 0.5) -- до целого
-        end
-
-        sliderValue = newValue
-        ValueLabel.Text = tostring(newValue)
-        SliderFill.Size = UDim2.new(percent, 0, 1, 0)
-        if onValueChanged then
-            onValueChanged(newValue) -- ВЫЗЫВАЕМ ВНЕШНЮЮ ЛОГИКУ
-        end
-    end
-
-    local initialPercent = (defaultValue - minValue) / (maxValue - minValue)
-    SliderFill.Size = UDim2.new(initialPercent, 0, 1, 0)
-
-    table.insert(connections, userInputService.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            updateSlider(input)
-        end
-    end))
-
-    table.insert(connections, userInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = false
-        end
-    end))
-
-    table.insert(connections, SliderThumb.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-        end
-    end))
-    
-    local TrackButton = Instance.new("TextButton", SliderTrack)
-    TrackButton.BackgroundTransparency = 1
-    TrackButton.Size = UDim2.new(1, 0, 1, 0)
-    TrackButton.Text = ""
-    TrackButton.ZIndex = 1
-    TrackButton.InputBegan:Connect(function(input)
-         if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            updateSlider(input)
-        end
-    end)
-
-
-    table.insert(connections, SliderFrame.MouseEnter:Connect(function()
-        tweenService:Create(SliderFrame, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {BackgroundColor3 = Color3.fromRGB(32, 32, 32)}):Play()
-    end))
-
-    table.insert(connections, SliderFrame.MouseLeave:Connect(function()
-        tweenService:Create(SliderFrame, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {BackgroundColor3 = Color3.fromRGB(28, 28, 28)}):Play()
-    end))
-
-    return SliderFrame, sliderValue
-end
-
--- (Взято из Crim.lua)
-local function internalCreateDropdown(parent, yPos, label, options, defaultOption, onSelected)
-    local selected = defaultOption
-    local DropdownFrame = Instance.new("Frame")
-    DropdownFrame.Parent = parent
-    DropdownFrame.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
-    DropdownFrame.BorderSizePixel = 0
-    DropdownFrame.Position = UDim2.new(0, 15, 0, yPos)
-    DropdownFrame.Size = UDim2.new(1, -30, 0, 30)
-    DropdownFrame:SetAttribute("HasBackground", true)
-
-    local DropdownCorner = Instance.new("UICorner")
-    DropdownCorner.CornerRadius = UDim.new(0, 4)
-    DropdownCorner.Parent = DropdownFrame
-
-    local Label = Instance.new("TextLabel")
-    Label.Parent = DropdownFrame
-    Label.BackgroundTransparency = 1
-    Label.Position = UDim2.new(0, 12, 0, 0)
-    Label.Size = UDim2.new(0, 150, 1, 0)
-    Label.Font = Enum.Font.Gotham
-    Label.Text = label
-    Label.TextColor3 = Color3.fromRGB(200, 200, 200)
-    Label.TextSize = 13
-    Label.TextXAlignment = Enum.TextXAlignment.Left
-
-    local SelectedLabel = Instance.new("TextLabel")
-    SelectedLabel.Parent = DropdownFrame
-    SelectedLabel.BackgroundTransparency = 1
-    SelectedLabel.Position = UDim2.new(1, -100, 0, 0)
-    SelectedLabel.Size = UDim2.new(0, 80, 1, 0)
-    SelectedLabel.Font = Enum.Font.GothamBold
-    SelectedLabel.Text = selected
-    SelectedLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-    SelectedLabel.TextSize = 13
-    SelectedLabel.TextXAlignment = Enum.TextXAlignment.Right
-
-    local DropButton = Instance.new("TextButton")
-    DropButton.Parent = DropdownFrame
-    DropButton.BackgroundTransparency = 1
-    DropButton.Size = UDim2.new(1, 0, 1, 0)
-    DropButton.Text = ""
-
-    local expanded = false
-    local OptionsFrame = Instance.new("Frame")
-    OptionsFrame.Parent = DropdownFrame
-    OptionsFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-    OptionsFrame.BorderSizePixel = 0
-    OptionsFrame.Position = UDim2.new(0, 0, 1, 5)
-    OptionsFrame.Size = UDim2.new(1, 0, 0, 0)
-    OptionsFrame.Visible = false
-    OptionsFrame.ClipsDescendants = true
-    OptionsFrame:SetAttribute("HasBackground", true)
-
-    local OptionsCorner = Instance.new("UICorner")
-    OptionsCorner.CornerRadius = UDim.new(0, 4)
-    OptionsCorner.Parent = OptionsFrame
-
-    for i, option in ipairs(options) do
-        local OptionButton = Instance.new("TextButton")
-        OptionButton.Parent = OptionsFrame
-        OptionButton.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-        OptionButton.BorderSizePixel = 0
-        OptionButton.Position = UDim2.new(0, 0, 0, (i - 1) * 30)
-        OptionButton.Size = UDim2.new(1, 0, 0, 30)
-        OptionButton.Font = Enum.Font.Gotham
-        OptionButton.Text = option
-        OptionButton.TextColor3 = Color3.fromRGB(200, 200, 200)
-        OptionButton.TextSize = 13
-        OptionButton.TextXAlignment = Enum.TextXAlignment.Left
-        OptionButton:SetAttribute("HasBackground", true)
-
-        local OptionText = Instance.new("TextLabel")
-        OptionText.Parent = OptionButton
-        OptionText.BackgroundTransparency = 1
-        OptionText.Position = UDim2.new(0, 12, 0, 0)
-        OptionText.Size = UDim2.new(1, -24, 1, 0)
-        OptionText.Font = Enum.Font.Gotham
-        OptionText.Text = option
-        OptionText.TextColor3 = Color3.fromRGB(200, 200, 200)
-        OptionText.TextSize = 13
-        OptionText.TextXAlignment = Enum.TextXAlignment.Left
-
-        table.insert(connections, OptionButton.MouseButton1Click:Connect(function()
-            selected = option
-            SelectedLabel.Text = option
-            if onSelected then
-                onSelected(option) -- ВЫЗЫВАЕМ ВНЕШНЮЮ ЛОГИКУ
-            end
-            tweenService:Create(OptionsFrame, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, 0)}):Play()
-            task.wait(0.2)
-            OptionsFrame.Visible = false
-            expanded = false
-        end))
-
-        table.insert(connections, OptionButton.MouseEnter:Connect(function()
-            tweenService:Create(OptionButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(30, 30, 30)}):Play()
-        end))
-
-        table.insert(connections, OptionButton.MouseLeave:Connect(function()
-            tweenService:Create(OptionButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(25, 25, 25)}):Play()
-        end))
-    end
-
-    table.insert(connections, DropButton.MouseButton1Click:Connect(function()
-        expanded = not expanded
-        if expanded then
-            OptionsFrame.Visible = true
-            tweenService:Create(OptionsFrame, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, 30 * #options)}):Play()
-        else
-            tweenService:Create(OptionsFrame, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, 0)}):Play()
-            task.wait(0.2)
-            OptionsFrame.Visible = false
-        end
-    end))
-
-    table.insert(connections, DropdownFrame.MouseEnter:Connect(function()
-        tweenService:Create(DropdownFrame, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(32, 32, 32)}):Play()
-    end))
-
-    table.insert(connections, DropdownFrame.MouseLeave:Connect(function()
-        tweenService:Create(DropdownFrame, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(28, 28, 28)}):Play()
-    end))
-
-    return DropdownFrame, selected
-end
-
--- (Взято из Crim.lua)
-local function internalCreateKeybind(parent, yPos, label, defaultKey, onBind)
-    local currentKey = defaultKey
-    local KeybindFrame = Instance.new("Frame")
-    KeybindFrame.Parent = parent
-    KeybindFrame.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
-    KeybindFrame.BorderSizePixel = 0
-    KeybindFrame.Position = UDim2.new(0, 15, 0, yPos)
-    KeybindFrame.Size = UDim2.new(1, -30, 0, 30)
-    KeybindFrame:SetAttribute("HasBackground", true)
-
-    local KeybindCorner = Instance.new("UICorner")
-    KeybindCorner.CornerRadius = UDim.new(0, 4)
-    KeybindCorner.Parent = KeybindFrame
-
-    local Label = Instance.new("TextLabel")
-    Label.Parent = KeybindFrame
-    Label.BackgroundTransparency = 1
-    Label.Position = UDim2.new(0, 12, 0, 0)
-    Label.Size = UDim2.new(0, 150, 1, 0)
-    Label.Font = Enum.Font.Gotham
-    Label.Text = label
-    Label.TextColor3 = Color3.fromRGB(200, 200, 200)
-    Label.TextSize = 13
-    Label.TextXAlignment = Enum.TextXAlignment.Left
-
-    local KeyLabel = Instance.new("TextLabel")
-    KeyLabel.Parent = KeybindFrame
-    KeyLabel.BackgroundTransparency = 1
-    KeyLabel.Position = UDim2.new(1, -100, 0, 0)
-    KeyLabel.Size = UDim2.new(0, 80, 1, 0)
-    KeyLabel.Font = Enum.Font.GothamBold
-    KeyLabel.Text = currentKey.Name
-    KeyLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-    KeyLabel.TextSize = 13
-    KeyLabel.TextXAlignment = Enum.TextXAlignment.Right
-
-    local KeyButton = Instance.new("TextButton")
-    KeyButton.Parent = KeybindFrame
-    KeyButton.BackgroundTransparency = 1
-    KeyButton.Size = UDim2.new(1, 0, 1, 0)
-    KeyButton.Text = ""
-
-    local binding = false
-    table.insert(connections, KeyButton.MouseButton1Click:Connect(function()
-        binding = true
-        KeyLabel.Text = "..."
-    end))
-
-    table.insert(connections, userInputService.InputBegan:Connect(function(input)
-        if binding and input.KeyCode ~= Enum.KeyCode.Unknown then
-            binding = false
-            currentKey = input.KeyCode
-            KeyLabel.Text = currentKey.Name
-            if onBind then
-                onBind(currentKey) -- ВЫЗЫВАЕМ ВНЕШНЮЮ ЛОГИКУ
+-- Функция для рекурсивного применения прозрачности
+local function recursiveSetTransparency(gui, opacity)
+    local targetTransparency = 1 - opacity
+    for _, child in pairs(gui:GetDescendants()) do
+        if child:IsA("GuiObject") and not child:IsA("ScreenGui") then
+            -- Пропускаем ручку ползунка и кнопку привязки, чтобы они были видимы
+            if child.Name ~= "SliderHandle" and child.Name ~= "KeybindButton" then
+                if child.BackgroundTransparency < 1 then
+                    child.BackgroundTransparency = targetTransparency
+                end
+                if child:IsA("TextLabel") or child:IsA("TextButton") then
+                    child.TextTransparency = targetTransparency
+                end
             end
         end
-    end))
-
-    table.insert(connections, KeybindFrame.MouseEnter:Connect(function()
-        tweenService:Create(KeybindFrame, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(32, 32, 32)}):Play()
-    end))
-
-    table.insert(connections, KeybindFrame.MouseLeave:Connect(function()
-        tweenService:Create(KeybindFrame, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(28, 28, 28)}):Play()
-    end))
-
-    return KeybindFrame
-end
-
--- (Взято из Crim.lua)
-local function internalCreateColorPicker(parent, yPos, label, defaultColor, onColorChanged)
-    local currentColor = defaultColor
-    local expanded = false
-    local ColorPickerFrame = Instance.new("Frame")
-    ColorPickerFrame.Parent = parent
-    ColorPickerFrame.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
-    ColorPickerFrame.BorderSizePixel = 0
-    ColorPickerFrame.Position = UDim2.new(0, 15, 0, yPos)
-    ColorPickerFrame.Size = UDim2.new(1, -30, 0, 30)
-    ColorPickerFrame:SetAttribute("HasBackground", true)
-
-    local ColorPickerCorner = Instance.new("UICorner")
-    ColorPickerCorner.CornerRadius = UDim.new(0, 4)
-    ColorPickerCorner.Parent = ColorPickerFrame
-
-    local Label = Instance.new("TextLabel")
-    Label.Parent = ColorPickerFrame
-    Label.BackgroundTransparency = 1
-    Label.Position = UDim2.new(0, 12, 0, 0)
-    Label.Size = UDim2.new(0, 150, 1, 0)
-    Label.Font = Enum.Font.Gotham
-    Label.Text = label
-    Label.TextColor3 = Color3.fromRGB(200, 200, 200)
-    Label.TextSize = 13
-    Label.TextXAlignment = Enum.TextXAlignment.Left
-
-    local ColorPreview = Instance.new("Frame")
-    ColorPreview.Parent = ColorPickerFrame
-    ColorPreview.BackgroundColor3 = currentColor
-    ColorPreview.BorderSizePixel = 0
-    ColorPreview.Position = UDim2.new(1, -40, 0.5, -10)
-    ColorPreview.Size = UDim2.new(0, 20, 0, 20)
-    ColorPreview:SetAttribute("HasBackground", true)
-
-    local PreviewCorner = Instance.new("UICorner")
-    PreviewCorner.CornerRadius = UDim.new(0, 4)
-    PreviewCorner.Parent = ColorPreview
-
-    local ColorButton = Instance.new("TextButton")
-    ColorButton.Parent = ColorPickerFrame
-    ColorButton.BackgroundTransparency = 1
-    ColorButton.Size = UDim2.new(1, 0, 1, 0)
-    ColorButton.Text = ""
-
-    local PickerFrame = Instance.new("Frame")
-    PickerFrame.Parent = ColorPickerFrame
-    PickerFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-    PickerFrame.BorderSizePixel = 0
-    PickerFrame.Position = UDim2.new(0, 0, 1, 5)
-    PickerFrame.Size = UDim2.new(1, 0, 0, 0)
-    PickerFrame.Visible = false
-    PickerFrame.ClipsDescendants = true
-    PickerFrame:SetAttribute("HasBackground", true)
-
-    local PickerCorner = Instance.new("UICorner")
-    PickerCorner.CornerRadius = UDim.new(0, 4)
-    PickerCorner.Parent = PickerFrame
-
-    local function updateColor()
-        ColorPreview.BackgroundColor3 = currentColor
-        if onColorChanged then
-            onColorChanged(currentColor) -- ВЫЗЫВАЕМ ВНЕШНЮЮ ЛОГИКУ
-        end
-    end
-
-    local rSlider = internalCreateSlider(PickerFrame, 0, "R", currentColor.R * 255, 0, 255, false, function(value)
-        currentColor = Color3.fromRGB(value, currentColor.G * 255, currentColor.B * 255)
-        updateColor()
-    end)
-
-    local gSlider = internalCreateSlider(PickerFrame, 40, "G", currentColor.G * 255, 0, 255, false, function(value)
-        currentColor = Color3.fromRGB(currentColor.R * 255, value, currentColor.B * 255)
-        updateColor()
-    end)
-
-    local bSlider = internalCreateSlider(PickerFrame, 80, "B", currentColor.B * 255, 0, 255, false, function(value)
-        currentColor = Color3.fromRGB(currentColor.R * 255, currentColor.G * 255, value)
-        updateColor()
-    end)
-
-    table.insert(connections, ColorButton.MouseButton1Click:Connect(function()
-        expanded = not expanded
-        if expanded then
-            PickerFrame.Visible = true
-            tweenService:Create(PickerFrame, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, 120)}):Play()
-        else
-            tweenService:Create(PickerFrame, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, 0)}):Play()
-            task.wait(0.2)
-            PickerFrame.Visible = false
-        end
-    end))
-
-    table.insert(connections, ColorPickerFrame.MouseEnter:Connect(function()
-        tweenService:Create(ColorPickerFrame, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(32, 32, 32)}):Play()
-    end))
-
-    table.insert(connections, ColorPickerFrame.MouseLeave:Connect(function()
-        tweenService:Create(ColorPickerFrame, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(28, 28, 28)}):Play()
-    end))
-
-    return ColorPickerFrame
-end
-
--- (Взято из Crim.lua)
-local function internalSetTransparency(transparency)
-    local function recurse(obj)
-        if (obj:IsA("Frame") or obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("ImageLabel") or obj:IsA("ImageButton")) and obj:GetAttribute("HasBackground") then
-            obj.BackgroundTransparency = transparency
-        end
-        for _, child in ipairs(obj:GetChildren()) do
-            recurse(child)
-        end
-    end
-    -- Убедимся, что ScreenGui существует
-    if ScreenGui then
-        recurse(ScreenGui)
     end
 end
 
+-- === Core GUI Setup Functions ===
 
--- [[ 6. ИНИЦИАЛИЗАЦИЯ И API БИБЛИОТЕКИ ]]
-
--- :Initialize() создает весь каркас GUI
-function CrimLib:Initialize(TitleName, MenuKey, UnloadKey)
-    -- (Весь код создания GUI из Crim.lua)
-    ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "RagebotUI"
+function CrimLib.Init()
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "CrimsonGui"
     ScreenGui.Parent = CoreGui
-    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    ScreenGui.ResetOnSpawn = false
 
     local MainFrame = Instance.new("Frame")
     MainFrame.Name = "MainFrame"
     MainFrame.Parent = ScreenGui
-    MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    MainFrame.BorderSizePixel = 0
-    MainFrame.Position = UDim2.new(0.5, -421.5, 0.5, -287.5)
-    MainFrame.Size = UDim2.new(0, 843, 0, 575)
-    MainFrame.Visible = false
+    MainFrame.BackgroundColor3 = COLOR_MAIN
+    MainFrame.Position = UDim2.new(0.5, -200, 0.5, -250)
+    MainFrame.Size = UDim2.new(0, 400, 0, 500)
     MainFrame.Active = true
-    MainFrame:SetAttribute("HasBackground", true)
+    MainFrame.Draggable = true
+    MainFrame.Visible = false
+    Instance.new("UICorner").Parent = MainFrame
 
-    local MainCorner = Instance.new("UICorner")
-    MainCorner.CornerRadius = UDim.new(0, 8)
-    MainCorner.Parent = MainFrame
-
-    local Header = Instance.new("Frame")
-    Header.Name = "Header"
-    Header.Parent = MainFrame
-    Header.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
-    Header.BorderSizePixel = 0
-    Header.Size = UDim2.new(1, 0, 0, 60)
-    Header:SetAttribute("HasBackground", true)
-
-    local HeaderCorner = Instance.new("UICorner")
-    HeaderCorner.CornerRadius = UDim.new(0, 8)
-    HeaderCorner.Parent = Header
-
-    local LogoIcon = Instance.new("ImageLabel")
-    LogoIcon.Parent = Header
-    LogoIcon.BackgroundTransparency = 1
-    LogoIcon.Position = UDim2.new(0, 20, 0, 12)
-    LogoIcon.Size = UDim2.new(0, 36, 0, 36)
-    LogoIcon.Image = "rbxassetid://97446581390925"
-    LogoIcon.ImageColor3 = Color3.fromRGB(255, 255, 255)
-    LogoIcon.ScaleType = Enum.ScaleType.Fit
-
-    local Title = Instance.new("TextLabel")
-    Title.Parent = Header
-    Title.BackgroundTransparency = 1
-    Title.Position = UDim2.new(0, 70, 0, 18)
-    Title.Size = UDim2.new(0, 200, 0, 24)
-    Title.Font = Enum.Font.GothamBold
-    Title.Text = TitleName or "CrimLib"
-    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Title.TextSize = 20
-    Title.TextXAlignment = Enum.TextXAlignment.Left
+    local TopBar = Instance.new("Frame")
+    TopBar.Name = "TopBar"
+    TopBar.Parent = MainFrame
+    TopBar.BackgroundColor3 = COLOR_TOPBAR
+    TopBar.Size = UDim2.new(1, 0, 0, 30)
 
     local Sidebar = Instance.new("Frame")
     Sidebar.Name = "Sidebar"
     Sidebar.Parent = MainFrame
-    Sidebar.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
-    Sidebar.BorderSizePixel = 0
-    Sidebar.Position = UDim2.new(0, 0, 0, 60)
-    Sidebar.Size = UDim2.new(0, 70, 0, 515)
-    Sidebar:SetAttribute("HasBackground", true)
+    Sidebar.BackgroundColor3 = COLOR_SIDEBAR
+    Sidebar.Position = UDim2.new(0, 0, 0, 30)
+    Sidebar.Size = UDim2.new(0, 100, 1, -60)
+    
+    local TabContentFrame = Instance.new("Frame")
+    TabContentFrame.Name = "TabContentFrame"
+    TabContentFrame.Parent = MainFrame
+    TabContentFrame.BackgroundColor3 = COLOR_TOPBAR
+    TabContentFrame.Position = UDim2.new(0, 100, 0, 30)
+    TabContentFrame.Size = UDim2.new(1, -100, 1, -60)
+    
+    local UIListLayout = Instance.new("UIListLayout")
+    UIListLayout.Parent = TabContentFrame
+    UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+    UIListLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+    UIListLayout.Padding = UDim.new(0, 10)
+    UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    
+    local UIPadding = Instance.new("UIPadding")
+    UIPadding.Parent = TabContentFrame
+    UIPadding.PaddingTop = UDim.new(0, 10)
+    UIPadding.PaddingBottom = UDim.new(0, 10)
+    UIPadding.PaddingLeft = UDim.new(0, 10)
+    UIPadding.PaddingRight = UDim.new(0, 10)
 
-    local currentTab = 2
-    local tabs = {}
-    local sidebarIcons = {
-        {icon = "rbxassetid://98370306170658", y = 15, name = "Legitbot", size = {16.9, 16.9}},
-        {icon = "rbxassetid://107512202152283", y = 85, active = true, name = "Combat", size = {19, 19}}, 
-        {icon = "rbxassetid://127827492424396", y = 155, name = "Enemy", size = {28, 26}},
-        {icon = "rbxassetid://100545076798978", y = 225, name = "World", size = {32, 32}},
-        {icon = "rbxassetid://107710676270056", y = 295, name = "SkinChanger", size = {48, 46}},
-        {icon = "rbxassetid://103915348216097", y = 365, name = "Misc", size = {37, 35}},
-        {icon = "rbxassetid://97047003599965", y = 435, name = "Settings", size = {20, 20}} 
-    }
+    return MainFrame, Sidebar, TabContentFrame, ScreenGui
+end
 
-    local ContentFrame = Instance.new("Frame")
-    ContentFrame.Name = "ContentFrame"
-    ContentFrame.Parent = MainFrame
-    ContentFrame.BackgroundTransparency = 1
-    ContentFrame.Position = UDim2.new(0, 70, 0, 60)
-    ContentFrame.Size = UDim2.new(1, -70, 1, -60)
-    ContentFrame.ClipsDescendants = true
+function CrimLib.CreateTabButton(name, sidebar, index, tabContent)
+    local button = Instance.new("TextButton")
+    button.Name = name .. "Tab"
+    button.Parent = sidebar
+    button.BackgroundColor3 = COLOR_SIDEBAR
+    button.Size = UDim2.new(1, 0, 0, 30)
+    button.Font = FONT
+    button.Text = name
+    button.TextColor3 = COLOR_TEXT
+    button.TextSize = 14
+    button.LayoutOrder = index
+    
+    -- UIListLayout в Sidebar автоматически позиционирует кнопки.
+    if sidebar:FindFirstChildOfClass("UIListLayout") == nil then
+        local Layout = Instance.new("UIListLayout")
+        Layout.Parent = sidebar
+        Layout.Padding = UDim.new(0, 5)
+        Layout.SortOrder = Enum.SortOrder.LayoutOrder
+    end
 
-    local TabContainer = Instance.new("Frame")
-    TabContainer.Name = "TabContainer"
-    TabContainer.Parent = ContentFrame
-    TabContainer.BackgroundTransparency = 1
-    TabContainer.Size = UDim2.new(1, 0, 1, 0)
-    TabContainer.Visible = true
+    button.MouseButton1Click:Connect(function()
+        CrimLib.SwitchTab(tabContent, button)
+    end)
 
-    local EnemyContainer = Instance.new("Frame")
-    EnemyContainer.Name = "EnemyContainer"
-    EnemyContainer.Parent = ContentFrame
-    EnemyContainer.BackgroundTransparency = 1
-    EnemyContainer.Size = UDim2.new(1, 0, 1, 0)
-    EnemyContainer.Visible = false
+    return button
+end
 
-    local SettingsContainer = Instance.new("Frame")
-    SettingsContainer.Name = "SettingsContainer"
-    SettingsContainer.Parent = ContentFrame
-    SettingsContainer.BackgroundTransparency = 1
-    SettingsContainer.Size = UDim2.new(1, 0, 1, 0)
-    SettingsContainer.Visible = false
+function CrimLib.CreateTabContent(name)
+    local frame = Instance.new("Frame")
+    frame.Name = name .. "Content"
+    frame.BackgroundColor3 = COLOR_TOPBAR
+    frame.Size = UDim2.new(1, 0, 1, 0)
+    frame.Visible = false
+    frame.LayoutOrder = 1 -- Всегда первым в списке
+    
+    local ListLayout = Instance.new("UIListLayout")
+    ListLayout.Parent = frame
+    ListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+    ListLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+    ListLayout.Padding = UDim.new(0, 10)
+    ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    
+    return frame
+end
 
-    -- Логика переключения вкладок
-    for index, iconData in ipairs(sidebarIcons) do
-        local IconFrame = Instance.new("Frame")
-        IconFrame.Parent = Sidebar
-        IconFrame.Name = "Tab_" .. index
-        IconFrame.BackgroundColor3 = iconData.active and Color3.fromRGB(25, 25, 25) or Color3.fromRGB(18, 18, 18)
-        IconFrame.BorderSizePixel = 0
-        IconFrame.Position = UDim2.new(0, 0, 0, iconData.y)
-        IconFrame.Size = UDim2.new(1, 0, 0, 60)
-        IconFrame:SetAttribute("HasBackground", true)
-
-        local ActiveIndicator = Instance.new("Frame")
-        ActiveIndicator.Parent = IconFrame
-        ActiveIndicator.Name = "Indicator"
-        ActiveIndicator.BackgroundColor3 = Color3.fromRGB(60, 160, 255)
-        ActiveIndicator.BorderSizePixel = 0
-        ActiveIndicator.Position = UDim2.new(0, 0, 0, 0)
-        ActiveIndicator.Size = UDim2.new(0, iconData.active and 4 or 0, 1, 0)
-        ActiveIndicator:SetAttribute("HasBackground", true)
-
-        if iconData.isText then
-            -- (код для текстовой иконки)
-        else
-            local Icon = Instance.new("ImageLabel")
-            Icon.Parent = IconFrame
-            Icon.BackgroundTransparency = 1
-            Icon.Position = UDim2.new(0.5, -iconData.size[1] / 2, 0.5, -iconData.size[2] / 2)
-            Icon.Size = UDim2.new(0, iconData.size[1], 0, iconData.size[2])
-            Icon.Image = iconData.icon
-            Icon.ImageColor3 = Color3.fromRGB(200, 200, 200)
-            Icon.ScaleType = Enum.ScaleType.Fit
+function CrimLib.SwitchTab(tab, button)
+    if CurrentTab then
+        CurrentTab.Visible = false
+        if CurrentTab.TabButton then
+            CurrentTab.TabButton.BackgroundColor3 = COLOR_SIDEBAR
         end
+    end
+    tab.Visible = true
+    tab.TabButton = button
+    if button then
+        button.BackgroundColor3 = COLOR_ACCENT
+    end
+    CurrentTab = tab
+end
 
-        local TabButton = Instance.new("TextButton")
-        TabButton.Parent = IconFrame
-        TabButton.BackgroundTransparency = 1
-        TabButton.Size = UDim2.new(1, 0, 1, 0)
-        TabButton.Text = ""
-        TabButton.ZIndex = 3
+-- === Control Builders and Visual Logic ===
 
-        table.insert(connections, TabButton.MouseButton1Click:Connect(function()
-            for i, tab in ipairs(tabs) do
-                local frame = Sidebar:FindFirstChild("Tab_" .. i)
-                if frame then
-                    local indicator = frame:FindFirstChild("Indicator")
-                    tweenService:Create(frame, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(18, 18, 18)}):Play()
-                    tweenService:Create(indicator, TweenInfo.new(0.2), {Size = UDim2.new(0, 0, 1, 0)}):Play()
-                end
-                if tab.content then
-                    tab.content.Visible = false
-                end
-            end
-            currentTab = index
-            tweenService:Create(IconFrame, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(25, 25, 25)}):Play()
-            tweenService:Create(ActiveIndicator, TweenInfo.new(0.2), {Size = UDim2.new(0, 4, 1, 0)}):Play()
-            Title.Text = (TitleName or "CrimLib") .. " | " .. iconData.name
-            if tabs[index] and tabs[index].content then
-                tabs[index].content.Visible = true
-            end
-        end))
+-- Функция обновления визуалов кнопки (используется как при клике, так и при внешнем вызове)
+function CrimLib.UpdateToggleVisuals(toggleButton, statusLabel, newState)
+    local newColor = newState and COLOR_ACCENT or COLOR_OFF
+    TweenService:Create(toggleButton, TweenInfo.new(0.15), {BackgroundColor3 = newColor}):Play()
+    statusLabel.Text = newState and "ON" or "OFF"
+    statusLabel.TextColor3 = newState and COLOR_ACCENT or COLOR_OFF
+end
+
+function CrimLib.CreateButton(parent, name, layoutOrder, stateRef, stateKey, toggleCallback)
+    local Toggle = Instance.new("TextButton")
+    Toggle.Name = name:gsub("%s", ""):gsub("%-", "") .. "Toggle"
+    Toggle.Parent = parent
+    Toggle.BackgroundColor3 = stateRef[stateKey] and COLOR_ACCENT or COLOR_OFF
+    Toggle.Size = UDim2.new(1, 0, 0, 30)
+    Toggle.Font = FONT
+    Toggle.Text = " " .. name
+    Toggle.TextColor3 = COLOR_TEXT
+    Toggle.TextSize = 14
+    Toggle.TextXAlignment = Enum.TextXAlignment.Left
+    Toggle.LayoutOrder = layoutOrder
+    Instance.new("UICorner").Parent = Toggle
+
+    local Status = Instance.new("TextLabel")
+    Status.Name = "Status"
+    Status.Parent = Toggle
+    Status.BackgroundTransparency = 1
+    Status.Position = UDim2.new(1, -60, 0, 0)
+    Status.Size = UDim2.new(0, 60, 1, 0)
+    Status.Font = Enum.Font.GothamBold
+    Status.TextColor3 = COLOR_TEXT
+    Status.TextSize = 14
+    Status.TextXAlignment = Enum.TextXAlignment.Right
+    
+    -- Устанавливаем начальное состояние
+    CrimLib.UpdateToggleVisuals(Toggle, Status, stateRef[stateKey])
+    
+    -- Логика нажатия: вызывает функцию из main.lua, затем обновляет GUI
+    Toggle.MouseButton1Click:Connect(function()
+        toggleCallback() -- Вызов логики из main.lua
+        local newState = stateRef[stateKey]
+        CrimLib.UpdateToggleVisuals(Toggle, Status, newState)
+    end)
+
+    -- Функция для внешнего обновления состояния кнопки (для Keybind/Config)
+    Toggle.updateVisuals = function(newState)
+        CrimLib.UpdateToggleVisuals(Toggle, Status, newState)
+    end
+    
+    return Toggle
+end
+
+function CrimLib.CreateSlider(parent, name, layoutOrder, minVal, maxVal, valueRef, valueKey, updateCallback)
+    local Frame = Instance.new("Frame")
+    Frame.Name = name:gsub("%s", ""):gsub("%-", "") .. "SliderFrame"
+    Frame.Parent = parent
+    Frame.BackgroundColor3 = COLOR_OFF
+    Frame.Size = UDim2.new(1, 0, 0, 40)
+    Frame.LayoutOrder = layoutOrder
+    Instance.new("UICorner").Parent = Frame
+    
+    local Label = Instance.new("TextLabel")
+    Label.Parent = Frame
+    Label.BackgroundTransparency = 1
+    Label.Position = UDim2.new(0, 0, 0, 0)
+    Label.Size = UDim2.new(1, 0, 0, 15)
+    Label.Font = FONT
+    Label.TextColor3 = COLOR_TEXT
+    Label.TextSize = 12
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local SliderBackground = Instance.new("Frame")
+    SliderBackground.Name = "SliderBackground"
+    SliderBackground.Parent = Frame
+    SliderBackground.BackgroundColor3 = COLOR_MAIN
+    SliderBackground.Position = UDim2.new(0.05, 0, 0.5, 0)
+    SliderBackground.Size = UDim2.new(0.9, 0, 0, 10)
+    Instance.new("UICorner").Parent = SliderBackground
+    
+    local SliderBar = Instance.new("Frame")
+    SliderBar.Name = "SliderBar"
+    SliderBar.Parent = SliderBackground
+    SliderBar.BackgroundColor3 = COLOR_ACCENT
+    SliderBar.Position = UDim2.new(0, 0, 0, 0)
+    SliderBar.Size = UDim2.new(0, 0, 1, 0)
+    
+    local Handle = Instance.new("Frame")
+    Handle.Name = "SliderHandle"
+    Handle.Parent = SliderBar
+    Handle.BackgroundColor3 = COLOR_TEXT
+    Handle.Size = UDim2.new(0, 10, 0, 10)
+    Handle.Position = UDim2.new(1, -5, 0.5, -5)
+    Handle.ZIndex = 2
+    Handle.Active = true
+    Instance.new("UICorner").Parent = Handle
+    
+    local isDragging = false
+    
+    -- Функция обновления визуалов и значения
+    local function updateVisuals(newValue)
+        local newRatio = (newValue - minVal) / (maxVal - minVal)
+        SliderBar.Size = UDim2.new(newRatio, 0, 1, 0)
+        local displayValue = math.floor(newValue * 10) / 10
+        Label.Text = name .. " (" .. tostring(displayValue) .. ")"
+    end
+
+    local function updateSlider(input)
+        local inputX = input.Position.X
+        local framePos = SliderBackground.AbsolutePosition.X
+        local frameSize = SliderBackground.AbsoluteSize.X
         
-        table.insert(connections, TabButton.MouseEnter:Connect(function()
-            if currentTab ~= index then
-                tweenService:Create(IconFrame, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(22, 22, 22)}):Play()
-            end
-        end))
-        table.insert(connections, TabButton.MouseLeave:Connect(function()
-            if currentTab ~= index then
-                tweenService:Create(IconFrame, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(18, 18, 18)}):Play()
-            end
-        end))
-
-        tabs[index] = {name = iconData.name, frame = IconFrame, content = nil}
-    end
-    
-    -- Создаем колонки и сохраняем ссылки на них
-    local LeftColumn = Instance.new("Frame")
-    LeftColumn.Name = "LeftColumn"
-    LeftColumn.Parent = TabContainer
-    LeftColumn.BackgroundTransparency = 1
-    LeftColumn.Position = UDim2.new(0, 0, 0, 0)
-    LeftColumn.Size = UDim2.new(0.5, 0, 1, 0)
-
-    local RightColumn = Instance.new("Frame")
-    RightColumn.Name = "RightColumn"
-    RightColumn.Parent = TabContainer
-    RightColumn.BackgroundTransparency = 1
-    RightColumn.Position = UDim2.new(0.5, 0, 0, 0)
-    RightColumn.Size = UDim2.new(0.5, 0, 1, 0)
-
-    local EnemyLeftColumn = Instance.new("Frame")
-    EnemyLeftColumn.Name = "LeftColumn"
-    EnemyLeftColumn.Parent = EnemyContainer
-    EnemyLeftColumn.BackgroundTransparency = 1
-    EnemyLeftColumn.Position = UDim2.new(0, 0, 0, 0)
-    EnemyLeftColumn.Size = UDim2.new(0.5, 0, 1, 0)
-
-    local EnemyRightColumn = Instance.new("Frame")
-    EnemyRightColumn.Name = "RightColumn"
-    EnemyRightColumn.Parent = EnemyContainer
-    EnemyRightColumn.BackgroundTransparency = 1
-    EnemyRightColumn.Position = UDim2.new(0.5, 0, 0, 0)
-    EnemyRightColumn.Size = UDim2.new(0.5, 0, 1, 0)
-    
-    -- Сохраняем ссылки для API
-    CrimLib.Tabs["CombatLeft"] = LeftColumn
-    CrimLib.Tabs["CombatRight"] = RightColumn
-    CrimLib.Tabs["EnemyLeft"] = EnemyLeftColumn
-    CrimLib.Tabs["EnemyRight"] = EnemyRightColumn
-    CrimLib.Tabs["Settings"] = SettingsContainer
-    
-    -- Привязка контента к табам из Crim.lua
-    tabs[2].content = TabContainer
-    tabs[3].content = EnemyContainer
-    tabs[7].content = SettingsContainer
-    
-    -- Логика перетаскивания (Drag and Drop)
-    local dragging = false
-    local dragInput
-    local dragStart
-    local startPos
-
-    local function update(input)
-        local delta = input.Position - dragStart
-        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-    end
-
-    local function dragStartFunc(input)
-        dragging = true
-        dragStart = input.Position
-        startPos = MainFrame.Position
-        input.InputChanged:Connect(update)
-    end
-
-    local function dragEndFunc(input)
-        dragging = false
-    end
-
-    Header.InputBegan:Connect(dragStartFunc)
-    Header.InputEnded:Connect(dragEndFunc)
-
-    -- Логика биндов INSERT и DELETE
-    local menuVisible = false
-    local unloadKey = UnloadKey or Enum.KeyCode.Delete
-    local menuKey = MenuKey or Enum.KeyCode.Insert
-    
-    table.insert(connections, userInputService.InputBegan:Connect(function(input)
-        if input.KeyCode == menuKey then
-            menuVisible = not menuVisible
-            MainFrame.Visible = menuVisible
-        elseif input.KeyCode == unloadKey then
-            -- Вызываем функцию очистки, если она есть
-            if CrimLib.Unload then
-                CrimLib.Unload()
-            end
-            
-            for _, connection in ipairs(connections) do
-                connection:Disconnect()
-            end
-            connections = {}
-            if ScreenGui then
-                ScreenGui:Destroy()
-            end
+        local relativeX = math.min(math.max(inputX - framePos, 0), frameSize)
+        local ratio = relativeX / frameSize
+        local newValue = minVal + ratio * (maxVal - minVal)
+        newValue = math.floor(newValue * 100) / 100 
+        
+        valueRef[valueKey] = newValue -- Обновление переменной в ConfigData
+        updateVisuals(newValue) -- Визуальное обновление
+        
+        if updateCallback then
+            updateCallback(newValue) -- Вызов логики из main.lua
         end
-    end))
-end
-
--- Публичная функция для установки прозрачности
-function CrimLib:SetTransparency(value)
-    internalSetTransparency(value)
-end
-
--- Публичная функция для очистки (вызывается из Loader.lua)
-function CrimLib:AddUnloadCallback(callback)
-    CrimLib.Unload = callback
-end
-
--- [[ 7. ПУБЛИЧНЫЕ API ФУНКЦИИ (ПЕРЕМЕННЫЕ) ]]
-
--- :AddToggle
-function CrimLib:AddToggle(tabName, settings)
-    local parent = CrimLib.Tabs[tabName]
-    if not parent then warn("CrimLib: Invalid tabName for AddToggle: " .. tabName) return end
+    end
     
-    local yPos = CrimLib.yOffsets[tabName]
-    internalCreateToggle(parent, yPos, settings.Name, settings.DefaultValue, settings.Callback)
-    CrimLib.yOffsets[tabName] = yPos + 40
+    Handle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            isDragging = true
+            updateSlider(input)
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if isDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            updateSlider(input)
+        end
+    end)
+    
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            isDragging = false
+        end
+    end)
+
+    -- Привязываем функцию внешнего обновления
+    Frame.updateVisuals = updateVisuals
+    
+    -- Инициализируем ползунок на основе текущего значения
+    updateVisuals(valueRef[valueKey])
+    
+    return Frame
 end
 
--- :AddSlider
-function CrimLib:AddSlider(tabName, settings)
-    local parent = CrimLib.Tabs[tabName]
-    if not parent then warn("CrimLib: Invalid tabName for AddSlider: " .. tabName) return end
+function CrimLib.CreateKeybindButton(parent, name, layoutOrder, keybindRef, keybindKey, captureVarRef)
+    local Frame = Instance.new("Frame")
+    Frame.Name = name:gsub("%s", ""):gsub("%-", "") .. "KeybindFrame"
+    Frame.Parent = parent
+    Frame.BackgroundTransparency = 1
+    Frame.Size = UDim2.new(1, 0, 0, 30)
+    Frame.LayoutOrder = layoutOrder
+    
+    local Label = Instance.new("TextLabel")
+    Label.Parent = Frame
+    Label.BackgroundTransparency = 1
+    Label.Position = UDim2.new(0, 0, 0, 0)
+    Label.Size = UDim2.new(0, 200, 1, 0)
+    Label.Font = FONT
+    Label.TextColor3 = COLOR_TEXT
+    Label.TextSize = 14
+    Label.TextXAlignment = Enum.TextXAlignment.Left
 
-    local yPos = CrimLib.yOffsets[tabName]
-    internalCreateSlider(parent, yPos, settings.Name, settings.DefaultValue, settings.Min, settings.Max, settings.Override or false, settings.Callback)
-    CrimLib.yOffsets[tabName] = yPos + 40
+    local Button = Instance.new("TextButton")
+    Button.Name = "KeybindButton"
+    Button.Parent = Frame
+    Button.BackgroundColor3 = COLOR_OFF
+    Button.Position = UDim2.new(1, -100, 0, 0)
+    Button.Size = UDim2.new(0, 100, 1, 0)
+    Button.Font = FONT
+    Button.TextColor3 = COLOR_TEXT
+    Button.TextSize = 14
+    Instance.new("UICorner").Parent = Button
+    
+    local function updateVisuals()
+        Label.Text = name .. " (Current: " .. keybindRef[keybindKey] .. ")"
+        Button.Text = "BIND"
+        Button.BackgroundColor3 = COLOR_OFF
+    end
+    
+    Button.MouseButton1Click:Connect(function()
+        if captureVarRef.value then return end
+        captureVarRef.value = true
+        Button.Text = "..."
+        Button.BackgroundColor3 = COLOR_BINDING
+        
+        local connection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+            if gameProcessed or input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+            
+            keybindRef[keybindKey] = input.KeyCode.Name
+            captureVarRef.value = false
+            connection:Disconnect()
+            updateVisuals()
+        end)
+    end)
+
+    Frame.updateVisuals = updateVisuals
+    updateVisuals()
+    
+    return Frame
 end
 
--- :AddDropdown
-function CrimLib:AddDropdown(tabName, settings)
-    local parent = CrimLib.Tabs[tabName]
-    if not parent then warn("CrimLib: Invalid tabName for AddDropdown: " .. tabName) return end
-
-    local yPos = CrimLib.yOffsets[tabName]
-    internalCreateDropdown(parent, yPos, settings.Name, settings.Options, settings.DefaultValue, settings.Callback)
-    CrimLib.yOffsets[tabName] = yPos + 40
+function CrimLib.ApplyOpacity(mainFrame, opacity)
+    recursiveSetTransparency(mainFrame, opacity)
 end
-
--- :AddKeybind
-function CrimLib:AddKeybind(tabName, settings)
-    local parent = CrimLib.Tabs[tabName]
-    if not parent then warn("CrimLib: Invalid tabName for AddKeybind: " .. tabName) return end
-
-    local yPos = CrimLib.yOffsets[tabName]
-    internalCreateKeybind(parent, yPos, settings.Name, settings.DefaultValue, settings.Callback)
-    CrimLib.yOffsets[tabName] = yPos + 40
-end
-
--- :AddColorPicker
-function CrimLib:AddColorPicker(tabName, settings)
-    local parent = CrimLib.Tabs[tabName]
-    if not parent then warn("CrimLib: Invalid tabName for AddColorPicker: " .. tabName) return end
-
-    local yPos = CrimLib.yOffsets[tabName]
-    internalCreateColorPicker(parent, yPos, settings.Name, settings.DefaultValue, settings.Callback)
-    CrimLib.yOffsets[tabName] = yPos + 40
-end
-
 
 return CrimLib
