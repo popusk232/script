@@ -1,4 +1,5 @@
 -- CrimLib.lua
+-- Этот файл содержит ТОЛЬКО логику создания и визуального обновления GUI.
 
 local CrimLib = {}
 
@@ -20,14 +21,12 @@ local FONT = Enum.Font.Gotham
 -- Local State
 local CurrentTab = nil
 
--- === Utility Functions ===
+-- === Utility Functions (для прозрачности) ===
 
--- Функция для рекурсивного применения прозрачности
 local function recursiveSetTransparency(gui, opacity)
     local targetTransparency = 1 - opacity
     for _, child in pairs(gui:GetDescendants()) do
         if child:IsA("GuiObject") and not child:IsA("ScreenGui") then
-            -- Пропускаем ручку ползунка и кнопку привязки, чтобы они были видимы
             if child.Name ~= "SliderHandle" and child.Name ~= "KeybindButton" then
                 if child.BackgroundTransparency < 1 then
                     child.BackgroundTransparency = targetTransparency
@@ -80,8 +79,6 @@ function CrimLib.Init()
     
     local UIListLayout = Instance.new("UIListLayout")
     UIListLayout.Parent = TabContentFrame
-    UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
-    UIListLayout.VerticalAlignment = Enum.VerticalAlignment.Top
     UIListLayout.Padding = UDim.new(0, 10)
     UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
     
@@ -92,7 +89,28 @@ function CrimLib.Init()
     UIPadding.PaddingLeft = UDim.new(0, 10)
     UIPadding.PaddingRight = UDim.new(0, 10)
 
+    local Layout = Instance.new("UIListLayout")
+    Layout.Parent = Sidebar
+    Layout.Padding = UDim.new(0, 5)
+    Layout.SortOrder = Enum.SortOrder.LayoutOrder
+
     return MainFrame, Sidebar, TabContentFrame, ScreenGui
+end
+
+function CrimLib.CreateTabContent(name)
+    local frame = Instance.new("Frame")
+    frame.Name = name .. "Content"
+    frame.BackgroundColor3 = COLOR_TOPBAR
+    frame.Size = UDim2.new(1, 0, 1, 0)
+    frame.Visible = false
+    frame.LayoutOrder = 1
+    
+    local ListLayout = Instance.new("UIListLayout")
+    ListLayout.Parent = frame
+    ListLayout.Padding = UDim.new(0, 10)
+    ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    
+    return frame
 end
 
 function CrimLib.CreateTabButton(name, sidebar, index, tabContent)
@@ -107,37 +125,11 @@ function CrimLib.CreateTabButton(name, sidebar, index, tabContent)
     button.TextSize = 14
     button.LayoutOrder = index
     
-    -- UIListLayout в Sidebar автоматически позиционирует кнопки.
-    if sidebar:FindFirstChildOfClass("UIListLayout") == nil then
-        local Layout = Instance.new("UIListLayout")
-        Layout.Parent = sidebar
-        Layout.Padding = UDim.new(0, 5)
-        Layout.SortOrder = Enum.SortOrder.LayoutOrder
-    end
-
     button.MouseButton1Click:Connect(function()
         CrimLib.SwitchTab(tabContent, button)
     end)
 
     return button
-end
-
-function CrimLib.CreateTabContent(name)
-    local frame = Instance.new("Frame")
-    frame.Name = name .. "Content"
-    frame.BackgroundColor3 = COLOR_TOPBAR
-    frame.Size = UDim2.new(1, 0, 1, 0)
-    frame.Visible = false
-    frame.LayoutOrder = 1 -- Всегда первым в списке
-    
-    local ListLayout = Instance.new("UIListLayout")
-    ListLayout.Parent = frame
-    ListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
-    ListLayout.VerticalAlignment = Enum.VerticalAlignment.Top
-    ListLayout.Padding = UDim.new(0, 10)
-    ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    
-    return frame
 end
 
 function CrimLib.SwitchTab(tab, button)
@@ -155,9 +147,7 @@ function CrimLib.SwitchTab(tab, button)
     CurrentTab = tab
 end
 
--- === Control Builders and Visual Logic ===
-
--- Функция обновления визуалов кнопки (используется как при клике, так и при внешнем вызове)
+-- Функция обновления визуалов кнопки (делает ее зеленой/серой)
 function CrimLib.UpdateToggleVisuals(toggleButton, statusLabel, newState)
     local newColor = newState and COLOR_ACCENT or COLOR_OFF
     TweenService:Create(toggleButton, TweenInfo.new(0.15), {BackgroundColor3 = newColor}):Play()
@@ -165,6 +155,7 @@ function CrimLib.UpdateToggleVisuals(toggleButton, statusLabel, newState)
     statusLabel.TextColor3 = newState and COLOR_ACCENT or COLOR_OFF
 end
 
+-- CrimLib.CreateButton: создает кнопку с логикой изменения цвета/статуса
 function CrimLib.CreateButton(parent, name, layoutOrder, stateRef, stateKey, toggleCallback)
     local Toggle = Instance.new("TextButton")
     Toggle.Name = name:gsub("%s", ""):gsub("%-", "") .. "Toggle"
@@ -190,17 +181,15 @@ function CrimLib.CreateButton(parent, name, layoutOrder, stateRef, stateKey, tog
     Status.TextSize = 14
     Status.TextXAlignment = Enum.TextXAlignment.Right
     
-    -- Устанавливаем начальное состояние
     CrimLib.UpdateToggleVisuals(Toggle, Status, stateRef[stateKey])
     
-    -- Логика нажатия: вызывает функцию из main.lua, затем обновляет GUI
+    -- Логика нажатия: вызывает callback из main.lua, затем обновляет визуализацию.
     Toggle.MouseButton1Click:Connect(function()
-        toggleCallback() -- Вызов логики из main.lua
+        toggleCallback() -- Вызов логики (например, ToggleRagebot) из main.lua
         local newState = stateRef[stateKey]
         CrimLib.UpdateToggleVisuals(Toggle, Status, newState)
     end)
 
-    -- Функция для внешнего обновления состояния кнопки (для Keybind/Config)
     Toggle.updateVisuals = function(newState)
         CrimLib.UpdateToggleVisuals(Toggle, Status, newState)
     end
@@ -208,6 +197,7 @@ function CrimLib.CreateButton(parent, name, layoutOrder, stateRef, stateKey, tog
     return Toggle
 end
 
+-- CrimLib.CreateSlider: создает ползунок с логикой изменения цвета и значения
 function CrimLib.CreateSlider(parent, name, layoutOrder, minVal, maxVal, valueRef, valueKey, updateCallback)
     local Frame = Instance.new("Frame")
     Frame.Name = name:gsub("%s", ""):gsub("%-", "") .. "SliderFrame"
@@ -239,8 +229,7 @@ function CrimLib.CreateSlider(parent, name, layoutOrder, minVal, maxVal, valueRe
     SliderBar.Name = "SliderBar"
     SliderBar.Parent = SliderBackground
     SliderBar.BackgroundColor3 = COLOR_ACCENT
-    SliderBar.Position = UDim2.new(0, 0, 0, 0)
-    SliderBar.Size = UDim2.new(0, 0, 1, 0)
+    SliderBar.Position = UDim2.new(0, 0, 1, 0)
     
     local Handle = Instance.new("Frame")
     Handle.Name = "SliderHandle"
@@ -254,7 +243,6 @@ function CrimLib.CreateSlider(parent, name, layoutOrder, minVal, maxVal, valueRe
     
     local isDragging = false
     
-    -- Функция обновления визуалов и значения
     local function updateVisuals(newValue)
         local newRatio = (newValue - minVal) / (maxVal - minVal)
         SliderBar.Size = UDim2.new(newRatio, 0, 1, 0)
@@ -272,8 +260,8 @@ function CrimLib.CreateSlider(parent, name, layoutOrder, minVal, maxVal, valueRe
         local newValue = minVal + ratio * (maxVal - minVal)
         newValue = math.floor(newValue * 100) / 100 
         
-        valueRef[valueKey] = newValue -- Обновление переменной в ConfigData
-        updateVisuals(newValue) -- Визуальное обновление
+        valueRef[valueKey] = newValue 
+        updateVisuals(newValue)
         
         if updateCallback then
             updateCallback(newValue) -- Вызов логики из main.lua
@@ -299,10 +287,7 @@ function CrimLib.CreateSlider(parent, name, layoutOrder, minVal, maxVal, valueRe
         end
     end)
 
-    -- Привязываем функцию внешнего обновления
     Frame.updateVisuals = updateVisuals
-    
-    -- Инициализируем ползунок на основе текущего значения
     updateVisuals(valueRef[valueKey])
     
     return Frame
