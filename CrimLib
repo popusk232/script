@@ -1,5 +1,5 @@
 -- CrimLib.lua
--- Этот файл содержит ТОЛЬКО логику создания и визуального обновления GUI.
+-- Модуль содержит ТОЛЬКО логику создания и визуального обновления GUI.
 
 local CrimLib = {}
 
@@ -12,10 +12,10 @@ local CoreGui = game:GetService("CoreGui")
 local COLOR_MAIN = Color3.fromRGB(25, 25, 25)
 local COLOR_TOPBAR = Color3.fromRGB(35, 35, 35)
 local COLOR_SIDEBAR = Color3.fromRGB(45, 45, 45)
-local COLOR_ACCENT = Color3.fromRGB(70, 200, 70) -- Зеленый (ON)
-local COLOR_OFF = Color3.fromRGB(35, 35, 35)    -- Серый (OFF)
+local COLOR_ACCENT = Color3.fromRGB(70, 200, 70) 
+local COLOR_OFF = Color3.fromRGB(35, 35, 35)    
 local COLOR_TEXT = Color3.fromRGB(255, 255, 255)
-local COLOR_BINDING = Color3.fromRGB(255, 165, 0) -- Оранжевый (Binding)
+local COLOR_BINDING = Color3.fromRGB(255, 165, 0) 
 local FONT = Enum.Font.Gotham
 
 -- Local State
@@ -147,7 +147,6 @@ function CrimLib.SwitchTab(tab, button)
     CurrentTab = tab
 end
 
--- Функция обновления визуалов кнопки (делает ее зеленой/серой)
 function CrimLib.UpdateToggleVisuals(toggleButton, statusLabel, newState)
     local newColor = newState and COLOR_ACCENT or COLOR_OFF
     TweenService:Create(toggleButton, TweenInfo.new(0.15), {BackgroundColor3 = newColor}):Play()
@@ -155,7 +154,6 @@ function CrimLib.UpdateToggleVisuals(toggleButton, statusLabel, newState)
     statusLabel.TextColor3 = newState and COLOR_ACCENT or COLOR_OFF
 end
 
--- CrimLib.CreateButton: создает кнопку с логикой изменения цвета/статуса
 function CrimLib.CreateButton(parent, name, layoutOrder, stateRef, stateKey, toggleCallback)
     local Toggle = Instance.new("TextButton")
     Toggle.Name = name:gsub("%s", ""):gsub("%-", "") .. "Toggle"
@@ -183,9 +181,8 @@ function CrimLib.CreateButton(parent, name, layoutOrder, stateRef, stateKey, tog
     
     CrimLib.UpdateToggleVisuals(Toggle, Status, stateRef[stateKey])
     
-    -- Логика нажатия: вызывает callback из main.lua, затем обновляет визуализацию.
     Toggle.MouseButton1Click:Connect(function()
-        toggleCallback() -- Вызов логики (например, ToggleRagebot) из main.lua
+        toggleCallback()
         local newState = stateRef[stateKey]
         CrimLib.UpdateToggleVisuals(Toggle, Status, newState)
     end)
@@ -197,7 +194,6 @@ function CrimLib.CreateButton(parent, name, layoutOrder, stateRef, stateKey, tog
     return Toggle
 end
 
--- CrimLib.CreateSlider: создает ползунок с логикой изменения цвета и значения
 function CrimLib.CreateSlider(parent, name, layoutOrder, minVal, maxVal, valueRef, valueKey, updateCallback)
     local Frame = Instance.new("Frame")
     Frame.Name = name:gsub("%s", ""):gsub("%-", "") .. "SliderFrame"
@@ -264,7 +260,7 @@ function CrimLib.CreateSlider(parent, name, layoutOrder, minVal, maxVal, valueRe
         updateVisuals(newValue)
         
         if updateCallback then
-            updateCallback(newValue) -- Вызов логики из main.lua
+            updateCallback(newValue)
         end
     end
     
