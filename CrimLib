@@ -1,10 +1,9 @@
 --[[
-    CrimLib - GUI Library (Crim.lua Style)
-    Full implementation of the user interface based on the provided design.
+    RageLib - GUI Library (1:1 ClickGui.lua Style)
+    Полная реализация визуального стиля и функционала Ragebot UI.
 ]]
 
 local Library = {}
-local Components = {}
 
 -- Сервисы Roblox
 local UserInputService = game:GetService("UserInputService")
@@ -12,32 +11,48 @@ local TweenService = game:GetService("TweenService")
 local CoreGui = game:GetService("CoreGui")
 
 -- Настройки GUI
-local GuiToggleKey = Enum.KeyCode.Insert -- Клавиша для открытия/закрытия, как в Crim.lua
+local GuiToggleKey = Enum.KeyCode.Insert -- Клавиша для открытия/закрытия
 local IsGuiVisible = false
 
--- Тема и стили, извлеченные из Crim.lua
-local CrimTheme = {
+-- Тема и стили, извлеченные из ClickGui.lua (Ragebot UI)
+local RageTheme = {
     -- Цвета
-    BACKGROUND = Color3.fromRGB(24, 24, 24),    -- Цвет основного окна
-    SIDEBAR = Color3.fromRGB(18, 18, 18),       -- Цвет боковой панели
-    OUTLINE = Color3.fromRGB(35, 35, 35),       -- Цвет обводки и неактивных элементов
+    BACKGROUND = Color3.fromRGB(20, 20, 20),      -- MainFrame
+    HEADER_SIDEBAR = Color3.fromRGB(18, 18, 18),  -- Header, Sidebar
+    SECTION_BG = Color3.fromRGB(25, 25, 25),      -- Section Background
+    ELEMENT_BG = Color3.fromRGB(28, 28, 28),      -- Toggle/Slider/Button frame
     
-    ACCENT = Color3.fromRGB(70, 200, 70),       -- Акцентный (зеленый) цвет для активных элементов
+    ACCENT_BLUE = Color3.fromRGB(60, 160, 255),   -- Active indicator, Slider progress, Toggle track/knob
+    ACCENT_YELLOW = Color3.fromRGB(255, 200, 50), -- Active Toggle label text
     
-    ELEMENT_TEXT = Color3.fromRGB(255, 255, 255),        -- Белый текст
-    ELEMENT_BACKGROUND_OFF = Color3.fromRGB(35, 35, 35), -- Фон неактивного элемента
-    ELEMENT_BACKGROUND_ON = Color3.fromRGB(70, 200, 70),  -- Фон активного элемента
+    TEXT_MAIN = Color3.fromRGB(255, 255, 255),    -- Title text
+    TEXT_INACTIVE = Color3.fromRGB(200, 200, 200),-- Label text (inactive)
+    TEXT_SECTION = Color3.fromRGB(180, 180, 180), -- Section title text
+    TEXT_SLIDER_VALUE = Color3.fromRGB(255, 255, 255), -- Slider value text (белый)
+    
+    -- Размеры/Шрифты
+    FONT_NORMAL = Enum.Font.Gotham,
+    FONT_BOLD = Enum.Font.GothamBold,
+    TEXT_SIZE_TITLE = 20,
+    TEXT_SIZE_SECTION = 12,
+    TEXT_SIZE_ELEMENT = 13,
+    TEXT_SIZE_VALUE = 10,
 
-    -- Шрифт и размеры
-    FONT = Enum.Font.Gotham,
-    TEXT_SIZE_SMALL = 14,
-    TEXT_SIZE_MEDIUM = 16,
-    TEXT_SIZE_LARGE = 18,
-    WINDOW_SIZE = Vector2.new(700, 500),
-    TAB_WIDTH = 70,
-    COMPONENT_WIDTH = 300,
-    COMPONENT_HEIGHT = 30,
-    PADDING = 10, -- Вертикальный отступ между элементами
+    WINDOW_SIZE = Vector2.new(843, 575),         -- MainFrame size
+    HEADER_HEIGHT = 60,                          -- Header size
+    SIDEBAR_WIDTH = 70,                          -- Sidebar size
+    SECTION_WIDTH = 350,                         -- Section width
+    SECTION_HEIGHT_CONTENT = 475,                -- Content section height
+    SECTION_CORNER = 6,                          -- Section corner radius
+    
+    ELEMENT_HEIGHT = 30,                         -- Toggle/Slider/Button height
+    ELEMENT_CORNER = 4,                          -- Element corner radius
+    PADDING_ELEMENT = 18,                        -- Padding for elements inside section
+    PADDING_SECTION = 18,                        -- Padding from main content to section
+    SPACING_ELEMENT = 5,                         -- Small vertical spacing between elements
+    
+    TOGGLE_TRACK_SIZE = Vector2.new(32, 20),     -- Toggle background size
+    TOGGLE_KNOB_SIZE = Vector2.new(12, 12),      -- Toggle knob size
 }
 
 -- Вспомогательная функция для создания объектов
@@ -49,6 +64,28 @@ local function create(className, properties)
     return obj
 end
 
+-- Вспомогательная функция для обновления Toggle UI
+local function updateToggleUI(frame, state)
+    local Label = frame:FindFirstChild("Label")
+    local ToggleBg = frame:FindFirstChild("ToggleBg")
+    local ToggleButton = ToggleBg:FindFirstChild("ToggleButton")
+    
+    -- Обновление цвета текста
+    Label.TextColor3 = state and RageTheme.ACCENT_YELLOW or RageTheme.TEXT_INACTIVE
+
+    -- Анимация кнопки
+    local targetX = state and 1 or 0
+    TweenService:Create(ToggleButton, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+        BackgroundColor3 = Color3.fromRGB(255, 255, 255), -- Кнопка всегда белая
+        Position = state and UDim2.new(1, -RageTheme.TOGGLE_KNOB_SIZE.X - 4, 0.5, -RageTheme.TOGGLE_KNOB_SIZE.Y / 2) or UDim2.new(0, 4, 0.5, -RageTheme.TOGGLE_KNOB_SIZE.Y / 2)
+    }):Play()
+    
+    -- Анимация трека (фон)
+    TweenService:Create(ToggleBg, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+        BackgroundColor3 = state and RageTheme.ACCENT_BLUE or Color3.fromRGB(20, 20, 20)
+    }):Play()
+end
+
 --================================================================================================================
 -- БИБЛИОТЕКА / ОКНО (Window)
 --================================================================================================================
@@ -57,59 +94,84 @@ local WindowValue = { Tabs = {}, CurrentTab = nil }
 
 function Library:CreateWindow(settings)
     settings = settings or {}
-    
-    -- Проверка на существующий GUI
-    if CoreGui:FindFirstChild("CrimLib_ScreenGui") then
-        warn("CrimLib: GUI already exists.")
-        return CoreGui.CrimLib_ScreenGui.MainFrame.Object
+
+    if CoreGui:FindFirstChild("RagebotUI") then
+        warn("RageLib: GUI already exists.")
+        return CoreGui.RagebotUI.MainFrame.Object
     end
 
-    -- Основной ScreenGui
     local ScreenGui = create("ScreenGui", {
-        Name = "CrimLib_ScreenGui",
+        Name = "RagebotUI",
         Parent = CoreGui,
         DisplayOrder = 999,
         IgnoreGuiInset = true,
         ResetOnSpawn = false,
+        ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     })
 
-    -- Главный фрейм (Окно)
     local MainFrame = create("Frame", {
         Name = "MainFrame",
         Parent = ScreenGui,
-        Size = UDim2.fromOffset(CrimTheme.WINDOW_SIZE.X, CrimTheme.WINDOW_SIZE.Y),
-        Position = UDim2.new(0.5, -CrimTheme.WINDOW_SIZE.X / 2, 0.5, -CrimTheme.WINDOW_SIZE.Y / 2), -- Центрирование
-        BackgroundColor3 = CrimTheme.BACKGROUND,
-        BackgroundTransparency = 0.1, -- Небольшая прозрачность
-        ZIndex = 2,
+        Size = UDim2.fromOffset(RageTheme.WINDOW_SIZE.X, RageTheme.WINDOW_SIZE.Y),
+        Position = UDim2.new(0.5, -RageTheme.WINDOW_SIZE.X / 2, 0.5, -RageTheme.WINDOW_SIZE.Y / 2),
+        BackgroundColor3 = RageTheme.BACKGROUND,
+        BorderSizePixel = 0,
+        Visible = IsGuiVisible,
+        Active = true,
     })
 
     create("UICorner", {
         CornerRadius = UDim.new(0, 8),
         Parent = MainFrame,
     })
-    
-    -- Обводка основного фрейма
-    create("UIStroke", {
-        Color = CrimTheme.OUTLINE,
-        Thickness = 1,
-        Parent = MainFrame
+
+    -- Хедер (для перетаскивания и заголовка)
+    local Header = create("Frame", {
+        Name = "Header",
+        Parent = MainFrame,
+        BackgroundColor3 = RageTheme.HEADER_SIDEBAR,
+        BorderSizePixel = 0,
+        Size = UDim2.new(1, 0, 0, RageTheme.HEADER_HEIGHT),
+        Active = true, -- Сделать активным для перетаскивания
+        ZIndex = 2
+    })
+
+    create("UICorner", {
+        CornerRadius = UDim.new(0, 8),
+        Parent = Header,
+    })
+
+    -- Заголовок
+    create("TextLabel", {
+        Name = "Title",
+        Parent = Header,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0, RageTheme.SIDEBAR_WIDTH, 0, 18),
+        Size = UDim2.new(0, 200, 0, 24),
+        Font = RageTheme.FONT_BOLD,
+        Text = settings.Name or "Ragebot",
+        TextColor3 = RageTheme.TEXT_MAIN,
+        TextSize = RageTheme.TEXT_SIZE_TITLE,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 3
     })
 
     -- Боковая панель для вкладок
-    local SidebarFrame = create("Frame", {
-        Name = "SidebarFrame",
+    local Sidebar = create("Frame", {
+        Name = "Sidebar",
         Parent = MainFrame,
-        Size = UDim2.new(0, CrimTheme.TAB_WIDTH, 1, 0),
-        BackgroundColor3 = CrimTheme.SIDEBAR,
-        ZIndex = 3,
+        BackgroundColor3 = RageTheme.HEADER_SIDEBAR,
+        BorderSizePixel = 0,
+        Position = UDim2.new(0, 0, 0, RageTheme.HEADER_HEIGHT),
+        Size = UDim2.new(0, RageTheme.SIDEBAR_WIDTH, 1, -RageTheme.HEADER_HEIGHT),
+        ZIndex = 2
     })
     
     create("UIListLayout", {
         Name = "TabListLayout",
-        Parent = SidebarFrame,
+        Parent = Sidebar,
         SortOrder = Enum.SortOrder.LayoutOrder,
-        Padding = UDim.new(0, 0), -- Вкладки вплотную друг к другу
+        Padding = UDim.new(0, 10), -- Небольшой отступ между вкладками
         HorizontalAlignment = Enum.HorizontalAlignment.Center,
         VerticalAlignment = Enum.VerticalAlignment.Top,
     })
@@ -118,81 +180,47 @@ function Library:CreateWindow(settings)
     local ContentFrame = create("Frame", {
         Name = "ContentFrame",
         Parent = MainFrame,
-        Size = UDim2.new(1, -CrimTheme.TAB_WIDTH, 1, 0),
-        Position = UDim2.new(0, CrimTheme.TAB_WIDTH, 0, 0),
         BackgroundTransparency = 1,
+        Position = UDim2.new(0, RageTheme.SIDEBAR_WIDTH, 0, RageTheme.HEADER_HEIGHT),
+        Size = UDim2.new(1, -RageTheme.SIDEBAR_WIDTH, 1, -RageTheme.HEADER_HEIGHT),
         ClipsDescendants = true,
-        ZIndex = 2,
     })
     
-    local TabPages = create("Frame", {
-        Name = "TabPages",
+    local TabContainer = create("Frame", {
+        Name = "TabContainer",
         Parent = ContentFrame,
+        BackgroundTransparency = 1,
         Size = UDim2.new(1, 0, 1, 0),
-        BackgroundTransparency = 1,
-        ClipsDescendants = true,
-        ZIndex = 2,
-    })
-    
-    create("UIPageLayout", {
-        Name = "UIPageLayout",
-        Parent = TabPages,
-        SortOrder = Enum.SortOrder.LayoutOrder,
-        Padding = UDim.new(0, 0),
-        Animation = Enum.LayoutAnimation.None,
+        Visible = true,
     })
 
-    -- Заголовок окна (в основном контенте, слева)
-    local TitleLabel = create("TextLabel", {
-        Name = "TitleLabel",
-        Parent = ContentFrame,
-        Text = settings.Name or "Crimfield GUI",
-        Size = UDim2.new(1, 0, 0, 30),
-        Position = UDim2.new(0, 0, 0, 0),
-        Font = CrimTheme.FONT,
-        TextSize = CrimTheme.TEXT_SIZE_LARGE,
-        TextColor3 = CrimTheme.ACCENT,
-        BackgroundTransparency = 1,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        TextWrapped = true,
-        TextScaled = false,
-        Padding = UDim.new(0, 15), -- Небольшой отступ слева
-        ZIndex = 3,
-    })
-    
-    -- Логика перетаскивания (Draggable)
+    -- Логика перетаскивания (только за хедер)
     local isDragging = false
-    local dragOffset = Vector2.new()
-
-    local DragInput = MainFrame:FindFirstChild("TitleLabel") or MainFrame -- Можно перетаскивать за весь фрейм
+    local dragStart = Vector2.new()
+    local startPos = UDim2.new()
     
-    local function startDrag(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+    local function update(input)
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+    
+    Header.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
             isDragging = true
-            local mousePos = UserInputService:GetMouseLocation()
-            dragOffset = mousePos - MainFrame.AbsolutePosition
+            dragStart = input.Position
+            startPos = MainFrame.Position
         end
-    end
+    end)
     
-    local function endDrag()
-        isDragging = false
-    end
-
-    MainFrame.InputBegan:Connect(function(input, gameProcessed)
-        if gameProcessed then return end
-        startDrag(input)
-    end)
-    MainFrame.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            endDrag()
+    UserInputService.InputChanged:Connect(function(input)
+        if isDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            update(input)
         end
     end)
-
-    UserInputService.InputChanged:Connect(function(input)
-        if isDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            local mousePos = UserInputService:GetMouseLocation()
-            local newPos = mousePos - dragOffset
-            MainFrame.Position = UDim2.fromOffset(newPos.X, newPos.Y)
+    
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            isDragging = false
         end
     end)
     
@@ -202,117 +230,177 @@ function Library:CreateWindow(settings)
         if input.KeyCode == GuiToggleKey then
             IsGuiVisible = not IsGuiVisible
             MainFrame.Visible = IsGuiVisible
-            
-            -- Управление поведением мыши (как в Crim.lua)
-            if IsGuiVisible then
-                UserInputService.MouseBehavior = Enum.MouseBehavior.Default
-            else
-                UserInputService.MouseBehavior = Enum.MouseBehavior.Default -- Crim.lua использует Default в обоих случаях
-            end
         end
     end)
-    
-    MainFrame.Visible = IsGuiVisible
 
-    -- Логика переключения вкладок
-    local function switchTab(tabButton, tabPage)
-        if WindowValue.CurrentTab then
-            -- Сброс стиля предыдущей кнопки
-            WindowValue.CurrentTab.Button.Border.Color = CrimTheme.SIDEBAR
-            WindowValue.CurrentTab.Button.Title.TextColor3 = CrimTheme.OUTLINE
-        end
-        
-        -- Установка стиля активной кнопки (зеленый индикатор - как в Crim.lua)
-        tabButton.Border.Color = CrimTheme.ACCENT
-        tabButton.Title.TextColor3 = CrimTheme.ELEMENT_TEXT
-
-        -- Переключение страницы
-        TabPages.UIPageLayout:JumpTo(tabPage)
-        
-        WindowValue.CurrentTab = { Button = tabButton, Page = tabPage }
-    end
-    
     --================================================================================================================
     -- ВКЛАДКА (Tab)
     --================================================================================================================
 
-    function WindowValue:CreateTab(tabSettings)
-        local TabValue = { Elements = {} }
+    local tabIndexCounter = 0
+    local function switchTab(tabIndex, tabButtonFrame, tabContentPage)
+        -- Деактивация всех
+        for _, tab in pairs(WindowValue.Tabs) do
+            tab.Frame.BackgroundColor3 = RageTheme.HEADER_SIDEBAR
+            TweenService:Create(tab.Indicator, TweenInfo.new(0.2), {Size = UDim2.new(0, 0, 1, 0)}):Play()
+            tab.Page.Visible = false
+        end
         
-        -- Контейнер страницы вкладки
-        local TabPage = create("Frame", {
+        -- Активация текущей
+        TweenService:Create(tabButtonFrame, TweenInfo.new(0.2), {BackgroundColor3 = RageTheme.SECTION_BG}):Play()
+        TweenService:Create(tabButtonFrame:FindFirstChild("Indicator"), TweenInfo.new(0.2), {Size = UDim2.new(0, 4, 1, 0)}):Play()
+        
+        tabContentPage.Visible = true
+        
+        WindowValue.CurrentTab = tabIndex
+        -- Не меняем Title.Text, т.к. в ClickGui.lua он остается Ragebot
+    end
+    
+    function WindowValue:CreateTab(tabSettings)
+        tabIndexCounter = tabIndexCounter + 1
+        local TabValue = { Elements = {}, Columns = {} }
+        
+        -- Контейнер страницы вкладки (TabContentPage)
+        local TabContentPage = create("Frame", {
             Name = tabSettings.Name,
-            Parent = TabPages,
+            Parent = TabContainer,
             BackgroundTransparency = 1,
-            Size = UDim2.new(1, 0, 1, -30), -- Вычитаем высоту заголовка
-            Position = UDim2.new(0, 0, 0, 30),
-            ClipsDescendants = true,
-        })
-
-        -- Фрейм для размещения элементов с отступами
-        local ContentArea = create("Frame", {
-            Name = "ContentArea",
-            Parent = TabPage,
-            Size = UDim2.new(1, -20, 1, -20), -- Отступ 10px по краям
-            Position = UDim2.new(0, 10, 0, 10),
-            BackgroundTransparency = 1,
-        })
-
-        -- Размещение элементов внутри вкладки (по вертикали)
-        create("UIListLayout", {
-            Parent = ContentArea,
-            SortOrder = Enum.SortOrder.LayoutOrder,
-            Padding = UDim.new(0, CrimTheme.PADDING),
-            HorizontalAlignment = Enum.HorizontalAlignment.Left,
-            VerticalAlignment = Enum.VerticalAlignment.Top,
-            FillDirection = Enum.FillDirection.Vertical,
+            Size = UDim2.new(1, 0, 1, 0),
+            Visible = false,
         })
         
         -- Кнопка вкладки в Sidebar
+        local TabButtonFrame = create("Frame", {
+            Name = "Tab_" .. tabIndexCounter,
+            Parent = Sidebar,
+            BackgroundColor3 = RageTheme.HEADER_SIDEBAR,
+            BorderSizePixel = 0,
+            Size = UDim2.new(1, 0, 0, 60), -- Tab size 60
+        })
+        
+        local ActiveIndicator = create("Frame", {
+            Name = "Indicator",
+            Parent = TabButtonFrame,
+            BackgroundColor3 = RageTheme.ACCENT_BLUE,
+            BorderSizePixel = 0,
+            Position = UDim2.new(0, 0, 0, 0),
+            Size = UDim2.new(0, 0, 1, 0), -- Изначально 0 ширина
+        })
+        
+        -- Текст/Иконка вкладки
+        create("TextLabel", {
+            Name = "Icon",
+            Parent = TabButtonFrame,
+            BackgroundTransparency = 1,
+            Size = UDim2.new(1, 0, 1, 0),
+            Font = RageTheme.FONT_BOLD,
+            Text = tabSettings.Name, 
+            TextColor3 = RageTheme.TEXT_MAIN,
+            TextSize = RageTheme.TEXT_SIZE_TITLE,
+            ZIndex = 3
+        })
+        
         local TabButton = create("TextButton", {
-            Name = tabSettings.Name .. "Tab",
-            Parent = SidebarFrame,
-            Size = UDim2.new(1, 0, 0, CrimTheme.TAB_WIDTH),
+            Name = "TabButton",
+            Parent = TabButtonFrame,
             BackgroundTransparency = 1,
-            ZIndex = 4,
-        })
-        
-        -- Визуальный индикатор/обводка (Crim.lua style)
-        local Border = create("Frame", {
-            Name = "Border",
-            Parent = TabButton,
             Size = UDim2.new(1, 0, 1, 0),
-            BackgroundTransparency = 1,
-            ZIndex = 5,
-        })
-        
-        create("UIStroke", {
-            Name = "UIStroke",
-            Color = CrimTheme.SIDEBAR,
-            Thickness = 2,
-            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-            Parent = Border,
-        })
-
-        local Title = create("TextLabel", {
-            Name = "Title",
-            Parent = TabButton,
-            Text = tabSettings.Name,
-            Size = UDim2.new(1, 0, 1, 0),
-            BackgroundTransparency = 1,
-            Font = CrimTheme.FONT,
-            TextSize = CrimTheme.TEXT_SIZE_SMALL,
-            TextColor3 = CrimTheme.OUTLINE, -- Неактивный текст
-            TextXAlignment = Enum.TextXAlignment.Center,
+            Text = "",
+            ZIndex = 4
         })
 
         TabButton.MouseButton1Click:Connect(function()
-            switchTab(Border, TabPage)
+            switchTab(tabIndexCounter, TabButtonFrame, TabContentPage)
         end)
         
+        -- Hover эффект
+        TabButton.MouseEnter:Connect(function()
+            if WindowValue.CurrentTab ~= tabIndexCounter then
+                TweenService:Create(TabButtonFrame, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(22, 22, 22)}):Play()
+            end
+        end)
+        
+        TabButton.MouseLeave:Connect(function()
+            if WindowValue.CurrentTab ~= tabIndexCounter then
+                TweenService:Create(TabButtonFrame, TweenInfo.new(0.15), {BackgroundColor3 = RageTheme.HEADER_SIDEBAR}):Play()
+            end
+        end)
+        
+        -- Добавляем колонки/секции
+        local SectionNames = {"GLOBALS", "AIMBOT"} -- Как в ClickGui.lua
+        for i = 1, 2 do 
+            local SectionFrame = create("Frame", {
+                Name = "Section" .. i,
+                Parent = TabContentPage,
+                BackgroundColor3 = RageTheme.SECTION_BG,
+                BorderSizePixel = 0,
+                Position = UDim2.new(0, RageTheme.PADDING_SECTION + (i - 1) * (RageTheme.SECTION_WIDTH + RageTheme.PADDING_SECTION), RageTheme.PADDING_SECTION, 0),
+                Size = UDim2.new(0, RageTheme.SECTION_WIDTH, 0, RageTheme.SECTION_HEIGHT_CONTENT),
+                ClipsDescendants = false,
+                ZIndex = 2
+            })
+
+            create("UICorner", {
+                CornerRadius = UDim.new(0, RageTheme.SECTION_CORNER),
+                Parent = SectionFrame,
+            })
+            
+            -- Заголовок секции
+            create("TextLabel", {
+                Name = "Title",
+                Parent = SectionFrame,
+                BackgroundTransparency = 1,
+                Position = UDim2.new(0, RageTheme.PADDING_ELEMENT, 0, 10),
+                Size = UDim2.new(1, -RageTheme.PADDING_ELEMENT * 2, 0, 25),
+                Font = RageTheme.FONT_BOLD,
+                Text = SectionNames[i],
+                TextColor3 = RageTheme.TEXT_SECTION,
+                TextSize = RageTheme.TEXT_SIZE_SECTION,
+                TextXAlignment = Enum.TextXAlignment.Left,
+            })
+            
+            -- Контейнер для элементов с авторазметкой
+            local List = create("Frame", {
+                Name = "List",
+                Parent = SectionFrame,
+                BackgroundTransparency = 1,
+                Position = UDim2.new(0, 0, 0, 45), -- Начало после заголовка
+                Size = UDim2.new(1, 0, 1, -45),
+            })
+            
+            create("UIListLayout", {
+                Parent = List,
+                SortOrder = Enum.SortOrder.LayoutOrder,
+                Padding = UDim.new(0, RageTheme.SPACING_ELEMENT),
+                HorizontalAlignment = Enum.HorizontalAlignment.Center,
+                VerticalAlignment = Enum.VerticalAlignment.Top,
+                FillDirection = Enum.FillDirection.Vertical,
+            })
+            
+            TabValue.Columns[i] = { Frame = List, ComponentCount = 0 }
+        end
+        
+        WindowValue.Tabs[tabIndexCounter] = { 
+            Name = tabSettings.Name, 
+            Frame = TabButtonFrame, 
+            Indicator = ActiveIndicator, 
+            Page = TabContentPage 
+        }
+
         -- Автоматический выбор первой созданной вкладки
-        if not WindowValue.CurrentTab then
-            switchTab(Border, TabPage)
+        if tabIndexCounter == 1 then
+            switchTab(1, TabButtonFrame, TabContentPage)
+        end
+
+        -- Вспомогательная функция для добавления элемента в колонку с наименьшим количеством элементов
+        local function getNextColumn()
+            if TabValue.Columns[1].ComponentCount <= TabValue.Columns[2].ComponentCount then
+                TabValue.Columns[1].ComponentCount = TabValue.Columns[1].ComponentCount + 1
+                return TabValue.Columns[1].Frame
+            else
+                TabValue.Columns[2].ComponentCount = TabValue.Columns[2].ComponentCount + 1
+                return TabValue.Columns[2].Frame
+            end
         end
 
         --================================================================================================================
@@ -321,62 +409,100 @@ function Library:CreateWindow(settings)
 
         -- Переключатель (Toggle)
         function TabValue:CreateToggle(elementSettings)
+            local Parent = getNextColumn()
             local ToggleValue = elementSettings.Default or false
-            local ToggleFrame = create("TextButton", {
+            
+            local ToggleFrame = create("Frame", {
                 Name = elementSettings.Name .. "Toggle",
-                Parent = ContentArea,
-                Size = UDim2.new(0, CrimTheme.COMPONENT_WIDTH, 0, CrimTheme.COMPONENT_HEIGHT),
-                BackgroundColor3 = ToggleValue and CrimTheme.ELEMENT_BACKGROUND_ON or CrimTheme.ELEMENT_BACKGROUND_OFF,
-                Font = CrimTheme.FONT,
-                Text = elementSettings.Name,
-                TextColor3 = CrimTheme.ELEMENT_TEXT,
-                TextSize = CrimTheme.TEXT_SIZE_SMALL,
-                TextXAlignment = Enum.TextXAlignment.Left,
-                TextLabel = UDim.new(0, 15), -- Отступ слева для текста
+                Parent = Parent,
+                Size = UDim2.new(1, -RageTheme.PADDING_ELEMENT * 2, 0, RageTheme.ELEMENT_HEIGHT),
+                BackgroundColor3 = RageTheme.ELEMENT_BG,
+                BorderSizePixel = 0,
+                ZIndex = 5
             })
-            create("UICorner", { Parent = ToggleFrame })
-
-            local StatusLabel = create("TextLabel", {
-                Name = "Status",
+            create("UICorner", { CornerRadius = UDim.new(0, RageTheme.ELEMENT_CORNER), Parent = ToggleFrame })
+            
+            local Label = create("TextLabel", {
+                Name = "Label",
                 Parent = ToggleFrame,
                 BackgroundTransparency = 1,
-                Size = UDim2.new(0, 40, 1, 0),
-                Position = UDim2.new(1, -55, 0, 0), -- Отступ справа
-                Font = CrimTheme.FONT,
-                Text = ToggleValue and "ON" or "OFF",
-                TextColor3 = CrimTheme.ELEMENT_TEXT,
-                TextSize = CrimTheme.TEXT_SIZE_SMALL,
-                TextXAlignment = Enum.TextXAlignment.Right,
+                Position = UDim2.new(0, 12, 0, 0),
+                Size = UDim2.new(0, 250, 1, 0),
+                Font = RageTheme.FONT_NORMAL,
+                Text = elementSettings.Name,
+                TextColor3 = ToggleValue and RageTheme.ACCENT_YELLOW or RageTheme.TEXT_INACTIVE,
+                TextSize = RageTheme.TEXT_SIZE_ELEMENT,
+                TextXAlignment = Enum.TextXAlignment.Left,
+            })
+            
+            -- Трек переключателя (фон)
+            local ToggleBg = create("Frame", {
+                Name = "ToggleBg",
+                Parent = ToggleFrame,
+                BackgroundColor3 = ToggleValue and RageTheme.ACCENT_BLUE or Color3.fromRGB(20, 20, 20),
+                BorderSizePixel = 0,
+                Position = UDim2.new(1, -45, 0.5, -RageTheme.TOGGLE_TRACK_SIZE.Y / 2),
+                Size = UDim2.new(0, RageTheme.TOGGLE_TRACK_SIZE.X, 0, RageTheme.TOGGLE_TRACK_SIZE.Y),
+                ZIndex = 6
+            })
+            create("UICorner", { CornerRadius = UDim.new(1, 0), Parent = ToggleBg })
+            
+            -- Кнопка (Knob)
+            local KnobSize = RageTheme.TOGGLE_KNOB_SIZE
+            local ToggleButton = create("Frame", {
+                Name = "ToggleButton",
+                Parent = ToggleBg,
+                BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                BorderSizePixel = 0,
+                Position = ToggleValue and UDim2.new(1, -KnobSize.X - 4, 0.5, -KnobSize.Y / 2) or UDim2.new(0, 4, 0.5, -KnobSize.Y / 2),
+                Size = UDim2.new(0, KnobSize.X, 0, KnobSize.Y),
+                ZIndex = 7
+            })
+            create("UICorner", { CornerRadius = UDim.new(1, 0), Parent = ToggleButton })
+            
+            local Hitbox = create("TextButton", {
+                Name = "Hitbox",
+                Parent = ToggleFrame,
+                BackgroundTransparency = 1,
+                Size = UDim2.new(1, 0, 1, 0),
+                Text = "",
+                ZIndex = 8
             })
 
             local function updateToggle(newValue)
                 ToggleValue = newValue
-                TweenService:Create(ToggleFrame, TweenInfo.new(0.2), {
-                    BackgroundColor3 = ToggleValue and CrimTheme.ELEMENT_BACKGROUND_ON or CrimTheme.ELEMENT_BACKGROUND_OFF
-                }):Play()
-                
-                StatusLabel.Text = ToggleValue and "ON" or "OFF"
+                updateToggleUI(ToggleFrame, ToggleValue)
                 
                 if elementSettings.Callback then
                     pcall(elementSettings.Callback, ToggleValue)
                 end
             end
             
-            ToggleFrame.MouseButton1Click:Connect(function()
+            Hitbox.MouseButton1Click:Connect(function()
                 updateToggle(not ToggleValue)
             end)
             
-            updateToggle(ToggleValue) -- Инициализация состояния
+            -- Hover эффект
+            ToggleFrame.MouseEnter:Connect(function()
+                TweenService:Create(ToggleFrame, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {
+                    BackgroundColor3 = Color3.fromRGB(32, 32, 32)
+                }):Play()
+            end)
+            
+            ToggleFrame.MouseLeave:Connect(function()
+                TweenService:Create(ToggleFrame, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {
+                    BackgroundColor3 = RageTheme.ELEMENT_BG
+                }):Play()
+            end)
 
-            return {
-                Name = elementSettings.Name,
-                Value = ToggleValue,
-                Set = updateToggle
-            }
+            updateToggleUI(ToggleFrame, ToggleValue) -- Инициализация
+
+            return { Name = elementSettings.Name, Value = ToggleValue, Set = updateToggle }
         end
         
         -- Слайдер (Slider)
         function TabValue:CreateSlider(elementSettings)
+            local Parent = getNextColumn()
             local MIN = elementSettings.Min or 0
             local MAX = elementSettings.Max or 100
             local STEP = elementSettings.Step or 1
@@ -384,107 +510,120 @@ function Library:CreateWindow(settings)
             
             local SliderFrame = create("Frame", {
                 Name = elementSettings.Name .. "Slider",
-                Parent = ContentArea,
-                Size = UDim2.new(0, CrimTheme.COMPONENT_WIDTH, 0, 50), 
-                BackgroundTransparency = 1,
+                Parent = Parent,
+                Size = UDim2.new(1, -RageTheme.PADDING_ELEMENT * 2, 0, RageTheme.ELEMENT_HEIGHT),
+                BackgroundColor3 = RageTheme.ELEMENT_BG,
+                BorderSizePixel = 0,
+                ZIndex = 5
             })
+            create("UICorner", { CornerRadius = UDim.new(0, RageTheme.ELEMENT_CORNER), Parent = SliderFrame })
             
             local Label = create("TextLabel", {
                 Name = "Label",
                 Parent = SliderFrame,
-                Size = UDim2.new(1, 0, 0, 20),
-                Position = UDim2.new(0, 0, 0, 0),
                 BackgroundTransparency = 1,
-                Font = CrimTheme.FONT,
-                Text = elementSettings.Name .. ": " .. tostring(CurrentValue),
-                TextColor3 = CrimTheme.ELEMENT_TEXT,
-                TextSize = CrimTheme.TEXT_SIZE_SMALL,
+                Position = UDim2.new(0, 12, 0, 0),
+                Size = UDim2.new(0, 200, 1, 0),
+                Font = RageTheme.FONT_NORMAL,
+                Text = elementSettings.Name,
+                TextColor3 = RageTheme.TEXT_INACTIVE,
+                TextSize = RageTheme.TEXT_SIZE_ELEMENT,
                 TextXAlignment = Enum.TextXAlignment.Left,
             })
-
-            local SliderBar = create("Frame", {
-                Name = "SliderBar",
-                Parent = SliderFrame,
-                Size = UDim2.new(1, 0, 0, 8),
-                Position = UDim2.new(0, 0, 0, 30),
-                BackgroundColor3 = CrimTheme.ELEMENT_BACKGROUND_OFF,
-            })
-            create("UICorner", { CornerRadius = UDim.new(0, 4), Parent = SliderBar })
-
-            local ProgressFill = create("Frame", {
-                Name = "ProgressFill",
-                Parent = SliderBar,
-                Size = UDim2.new(0, 0, 1, 0),
-                Position = UDim2.new(0, 0, 0, 0),
-                BackgroundColor3 = CrimTheme.ACCENT,
-            })
-            create("UICorner", { CornerRadius = UDim.new(0, 4), Parent = ProgressFill })
-
-            local Knob = create("TextButton", {
-                Name = "Knob",
-                Parent = SliderBar,
-                Size = UDim2.new(0, 15, 0, 15),
-                BackgroundColor3 = CrimTheme.ELEMENT_TEXT, -- Белый ползунок
-                Text = "",
-            })
-            create("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = Knob }) -- Круглый ползунок
             
-            local isDragging = false
+            local ValueLabel = create("TextLabel", {
+                Name = "ValueLabel",
+                Parent = SliderFrame,
+                BackgroundTransparency = 1,
+                Position = UDim2.new(1, -45, 0, 0),
+                Size = UDim2.new(0, 38, 1, 0),
+                Font = RageTheme.FONT_BOLD,
+                Text = tostring(CurrentValue),
+                TextColor3 = RageTheme.TEXT_SLIDER_VALUE,
+                TextSize = RageTheme.TEXT_SIZE_VALUE,
+                TextXAlignment = Enum.TextXAlignment.Right,
+                ZIndex = 6
+            })
 
-            local function updateSlider(newValue)
+            -- Трек ползунка
+            local SliderTrack = create("Frame", {
+                Name = "SliderTrack",
+                Parent = SliderFrame,
+                BackgroundColor3 = Color3.fromRGB(25, 25, 25),
+                BorderSizePixel = 0,
+                Position = UDim2.new(0, 12, 1, -12),
+                Size = UDim2.new(1, -55, 0, 4),
+                ZIndex = 6
+            })
+            create("UICorner", { CornerRadius = UDim.new(1, 0), Parent = SliderTrack })
+            
+            local SliderFill = create("Frame", {
+                Name = "SliderFill",
+                Parent = SliderTrack,
+                BackgroundColor3 = RageTheme.ACCENT_BLUE,
+                BorderSizePixel = 0,
+                Size = UDim2.new(0, 0, 1, 0),
+                ZIndex = 7
+            })
+            create("UICorner", { CornerRadius = UDim.new(1, 0), Parent = SliderFill })
+
+            local SliderThumb = create("Frame", {
+                Name = "SliderThumb",
+                Parent = SliderTrack,
+                BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+                BorderColor3 = RageTheme.ACCENT_BLUE,
+                BorderSizePixel = 2,
+                Position = UDim2.new(0, -8, 0.5, -8),
+                Size = UDim2.new(0, 16, 0, 16),
+                ZIndex = 8
+            })
+            create("UICorner", { CornerRadius = UDim.new(1, 0), Parent = SliderThumb })
+
+            local isDragging = false
+            local function updateSlider(input)
+                local barPos = SliderTrack.AbsolutePosition
+                local barWidth = SliderTrack.AbsoluteSize.X
+                local mousePos = input.UserInputType == Enum.UserInputType.MouseMovement and UserInputService:GetMouseLocation() or input.Position
+                
+                local relativeX = math.clamp(mousePos.X - barPos.X, 0, barWidth)
+                local normalized = relativeX / barWidth
+                local newValue = MIN + (normalized * (MAX - MIN))
+                
                 -- Применение шага и ограничение
                 local value = math.floor(newValue / STEP + 0.5) * STEP
                 value = math.max(MIN, math.min(MAX, value))
                 
                 CurrentValue = value
                 
-                local normalized = (CurrentValue - MIN) / (MAX - MIN)
-                local knobSize = Knob.AbsoluteSize.X
+                local normalizedValue = (value - MIN) / (MAX - MIN)
+                local delta = math.clamp(normalizedValue, 0, 1)
+
+                -- Обновление текста
+                ValueLabel.Text = string.format("%.f", value) 
                 
                 -- Обновление UI
-                TweenService:Create(ProgressFill, TweenInfo.new(0.1), { Size = UDim2.new(normalized, 0, 1, 0) }):Play()
-                TweenService:Create(Knob, TweenInfo.new(0.1), { Position = UDim2.new(normalized, -(knobSize / 2), 0.5, -(knobSize / 2)) }):Play()
-                
-                Label.Text = string.format("%s: %.f", elementSettings.Name, CurrentValue)
-                
+                TweenService:Create(SliderFill, TweenInfo.new(0.1), { Size = UDim2.new(delta, 0, 1, 0) }):Play()
+                TweenService:Create(SliderThumb, TweenInfo.new(0.1), { Position = UDim2.new(delta, -8, 0.5, -8) }):Play()
+
                 if elementSettings.Callback then
                     pcall(elementSettings.Callback, CurrentValue)
                 end
             end
-
-            local function getValueFromInput(input)
-                local barPos = SliderBar.AbsolutePosition
-                local barWidth = SliderBar.AbsoluteSize.X
-                local mousePos = input.UserInputType == Enum.UserInputType.MouseMovement and UserInputService:GetMouseLocation() or input.Position
-                
-                local relativeX = math.clamp(mousePos.X - barPos.X, 0, barWidth)
-                local normalized = relativeX / barWidth
-                local newValue = MIN + (normalized * (MAX - MIN))
-                return newValue
+            
+            -- Логика перетаскивания (события)
+            local function handleInput(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    isDragging = true
+                    updateSlider(input)
+                end
             end
             
-            Knob.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    isDragging = true
-                end
-            end)
-            Knob.InputEnded:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    isDragging = false
-                end
-            end)
-            
-            -- Позволяет начать перетаскивание с любого места на SliderBar
-            SliderBar.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    isDragging = true
-                    updateSlider(getValueFromInput(input))
-                end
-            end)
+            SliderTrack.InputBegan:Connect(handleInput)
+            SliderThumb.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then isDragging = true end end)
             
             UserInputService.InputChanged:Connect(function(input)
                 if isDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-                    updateSlider(getValueFromInput(input))
+                    updateSlider(input)
                 end
             end)
             
@@ -493,56 +632,81 @@ function Library:CreateWindow(settings)
                     isDragging = false
                 end
             end)
+            
+            -- Hover эффект
+            SliderFrame.MouseEnter:Connect(function()
+                TweenService:Create(SliderFrame, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {
+                    BackgroundColor3 = Color3.fromRGB(32, 32, 32)
+                }):Play()
+            end)
+            
+            SliderFrame.MouseLeave:Connect(function()
+                TweenService:Create(SliderFrame, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {
+                    BackgroundColor3 = RageTheme.ELEMENT_BG
+                }):Play()
+            end)
 
-            updateSlider(CurrentValue) -- Инициализация состояния
+            updateSlider({Position = Vector2.new()}) -- Инициализация
 
-            return {
-                Name = elementSettings.Name,
-                Value = CurrentValue,
-                Set = updateSlider,
-            }
+            return { Name = elementSettings.Name, Value = CurrentValue, Set = function(v) CurrentValue = v; updateSlider({Position = Vector2.new()}) end }
         end
 
         -- Кнопка (Button)
         function TabValue:CreateButton(elementSettings)
+            local Parent = getNextColumn()
+            
             local ButtonFrame = create("TextButton", {
                 Name = elementSettings.Name .. "Button",
-                Parent = ContentArea,
-                Size = UDim2.new(0, CrimTheme.COMPONENT_WIDTH, 0, CrimTheme.COMPONENT_HEIGHT),
-                BackgroundColor3 = CrimTheme.ELEMENT_BACKGROUND_OFF,
-                Font = CrimTheme.FONT,
+                Parent = Parent,
+                Size = UDim2.new(1, -RageTheme.PADDING_ELEMENT * 2, 0, RageTheme.ELEMENT_HEIGHT),
+                BackgroundColor3 = RageTheme.ELEMENT_BG,
+                BorderSizePixel = 0,
+                Font = RageTheme.FONT_NORMAL,
                 Text = elementSettings.Name,
-                TextColor3 = CrimTheme.ELEMENT_TEXT,
-                TextSize = CrimTheme.TEXT_SIZE_SMALL,
+                TextColor3 = RageTheme.TEXT_INACTIVE,
+                TextSize = RageTheme.TEXT_SIZE_ELEMENT,
             })
-            create("UICorner", { Parent = ButtonFrame })
+            create("UICorner", { CornerRadius = UDim.new(0, RageTheme.ELEMENT_CORNER), Parent = ButtonFrame })
 
             ButtonFrame.MouseButton1Click:Connect(function()
                 if elementSettings.Callback then
                     pcall(elementSettings.Callback)
                 end
             end)
+            
+            -- Hover эффект
+            ButtonFrame.MouseEnter:Connect(function()
+                TweenService:Create(ButtonFrame, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {
+                    BackgroundColor3 = Color3.fromRGB(32, 32, 32)
+                }):Play()
+            end)
+            
+            ButtonFrame.MouseLeave:Connect(function()
+                TweenService:Create(ButtonFrame, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {
+                    BackgroundColor3 = RageTheme.ELEMENT_BG
+                }):Play()
+            end)
 
-            return {
-                Name = elementSettings.Name,
-            }
+            return { Name = elementSettings.Name }
         end
         
         -- Бинды клавиш (Keybind)
         function TabValue:CreateKeybind(elementSettings)
+            local Parent = getNextColumn()
             local CurrentKey = elementSettings.Default or "NONE"
             local isCapturing = false
 
             local KeybindFrame = create("TextButton", {
                 Name = elementSettings.Name .. "Keybind",
-                Parent = ContentArea,
-                Size = UDim2.new(0, CrimTheme.COMPONENT_WIDTH, 0, CrimTheme.COMPONENT_HEIGHT),
-                BackgroundColor3 = CrimTheme.ELEMENT_BACKGROUND_OFF,
-                Font = CrimTheme.FONT,
-                TextColor3 = CrimTheme.ELEMENT_TEXT,
-                TextSize = CrimTheme.TEXT_SIZE_SMALL,
+                Parent = Parent,
+                Size = UDim2.new(1, -RageTheme.PADDING_ELEMENT * 2, 0, RageTheme.ELEMENT_HEIGHT),
+                BackgroundColor3 = RageTheme.ELEMENT_BG,
+                BorderSizePixel = 0,
+                Font = RageTheme.FONT_NORMAL,
+                TextColor3 = RageTheme.TEXT_INACTIVE,
+                TextSize = RageTheme.TEXT_SIZE_ELEMENT,
             })
-            create("UICorner", { Parent = KeybindFrame })
+            create("UICorner", { CornerRadius = UDim.new(0, RageTheme.ELEMENT_CORNER), Parent = KeybindFrame })
 
             local function updateText()
                 KeybindFrame.Text = elementSettings.Name .. ": [" .. CurrentKey .. "]"
@@ -554,18 +718,15 @@ function Library:CreateWindow(settings)
                 isCapturing = true
                 KeybindFrame.Text = elementSettings.Name .. ": [PRESS A KEY...]"
                 
-                -- Отключаем старое соединение, если оно было
                 if connection then connection:Disconnect() end
 
                 connection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
                     if gameProcessed then return end
                     
-                    -- Захват клавиши клавиатуры или кнопки мыши
                     if input.UserInputType == Enum.UserInputType.Keyboard or input.UserInputType == Enum.UserInputType.MouseButton1 then
                         connection:Disconnect()
                         isCapturing = false
                         
-                        -- Проверка на клавишу для отмены (например, Backspace)
                         if input.KeyCode == Enum.KeyCode.Backspace or input.KeyCode == Enum.KeyCode.Delete then
                             CurrentKey = "NONE"
                         else
@@ -581,33 +742,34 @@ function Library:CreateWindow(settings)
             end)
             
             updateText()
+            
+            -- Hover эффект
+            KeybindFrame.MouseEnter:Connect(function()
+                TweenService:Create(KeybindFrame, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {
+                    BackgroundColor3 = Color3.fromRGB(32, 32, 32)
+                }):Play()
+            end)
+            
+            KeybindFrame.MouseLeave:Connect(function()
+                TweenService:Create(KeybindFrame, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {
+                    BackgroundColor3 = RageTheme.ELEMENT_BG
+                }):Play()
+            end)
 
-            return {
-                Name = elementSettings.Name,
-                Value = CurrentKey,
-                Set = function(newKey)
-                    CurrentKey = newKey
-                    updateText()
-                    if elementSettings.Callback then
-                        pcall(elementSettings.Callback, CurrentKey)
-                    end
-                end
-            }
+            return { Name = elementSettings.Name, Value = CurrentKey, Set = function(newKey) CurrentKey = newKey; updateText() end }
         end
 
 
         return TabValue
     end
 
-    -- Добавляем объект окна для внешнего доступа
     WindowValue.Object = MainFrame 
 
     return WindowValue
 end
 
--- Присвоение библиотеки к глобальной переменной
 if getgenv then
-    getgenv().CrimLib = Library
+    getgenv().RageLib = Library
 end
 
 return Library
