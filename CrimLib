@@ -1,6 +1,5 @@
--- Cleaned Sapphire GUI Library
--- This script provides the core logic for creating a GUI with various elements
--- (buttons, toggles, sliders, inputs, dropdowns, keybinds, labels, paragraphs, color pickers, sections, dividers).
+-- Sapphire GUI Library (v2 - Refactored Layout)
+-- This script provides the core logic for creating a GUI with a sidebar and multi-column layout.
 
 -- Essential Roblox services
 local function getService(name)
@@ -22,8 +21,6 @@ local SapphireLibrary = {
             Background = Color3.fromRGB(25, 25, 25),
             Topbar = Color3.fromRGB(34, 34, 34),
             Shadow = Color3.fromRGB(20, 20, 20),
-            NotificationBackground = Color3.fromRGB(20, 20, 20),
-            NotificationActionsBackground = Color3.fromRGB(230, 230, 230),
             TabBackground = Color3.fromRGB(80, 80, 80),
             TabStroke = Color3.fromRGB(85, 85, 85),
             TabBackgroundSelected = Color3.fromRGB(210, 210, 210),
@@ -33,286 +30,33 @@ local SapphireLibrary = {
             ElementBackgroundHover = Color3.fromRGB(40, 40, 40),
             SecondaryElementBackground = Color3.fromRGB(25, 25, 25),
             ElementStroke = Color3.fromRGB(50, 50, 50),
-            SecondaryElementStroke = Color3.fromRGB(40, 40, 40),
             SliderBackground = Color3.fromRGB(50, 138, 220),
             SliderProgress = Color3.fromRGB(50, 138, 220),
             SliderStroke = Color3.fromRGB(58, 163, 255),
-            ToggleBackground = Color3.fromRGB(30, 30, 30),
             ToggleEnabled = Color3.fromRGB(0, 146, 214),
             ToggleDisabled = Color3.fromRGB(100, 100, 100),
-            ToggleEnabledStroke = Color3.fromRGB(0, 170, 255),
-            ToggleDisabledStroke = Color3.fromRGB(125, 125, 125),
-            ToggleEnabledOuterStroke = Color3.fromRGB(100, 100, 100),
-            ToggleDisabledOuterStroke = Color3.fromRGB(65, 65, 65),
-            DropdownSelected = Color3.fromRGB(40, 40, 40),
-            DropdownUnselected = Color3.fromRGB(30, 30, 30),
             InputBackground = Color3.fromRGB(30, 30, 30),
-            InputStroke = Color3.fromRGB(65, 65, 65),
-            PlaceholderColor = Color3.fromRGB(178, 178, 178)
         },
-        Ocean = {
-            TextColor = Color3.fromRGB(230, 240, 240),
-            Background = Color3.fromRGB(20, 30, 30),
-            Topbar = Color3.fromRGB(25, 40, 40),
-            Shadow = Color3.fromRGB(15, 20, 20),
-            NotificationBackground = Color3.fromRGB(25, 35, 35),
-            NotificationActionsBackground = Color3.fromRGB(230, 240, 240),
-            TabBackground = Color3.fromRGB(40, 60, 60),
-            TabStroke = Color3.fromRGB(50, 70, 70),
-            TabBackgroundSelected = Color3.fromRGB(100, 180, 180),
-            TabTextColor = Color3.fromRGB(210, 230, 230),
-            SelectedTabTextColor = Color3.fromRGB(20, 50, 50),
-            ElementBackground = Color3.fromRGB(30, 50, 50),
-            ElementBackgroundHover = Color3.fromRGB(40, 60, 60),
-            SecondaryElementBackground = Color3.fromRGB(30, 45, 45),
-            ElementStroke = Color3.fromRGB(45, 70, 70),
-            SecondaryElementStroke = Color3.fromRGB(40, 65, 65),
-            SliderBackground = Color3.fromRGB(0, 110, 110),
-            SliderProgress = Color3.fromRGB(0, 140, 140),
-            SliderStroke = Color3.fromRGB(0, 160, 160),
-            ToggleBackground = Color3.fromRGB(30, 50, 50),
-            ToggleEnabled = Color3.fromRGB(0, 130, 130),
-            ToggleDisabled = Color3.fromRGB(70, 90, 90),
-            ToggleEnabledStroke = Color3.fromRGB(0, 160, 160),
-            ToggleDisabledStroke = Color3.fromRGB(85, 105, 105),
-            ToggleEnabledOuterStroke = Color3.fromRGB(50, 100, 100),
-            ToggleDisabledOuterStroke = Color3.fromRGB(45, 65, 65),
-            DropdownSelected = Color3.fromRGB(30, 60, 60),
-            DropdownUnselected = Color3.fromRGB(25, 40, 40),
-            InputBackground = Color3.fromRGB(30, 50, 50),
-            InputStroke = Color3.fromRGB(50, 70, 70),
-            PlaceholderColor = Color3.fromRGB(140, 160, 160)
-        },
-        AmberGlow = {
-            TextColor = Color3.fromRGB(255, 245, 230),
-            Background = Color3.fromRGB(45, 30, 20),
-            Topbar = Color3.fromRGB(55, 40, 25),
-            Shadow = Color3.fromRGB(35, 25, 15),
-            NotificationBackground = Color3.fromRGB(50, 35, 25),
-            NotificationActionsBackground = Color3.fromRGB(245, 230, 215),
-            TabBackground = Color3.fromRGB(75, 50, 35),
-            TabStroke = Color3.fromRGB(90, 60, 45),
-            TabBackgroundSelected = Color3.fromRGB(230, 180, 100),
-            TabTextColor = Color3.fromRGB(250, 220, 200),
-            SelectedTabTextColor = Color3.fromRGB(50, 30, 10),
-            ElementBackground = Color3.fromRGB(60, 45, 35),
-            ElementBackgroundHover = Color3.fromRGB(70, 50, 40),
-            SecondaryElementBackground = Color3.fromRGB(55, 40, 30),
-            ElementStroke = Color3.fromRGB(85, 60, 45),
-            SecondaryElementStroke = Color3.fromRGB(75, 50, 35),
-            SliderBackground = Color3.fromRGB(220, 130, 60),
-            SliderProgress = Color3.fromRGB(250, 150, 75),
-            SliderStroke = Color3.fromRGB(255, 170, 85),
-            ToggleBackground = Color3.fromRGB(55, 40, 30),
-            ToggleEnabled = Color3.fromRGB(240, 130, 30),
-            ToggleDisabled = Color3.fromRGB(90, 70, 60),
-            ToggleEnabledStroke = Color3.fromRGB(255, 160, 50),
-            ToggleDisabledStroke = Color3.fromRGB(110, 85, 75),
-            ToggleEnabledOuterStroke = Color3.fromRGB(200, 100, 50),
-            ToggleDisabledOuterStroke = Color3.fromRGB(75, 60, 55),
-            DropdownSelected = Color3.fromRGB(70, 50, 40),
-            DropdownUnselected = Color3.fromRGB(55, 40, 30),
-            InputBackground = Color3.fromRGB(60, 45, 35),
-            InputStroke = Color3.fromRGB(90, 65, 50),
-            PlaceholderColor = Color3.fromRGB(190, 150, 130)
-        },
-        Light = {
-            TextColor = Color3.fromRGB(40, 40, 40),
-            Background = Color3.fromRGB(245, 245, 245),
-            Topbar = Color3.fromRGB(230, 230, 230),
-            Shadow = Color3.fromRGB(200, 200, 200),
-            NotificationBackground = Color3.fromRGB(250, 250, 250),
-            NotificationActionsBackground = Color3.fromRGB(240, 240, 240),
-            TabBackground = Color3.fromRGB(235, 235, 235),
-            TabStroke = Color3.fromRGB(215, 215, 215),
-            TabBackgroundSelected = Color3.fromRGB(255, 255, 255),
-            TabTextColor = Color3.fromRGB(80, 80, 80),
-            SelectedTabTextColor = Color3.fromRGB(0, 0, 0),
-            ElementBackground = Color3.fromRGB(240, 240, 240),
-            ElementBackgroundHover = Color3.fromRGB(225, 225, 225),
-            SecondaryElementBackground = Color3.fromRGB(235, 235, 235),
-            ElementStroke = Color3.fromRGB(210, 210, 210),
-            SecondaryElementStroke = Color3.fromRGB(210, 210, 210),
-            SliderBackground = Color3.fromRGB(150, 180, 220),
-            SliderProgress = Color3.fromRGB(100, 150, 200),
-            SliderStroke = Color3.fromRGB(120, 170, 220),
-            ToggleBackground = Color3.fromRGB(220, 220, 220),
-            ToggleEnabled = Color3.fromRGB(0, 146, 214),
-            ToggleDisabled = Color3.fromRGB(150, 150, 150),
-            ToggleEnabledStroke = Color3.fromRGB(0, 170, 255),
-            ToggleDisabledStroke = Color3.fromRGB(170, 170, 170),
-            ToggleEnabledOuterStroke = Color3.fromRGB(100, 100, 100),
-            ToggleDisabledOuterStroke = Color3.fromRGB(180, 180, 180),
-            DropdownSelected = Color3.fromRGB(230, 230, 230),
-            DropdownUnselected = Color3.fromRGB(220, 220, 220),
-            InputBackground = Color3.fromRGB(240, 240, 240),
-            InputStroke = Color3.fromRGB(180, 180, 180),
-            PlaceholderColor = Color3.fromRGB(140, 140, 140)
-        },
-        Amethyst = {
-            TextColor = Color3.fromRGB(240, 240, 240),
-            Background = Color3.fromRGB(30, 20, 40),
-            Topbar = Color3.fromRGB(40, 25, 50),
-            Shadow = Color3.fromRGB(20, 15, 30),
-            NotificationBackground = Color3.fromRGB(35, 20, 40),
-            NotificationActionsBackground = Color3.fromRGB(240, 240, 250),
-            TabBackground = Color3.fromRGB(60, 40, 80),
-            TabStroke = Color3.fromRGB(70, 45, 90),
-            TabBackgroundSelected = Color3.fromRGB(180, 140, 200),
-            TabTextColor = Color3.fromRGB(230, 230, 240),
-            SelectedTabTextColor = Color3.fromRGB(50, 20, 50),
-            ElementBackground = Color3.fromRGB(45, 30, 60),
-            ElementBackgroundHover = Color3.fromRGB(50, 35, 70),
-            SecondaryElementBackground = Color3.fromRGB(40, 30, 55),
-            ElementStroke = Color3.fromRGB(70, 50, 85),
-            SecondaryElementStroke = Color3.fromRGB(65, 45, 80),
-            SliderBackground = Color3.fromRGB(100, 60, 150),
-            SliderProgress = Color3.fromRGB(130, 80, 180),
-            SliderStroke = Color3.fromRGB(150, 100, 200),
-            ToggleBackground = Color3.fromRGB(45, 30, 55),
-            ToggleEnabled = Color3.fromRGB(120, 60, 150),
-            ToggleDisabled = Color3.fromRGB(94, 47, 117),
-            ToggleEnabledStroke = Color3.fromRGB(140, 80, 170),
-            ToggleDisabledStroke = Color3.fromRGB(124, 71, 150),
-            ToggleEnabledOuterStroke = Color3.fromRGB(90, 40, 120),
-            ToggleDisabledOuterStroke = Color3.fromRGB(80, 50, 110),
-            DropdownSelected = Color3.fromRGB(50, 35, 70),
-            DropdownUnselected = Color3.fromRGB(35, 25, 50),
-            InputBackground = Color3.fromRGB(45, 30, 60),
-            InputStroke = Color3.fromRGB(80, 50, 110),
-            PlaceholderColor = Color3.fromRGB(178, 150, 200)
-        },
-        Green = {
-            TextColor = Color3.fromRGB(30, 60, 30),
-            Background = Color3.fromRGB(235, 245, 235),
-            Topbar = Color3.fromRGB(210, 230, 210),
-            Shadow = Color3.fromRGB(200, 220, 200),
-            NotificationBackground = Color3.fromRGB(240, 250, 240),
-            NotificationActionsBackground = Color3.fromRGB(220, 235, 220),
-            TabBackground = Color3.fromRGB(215, 235, 215),
-            TabStroke = Color3.fromRGB(190, 210, 190),
-            TabBackgroundSelected = Color3.fromRGB(245, 255, 245),
-            TabTextColor = Color3.fromRGB(50, 80, 50),
-            SelectedTabTextColor = Color3.fromRGB(20, 60, 20),
-            ElementBackground = Color3.fromRGB(225, 240, 225),
-            ElementBackgroundHover = Color3.fromRGB(210, 225, 210),
-            SecondaryElementBackground = Color3.fromRGB(235, 245, 235),
-            ElementStroke = Color3.fromRGB(180, 200, 180),
-            SecondaryElementStroke = Color3.fromRGB(180, 200, 180),
-            SliderBackground = Color3.fromRGB(90, 160, 90),
-            SliderProgress = Color3.fromRGB(70, 130, 70),
-            SliderStroke = Color3.fromRGB(100, 180, 100),
-            ToggleBackground = Color3.fromRGB(215, 235, 215),
-            ToggleEnabled = Color3.fromRGB(60, 130, 60),
-            ToggleDisabled = Color3.fromRGB(150, 175, 150),
-            ToggleEnabledStroke = Color3.fromRGB(80, 150, 80),
-            ToggleDisabledStroke = Color3.fromRGB(130, 150, 130),
-            ToggleEnabledOuterStroke = Color3.fromRGB(100, 160, 100),
-            ToggleDisabledOuterStroke = Color3.fromRGB(160, 180, 160),
-            DropdownSelected = Color3.fromRGB(225, 240, 225),
-            DropdownUnselected = Color3.fromRGB(210, 225, 210),
-            InputBackground = Color3.fromRGB(235, 245, 235),
-            InputStroke = Color3.fromRGB(180, 200, 180),
-            PlaceholderColor = Color3.fromRGB(120, 140, 120)
-        },
-        Bloom = {
-            TextColor = Color3.fromRGB(60, 40, 50),
-            Background = Color3.fromRGB(255, 240, 245),
-            Topbar = Color3.fromRGB(250, 220, 225),
-            Shadow = Color3.fromRGB(230, 190, 195),
-            NotificationBackground = Color3.fromRGB(255, 235, 240),
-            NotificationActionsBackground = Color3.fromRGB(245, 215, 225),
-            TabBackground = Color3.fromRGB(240, 210, 220),
-            TabStroke = Color3.fromRGB(230, 200, 210),
-            TabBackgroundSelected = Color3.fromRGB(255, 225, 235),
-            TabTextColor = Color3.fromRGB(80, 40, 60),
-            SelectedTabTextColor = Color3.fromRGB(50, 30, 50),
-            ElementBackground = Color3.fromRGB(255, 235, 240),
-            ElementBackgroundHover = Color3.fromRGB(245, 220, 230),
-            SecondaryElementBackground = Color3.fromRGB(255, 235, 240),
-            ElementStroke = Color3.fromRGB(230, 200, 210),
-            SecondaryElementStroke = Color3.fromRGB(230, 200, 210),
-            SliderBackground = Color3.fromRGB(240, 130, 160),
-            SliderProgress = Color3.fromRGB(250, 160, 180),
-            SliderStroke = Color3.fromRGB(255, 180, 200),
-            ToggleBackground = Color3.fromRGB(240, 210, 220),
-            ToggleEnabled = Color3.fromRGB(255, 140, 170),
-            ToggleDisabled = Color3.fromRGB(200, 180, 185),
-            ToggleEnabledStroke = Color3.fromRGB(250, 160, 190),
-            ToggleDisabledStroke = Color3.fromRGB(210, 180, 190),
-            ToggleEnabledOuterStroke = Color3.fromRGB(220, 160, 180),
-            ToggleDisabledOuterStroke = Color3.fromRGB(190, 170, 180),
-            DropdownSelected = Color3.fromRGB(250, 220, 225),
-            DropdownUnselected = Color3.fromRGB(240, 210, 220),
-            InputBackground = Color3.fromRGB(255, 235, 240),
-            InputStroke = Color3.fromRGB(220, 190, 200),
-            PlaceholderColor = Color3.fromRGB(170, 130, 140)
-        },
-        DarkBlue = {
-            TextColor = Color3.fromRGB(230, 230, 230),
-            Background = Color3.fromRGB(20, 25, 30),
-            Topbar = Color3.fromRGB(30, 35, 40),
-            Shadow = Color3.fromRGB(15, 20, 25),
-            NotificationBackground = Color3.fromRGB(25, 30, 35),
-            NotificationActionsBackground = Color3.fromRGB(45, 50, 55),
-            TabBackground = Color3.fromRGB(35, 40, 45),
-            TabStroke = Color3.fromRGB(45, 50, 60),
-            TabBackgroundSelected = Color3.fromRGB(40, 70, 100),
+        Ragebot = {
+            TextColor = Color3.fromRGB(200, 200, 200),
+            Background = Color3.fromRGB(20, 20, 20),
+            Topbar = Color3.fromRGB(18, 18, 18),
+            Shadow = Color3.fromRGB(10, 10, 10),
+            TabBackground = Color3.fromRGB(18, 18, 18),
+            TabStroke = Color3.fromRGB(18, 18, 18),
+            TabBackgroundSelected = Color3.fromRGB(25, 25, 25),
             TabTextColor = Color3.fromRGB(200, 200, 200),
             SelectedTabTextColor = Color3.fromRGB(255, 255, 255),
-            ElementBackground = Color3.fromRGB(30, 35, 40),
-            ElementBackgroundHover = Color3.fromRGB(40, 45, 50),
-            SecondaryElementBackground = Color3.fromRGB(35, 40, 45),
-            ElementStroke = Color3.fromRGB(45, 50, 60),
-            SecondaryElementStroke = Color3.fromRGB(40, 45, 55),
-            SliderBackground = Color3.fromRGB(0, 90, 180),
-            SliderProgress = Color3.fromRGB(0, 120, 210),
-            SliderStroke = Color3.fromRGB(0, 150, 240),
-            ToggleBackground = Color3.fromRGB(35, 40, 45),
-            ToggleEnabled = Color3.fromRGB(0, 120, 210),
-            ToggleDisabled = Color3.fromRGB(70, 70, 80),
-            ToggleEnabledStroke = Color3.fromRGB(0, 150, 240),
-            ToggleDisabledStroke = Color3.fromRGB(75, 75, 85),
-            ToggleEnabledOuterStroke = Color3.fromRGB(20, 100, 180),
-            ToggleDisabledOuterStroke = Color3.fromRGB(55, 55, 65),
-            DropdownSelected = Color3.fromRGB(30, 70, 90),
-            DropdownUnselected = Color3.fromRGB(25, 30, 35),
-            InputBackground = Color3.fromRGB(25, 30, 35),
-            InputStroke = Color3.fromRGB(45, 50, 60),
-            PlaceholderColor = Color3.fromRGB(150, 150, 160)
-        },
-        Serenity = {
-            TextColor = Color3.fromRGB(50, 55, 60),
-            Background = Color3.fromRGB(240, 245, 250),
-            Topbar = Color3.fromRGB(215, 225, 235),
-            Shadow = Color3.fromRGB(200, 210, 220),
-            NotificationBackground = Color3.fromRGB(210, 220, 230),
-            NotificationActionsBackground = Color3.fromRGB(225, 230, 240),
-            TabBackground = Color3.fromRGB(200, 210, 220),
-            TabStroke = Color3.fromRGB(180, 190, 200),
-            TabBackgroundSelected = Color3.fromRGB(175, 185, 200),
-            TabTextColor = Color3.fromRGB(50, 55, 60),
-            SelectedTabTextColor = Color3.fromRGB(30, 35, 40),
-            ElementBackground = Color3.fromRGB(210, 220, 230),
-            ElementBackgroundHover = Color3.fromRGB(220, 230, 240),
-            SecondaryElementBackground = Color3.fromRGB(200, 210, 220),
-            ElementStroke = Color3.fromRGB(190, 200, 210),
-            SecondaryElementStroke = Color3.fromRGB(180, 190, 200),
-            SliderBackground = Color3.fromRGB(200, 220, 235),
-            SliderProgress = Color3.fromRGB(70, 130, 180),
-            SliderStroke = Color3.fromRGB(150, 180, 220),
-            ToggleBackground = Color3.fromRGB(210, 220, 230),
-            ToggleEnabled = Color3.fromRGB(70, 160, 210),
-            ToggleDisabled = Color3.fromRGB(180, 180, 180),
-            ToggleEnabledStroke = Color3.fromRGB(60, 150, 200),
-            ToggleDisabledStroke = Color3.fromRGB(140, 140, 140),
-            ToggleEnabledOuterStroke = Color3.fromRGB(100, 120, 140),
-            ToggleDisabledOuterStroke = Color3.fromRGB(120, 120, 130),
-            DropdownSelected = Color3.fromRGB(220, 230, 240),
-            DropdownUnselected = Color3.fromRGB(200, 210, 220),
-            InputBackground = Color3.fromRGB(220, 230, 240),
-            InputStroke = Color3.fromRGB(180, 190, 200),
-            PlaceholderColor = Color3.fromRGB(150, 150, 150)
+            ElementBackground = Color3.fromRGB(28, 28, 28),
+            ElementBackgroundHover = Color3.fromRGB(32, 32, 32),
+            SecondaryElementBackground = Color3.fromRGB(25, 25, 25),
+            ElementStroke = Color3.fromRGB(28, 28, 28),
+            SliderBackground = Color3.fromRGB(20, 20, 20),
+            SliderProgress = Color3.fromRGB(60, 160, 255),
+            SliderStroke = Color3.fromRGB(60, 160, 255),
+            ToggleEnabled = Color3.fromRGB(60, 160, 255),
+            ToggleDisabled = Color3.fromRGB(60, 60, 60),
+            InputBackground = Color3.fromRGB(32, 32, 32),
         },
     }
 }
@@ -321,15 +65,10 @@ local SelectedTheme = SapphireLibrary.Theme.Default
 
 local function ChangeTheme(Theme)
     if typeof(Theme) == 'string' then
-        SelectedTheme = SapphireLibrary.Theme[Theme]
+        SelectedTheme = SapphireLibrary.Theme[Theme] or SapphireLibrary.Theme.Default
     elseif typeof(Theme) == 'table' then
         SelectedTheme = Theme
     end
-
-    -- Propagate theme changes to existing elements.
-    -- This requires iterating through the GUI elements or connecting to a global signal.
-    -- For this cleaned version, we'll rely on elements connecting to Main's BackgroundColor3
-    -- property change signal to update their colors, as seen in the connectTheme helper.
     if _G.SapphireMain then
         _G.SapphireMain.BackgroundColor3 = SelectedTheme.Background
     end
@@ -337,1321 +76,301 @@ end
 
 local function makeDraggable(object, dragObject)
     local dragging = false
-    local relative = nil
-    local offset = Vector2.zero
-
-    local screenGui = object:FindFirstAncestorWhichIsA("ScreenGui")
-    if screenGui and screenGui.IgnoreGuiInset then
-        offset += getService('GuiService'):GetGuiInset()
+    local dragInput, dragStart, startPos
+    local function update(input)
+        local delta = input.Position - dragStart
+        object.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
     end
-
-    dragObject.InputBegan:Connect(function(input, processed)
-        if processed then return end
-        local inputType = input.UserInputType.Name
-        if inputType == "MouseButton1" or inputType == "Touch" then
+    dragObject.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = true
-            relative = object.AbsolutePosition + object.AbsoluteSize * object.AnchorPoint - UserInputService:GetMouseLocation()
+            dragStart = input.Position
+            startPos = object.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
         end
     end)
-
-    local inputEnded = UserInputService.InputEnded:Connect(function(input)
-        if not dragging then return end
-        local inputType = input.UserInputType.Name
-        if inputType == "MouseButton1" or inputType == "Touch" then
-            dragging = false
+    dragObject.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            dragInput = input
         end
     end)
-
-    local renderStepped = RunService.RenderStepped:Connect(function()
-        if dragging then
-            local position = UserInputService:GetMouseLocation() + relative + offset
-            object.Position = UDim2.fromOffset(position.X, position.Y)
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            update(input)
         end
-    end)
-
-    object.Destroying:Connect(function()
-        if inputEnded then inputEnded:Disconnect() end
-        if renderStepped then renderStepped:Disconnect() end
     end)
 end
 
-local function getAssetUri(id: any): string
-    if type(id) == "number" then
-        return "rbxassetid://" .. id
-    end
-    return "rbxassetid://0" -- Default to empty
+local function getAssetUri(id)
+    return "rbxassetid://" .. (tonumber(id) or 0)
 end
 
 function SapphireLibrary:CreateWindow(Settings)
-    local Sapphire = Instance.new("ScreenGui")
-    Sapphire.Name = "Sapphire"
-    Sapphire.DisplayOrder = 100
-    Sapphire.Parent = CoreGui
+    ChangeTheme(Settings.Theme)
+
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "Sapphire"
+    ScreenGui.Parent = CoreGui
+    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    ScreenGui.ResetOnSpawn = false
 
     local Main = Instance.new("Frame")
     Main.Name = "Main"
-    Main.Parent = Sapphire
+    Main.Parent = ScreenGui
     Main.BackgroundColor3 = SelectedTheme.Background
-    Main.Size = UDim2.new(0, 500, 0, 475)
-    Main.Position = UDim2.new(0.5, 0, 0.5, 0)
-    Main.AnchorPoint = Vector2.new(0.5, 0.5)
     Main.BorderSizePixel = 0
-    local MainUICorner = Instance.new("UICorner")
-    MainUICorner.Parent = Main
-    MainUICorner.CornerRadius = UDim.new(0, 8)
-    local MainUIStroke = Instance.new("UIStroke")
-    MainUIStroke.Parent = Main
-    MainUIStroke.Color = SelectedTheme.ElementStroke
-    MainUIStroke.Thickness = 1
-    Main.Visible = true
-    _G.SapphireMain = Main -- Expose Main globally for theme changes
+    Main.Position = UDim2.new(0.5, 0, 0.5, 0)
+    Main.Size = UDim2.new(0, 843, 0, 575)
+    Main.AnchorPoint = Vector2.new(0.5, 0.5)
+    _G.SapphireMain = Main
+    local MainCorner = Instance.new("UICorner")
+    MainCorner.CornerRadius = UDim.new(0, 8)
+    MainCorner.Parent = Main
 
-    local Topbar = Instance.new("Frame")
-    Topbar.Name = "Topbar"
-    Topbar.Parent = Main
-    Topbar.BackgroundColor3 = SelectedTheme.Topbar
-    Topbar.Size = UDim2.new(1, 0, 0, 45)
-    Topbar.Position = UDim2.new(0, 0, 0, 0)
-    Topbar.BorderSizePixel = 0
-    local TopbarTitle = Instance.new("TextLabel")
-    TopbarTitle.Name = "Title"
-    TopbarTitle.Parent = Topbar
-    TopbarTitle.Text = Settings.Name or "Sapphire"
-    TopbarTitle.TextColor3 = SelectedTheme.TextColor
-    TopbarTitle.TextSize = 20
-    TopbarTitle.TextScaled = false
-    TopbarTitle.Font = Enum.Font.SourceSans
-    TopbarTitle.BackgroundTransparency = 1
-    TopbarTitle.Size = UDim2.new(0.8, 0, 1, 0)
-    TopbarTitle.Position = UDim2.new(0.5, 0, 0.5, 0)
-    TopbarTitle.AnchorPoint = Vector2.new(0.5, 0.5)
-    TopbarTitle.TextXAlignment = Enum.TextXAlignment.Center
+    local Header = Instance.new("Frame")
+    Header.Name = "Header"
+    Header.Parent = Main
+    Header.BackgroundColor3 = SelectedTheme.Topbar
+    Header.BorderSizePixel = 0
+    Header.Size = UDim2.new(1, 0, 0, 60)
+    local HeaderCorner = Instance.new("UICorner")
+    HeaderCorner.CornerRadius = UDim.new(0, 8)
+    HeaderCorner.Parent = Header
 
-    local Elements = Instance.new("ScrollingFrame")
-    Elements.Name = "Elements"
-    Elements.Parent = Main
-    Elements.BackgroundTransparency = 1
-    Elements.Size = UDim2.new(0.75, -20, 1, -45)
-    Elements.Position = UDim2.new(0.25, 10, 0, 45)
-    Elements.CanvasSize = UDim2.new(0,0,0,0)
-    Elements.ScrollBarImageTransparency = 1
-    Elements.ScrollingDirection = Enum.ScrollingDirection.Y
-    local UIListLayout = Instance.new("UIListLayout")
-    UIListLayout.Parent = Elements
-    UIListLayout.FillDirection = Enum.FillDirection.Vertical
-    UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    UIListLayout.Padding = UDim.new(0, 10)
-    UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    Elements.Visible = true
+    local Title = Instance.new("TextLabel")
+    Title.Parent = Header
+    Title.BackgroundTransparency = 1
+    Title.Position = UDim2.new(0, 70, 0, 18)
+    Title.Size = UDim2.new(0, 200, 0, 24)
+    Title.Font = Enum.Font.GothamBold
+    Title.Text = Settings.Name or "Sapphire"
+    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title.TextSize = 20
+    Title.TextXAlignment = Enum.TextXAlignment.Left
 
-    local TabList = Instance.new("ScrollingFrame")
-    TabList.Name = "TabList"
-    TabList.Parent = Main
-    TabList.BackgroundTransparency = 1
-    TabList.Size = UDim2.new(0.25, 0, 1, -45)
-    TabList.Position = UDim2.new(0, 0, 0, 45)
-    TabList.Visible = true
-    TabList.CanvasSize = UDim2.new(0,0,0,0)
-    TabList.ScrollBarImageTransparency = 1
-    TabList.ScrollingDirection = Enum.ScrollingDirection.Y
-    local TabListLayout = Instance.new("UIListLayout")
-    TabListLayout.Parent = TabList
-    TabListLayout.FillDirection = Enum.FillDirection.Vertical
-    TabListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    TabListLayout.Padding = UDim.new(0, 5)
-    TabListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    local Sidebar = Instance.new("Frame")
+    Sidebar.Name = "Sidebar"
+    Sidebar.Parent = Main
+    Sidebar.BackgroundColor3 = SelectedTheme.Topbar
+    Sidebar.BorderSizePixel = 0
+    Sidebar.Position = UDim2.new(0, 0, 0, 60)
+    Sidebar.Size = UDim2.new(0, 70, 1, -60)
 
-    makeDraggable(Main, Topbar)
+    local ContentFrame = Instance.new("Frame")
+    ContentFrame.Name = "ContentFrame"
+    ContentFrame.Parent = Main
+    ContentFrame.BackgroundTransparency = 1
+    ContentFrame.Position = UDim2.new(0, 70, 0, 60)
+    ContentFrame.Size = UDim2.new(1, -70, 1, -60)
+    ContentFrame.ClipsDescendants = true
+
+    makeDraggable(Main, Header)
 
     local Window = {}
-    local CurrentTabPage = nil
+    local tabs = {}
+    local currentTab = nil
 
-    local function connectTheme(mainFrame, callback)
-        mainFrame:GetPropertyChangedSignal("BackgroundColor3"):Connect(callback)
-    end
+    function Window:CreateTab(name, imageId)
+        local tabData = {}
+        local tabIndex = #tabs + 1
 
-    function Window:CreateTab(Name, Image, Ext)
-        local TabButton = Instance.new("Frame")
-        TabButton.Name = Name
-        TabButton.Parent = TabList
-        TabButton.BackgroundColor3 = SelectedTheme.TabBackground
-        TabButton.Size = UDim2.new(1, -10, 0, 30)
-        TabButton.Position = UDim2.new(0, 5, 0, 0)
-        TabButton.BorderSizePixel = 0
-        local TabButtonUICorner = Instance.new("UICorner")
-        TabButtonUICorner.Parent = TabButton
-        TabButtonUICorner.CornerRadius = UDim.new(0, 5)
-        local TabButtonUIStroke = Instance.new("UIStroke")
-        TabButtonUIStroke.Parent = TabButton
-        TabButtonUIStroke.Color = SelectedTheme.TabStroke
-        TabButtonUIStroke.Thickness = 1
+        local IconFrame = Instance.new("Frame")
+        IconFrame.Name = "Tab_" .. name
+        IconFrame.Parent = Sidebar
+        IconFrame.BackgroundColor3 = SelectedTheme.Topbar
+        IconFrame.BorderSizePixel = 0
+        IconFrame.Position = UDim2.new(0, 0, 0, 15 + ((tabIndex - 1) * 70))
+        IconFrame.Size = UDim2.new(1, 0, 0, 60)
+        
+        local ActiveIndicator = Instance.new("Frame")
+        ActiveIndicator.Name = "Indicator"
+        ActiveIndicator.Parent = IconFrame
+        ActiveIndicator.BackgroundColor3 = SelectedTheme.SliderProgress
+        ActiveIndicator.BorderSizePixel = 0
+        ActiveIndicator.Size = UDim2.new(0, 0, 1, 0)
+        
+        local Icon = Instance.new("ImageLabel")
+        Icon.Name = "Icon"
+        Icon.Parent = IconFrame
+        Icon.BackgroundTransparency = 1
+        Icon.Position = UDim2.new(0.5, -16, 0.5, -16)
+        Icon.Size = UDim2.new(0, 32, 0, 32)
+        Icon.Image = getAssetUri(imageId)
+        Icon.ImageColor3 = Color3.fromRGB(200, 200, 200)
+        Icon.ScaleType = Enum.ScaleType.Fit
+        
+        local TabButton = Instance.new("TextButton")
+        TabButton.Parent = IconFrame
+        TabButton.BackgroundTransparency = 1
+        TabButton.Size = UDim2.new(1, 0, 1, 0)
+        TabButton.Text = ""
 
-        local TabButtonTitle = Instance.new("TextLabel")
-        TabButtonTitle.Name = "Title"
-        TabButtonTitle.Parent = TabButton
-        TabButtonTitle.Text = Name
-        TabButtonTitle.TextColor3 = SelectedTheme.TabTextColor
-        TabButtonTitle.TextSize = 16
-        TabButtonTitle.TextScaled = true
-        TabButtonTitle.Font = Enum.Font.SourceSans
-        TabButtonTitle.BackgroundTransparency = 1
-        TabButtonTitle.Size = UDim2.new(0.8, 0, 1, 0)
-        TabButtonTitle.Position = UDim2.new(0, 10, 0.5, 0)
-        TabButtonTitle.AnchorPoint = Vector2.new(0, 0.5)
-        TabButtonTitle.TextXAlignment = Enum.TextXAlignment.Left
-
-        local TabButtonImage = nil
-        if Image and Image ~= 0 then
-            TabButtonImage = Instance.new("ImageLabel")
-            TabButtonImage.Name = "Image"
-            TabButtonImage.Parent = TabButton
-            TabButtonImage.BackgroundTransparency = 1
-            TabButtonImage.Image = getAssetUri(Image)
-            TabButtonImage.ImageColor3 = SelectedTheme.TabTextColor
-            TabButtonImage.Size = UDim2.new(0, 24, 0, 24)
-            TabButtonImage.Position = UDim2.new(0, 5, 0.5, 0)
-            TabButtonImage.AnchorPoint = Vector2.new(0, 0.5)
-            TabButtonImage.Visible = true
-            TabButtonTitle.Position = UDim2.new(0, 37, 0.5, 0)
-            TabButtonTitle.Size = UDim2.new(1, -47, 0, 16)
-        end
-
-        local TabButtonInteract = Instance.new("TextButton")
-        TabButtonInteract.Name = "Interact"
-        TabButtonInteract.Parent = TabButton
-        TabButtonInteract.Size = UDim2.new(1, 0, 1, 0)
-        TabButtonInteract.BackgroundTransparency = 1
-        TabButtonInteract.Text = ""
-
-        local TabPage = Instance.new("ScrollingFrame")
-        TabPage.Name = Name
-        TabPage.Parent = Elements
-        TabPage.BackgroundTransparency = 1
-        TabPage.Size = UDim2.new(1, 0, 1, 0)
-        TabPage.CanvasSize = UDim2.new(0,0,0,0)
-        TabPage.ScrollBarImageTransparency = 1
-        TabPage.ScrollingDirection = Enum.ScrollingDirection.Y
-        local TabPageLayout = Instance.new("UIListLayout")
-        TabPageLayout.Parent = TabPage
-        TabPageLayout.FillDirection = Enum.FillDirection.Vertical
-        TabPageLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-        TabPageLayout.Padding = UDim.new(0, 10)
-        TabPageLayout.SortOrder = Enum.SortOrder.LayoutOrder
-        TabPage.Visible = false
-
-        TabButtonInteract.MouseButton1Click:Connect(function()
-            if CurrentTabPage then
-                CurrentTabPage.Visible = false
-                local prevButton = TabList:FindFirstChild(CurrentTabPage.Name)
-                if prevButton then
-                    prevButton.BackgroundColor3 = SelectedTheme.TabBackground
-                    prevButton:FindFirstChild("Title").TextColor3 = SelectedTheme.TabTextColor
-                    local prevImage = prevButton:FindFirstChild("Image")
-                    if prevImage then prevImage.ImageColor3 = SelectedTheme.TabTextColor end
+        local TabContent = Instance.new("Frame")
+        TabContent.Parent = ContentFrame
+        TabContent.BackgroundTransparency = 1
+        TabContent.Size = UDim2.new(1, 0, 1, 0)
+        TabContent.Visible = false
+        
+        local ContentLayout = Instance.new("UIListLayout")
+        ContentLayout.Parent = TabContent
+        ContentLayout.FillDirection = Enum.FillDirection.Horizontal
+        ContentLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+        ContentLayout.VerticalAlignment = Enum.VerticalAlignment.Top
+        ContentLayout.Padding = UDim.new(0, 18)
+        
+        tabData.button = IconFrame
+        tabData.content = TabContent
+        tabs[tabIndex] = tabData
+        
+        TabButton.MouseButton1Click:Connect(function()
+            if currentTab == tabData then return end
+            if currentTab then
+                currentTab.content.Visible = false
+                local oldIndicator = currentTab.button:FindFirstChild("Indicator")
+                TweenService:Create(currentTab.button, TweenInfo.new(0.2), {BackgroundColor3 = SelectedTheme.Topbar}):Play()
+                if oldIndicator then
+                    TweenService:Create(oldIndicator, TweenInfo.new(0.2), {Size = UDim2.new(0, 0, 1, 0)}):Play()
                 end
             end
-
-            TabPage.Visible = true
-            CurrentTabPage = TabPage
-            TabButton.BackgroundColor3 = SelectedTheme.TabBackgroundSelected
-            TabButtonTitle.TextColor3 = SelectedTheme.SelectedTabTextColor
-            if TabButtonImage then TabButtonImage.ImageColor3 = SelectedTheme.SelectedTabTextColor end
+            TabContent.Visible = true
+            currentTab = tabData
+            Title.Text = name
+            TweenService:Create(IconFrame, TweenInfo.new(0.2), {BackgroundColor3 = SelectedTheme.TabBackgroundSelected}):Play()
+            TweenService:Create(ActiveIndicator, TweenInfo.new(0.2), {Size = UDim2.new(0, 4, 1, 0)}):Play()
         end)
+        
+        TabButton.MouseEnter:Connect(function() if currentTab ~= tabData then TweenService:Create(IconFrame, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(22, 22, 22)}):Play() end end)
+        TabButton.MouseLeave:Connect(function() if currentTab ~= tabData then TweenService:Create(IconFrame, TweenInfo.new(0.15), {BackgroundColor3 = SelectedTheme.Topbar}):Play() end end)
 
-        if not CurrentTabPage then
-            TabPage.Visible = true
-            CurrentTabPage = TabPage
-            TabButton.BackgroundColor3 = SelectedTheme.TabBackgroundSelected
-            TabButtonTitle.TextColor3 = SelectedTheme.SelectedTabTextColor
-            if TabButtonImage then TabButtonImage.ImageColor3 = SelectedTheme.SelectedTabTextColor end
+        if not currentTab then
+            TabContent.Visible = true
+            currentTab = tabData
+            Title.Text = name
+            IconFrame.BackgroundColor3 = SelectedTheme.TabBackgroundSelected
+            ActiveIndicator.Size = UDim2.new(0, 4, 1, 0)
         end
 
         local Tab = {}
-
-        -- Button
-        function Tab:CreateButton(ButtonSettings)
-            local Button = Instance.new("Frame")
-            Button.Name = ButtonSettings.Name
-            Button.Parent = TabPage
-            Button.Size = UDim2.new(1, 0, 0, 30)
-            Button.BackgroundColor3 = SelectedTheme.ElementBackground
-            Button.BorderSizePixel = 0
-            local ButtonUICorner = Instance.new("UICorner")
-            ButtonUICorner.Parent = Button
-            ButtonUICorner.CornerRadius = UDim.new(0, 5)
-            local ButtonUIStroke = Instance.new("UIStroke")
-            ButtonUIStroke.Parent = Button
-            ButtonUIStroke.Color = SelectedTheme.ElementStroke
-            ButtonUIStroke.Thickness = 1
-
-            local ButtonTitle = Instance.new("TextLabel")
-            ButtonTitle.Name = "Title"
-            ButtonTitle.Parent = Button
-            ButtonTitle.Text = ButtonSettings.Name
-            ButtonTitle.TextColor3 = SelectedTheme.TextColor
-            ButtonTitle.TextSize = 16
-            ButtonTitle.TextScaled = true
-            ButtonTitle.Font = Enum.Font.SourceSans
-            ButtonTitle.BackgroundTransparency = 1
-            ButtonTitle.Size = UDim2.new(1, 0, 1, 0)
-            ButtonTitle.TextXAlignment = Enum.TextXAlignment.Center
-
-            local ButtonInteract = Instance.new("TextButton")
-            ButtonInteract.Name = "Interact"
-            ButtonInteract.Parent = Button
-            ButtonInteract.Size = UDim2.new(1, 0, 1, 0)
-            ButtonInteract.BackgroundTransparency = 1
-            ButtonInteract.Text = ""
-
-            ButtonInteract.MouseButton1Click:Connect(function()
-                if ButtonSettings.Callback then
-                    pcall(ButtonSettings.Callback)
-                end
-            end)
-
-            ButtonInteract.MouseEnter:Connect(function()
-                TweenService:Create(Button, TweenInfo.new(0.2), {BackgroundColor3 = SelectedTheme.ElementBackgroundHover}):Play()
-            end)
-
-            ButtonInteract.MouseLeave:Connect(function()
-                TweenService:Create(Button, TweenInfo.new(0.2), {BackgroundColor3 = SelectedTheme.ElementBackground}):Play()
-            end)
-
-            connectTheme(Main, function()
-                Button.BackgroundColor3 = SelectedTheme.ElementBackground
-                ButtonUIStroke.Color = SelectedTheme.ElementStroke
-                ButtonTitle.TextColor3 = SelectedTheme.TextColor
-            end)
-
-            return {
-                Set = function(NewButtonName)
-                    ButtonTitle.Text = NewButtonName
-                    Button.Name = NewButtonName
-                end
-            }
-        end
-
-        -- ColorPicker
-        function Tab:CreateColorPicker(ColorPickerSettings)
-            local ColorPicker = Instance.new("Frame")
-            ColorPicker.Name = ColorPickerSettings.Name
-            ColorPicker.Parent = TabPage
-            ColorPicker.Size = UDim2.new(1, 0, 0, 45)
-            ColorPicker.BackgroundColor3 = SelectedTheme.ElementBackground
-            ColorPicker.BorderSizePixel = 0
-            local ColorPickerUICorner = Instance.new("UICorner")
-            ColorPickerUICorner.Parent = ColorPicker
-            ColorPickerUICorner.CornerRadius = UDim.new(0, 5)
-            local ColorPickerUIStroke = Instance.new("UIStroke")
-            ColorPickerUIStroke.Parent = ColorPicker
-            ColorPickerUIStroke.Color = SelectedTheme.ElementStroke
-            ColorPickerUIStroke.Thickness = 1
-
-            local ColorPickerTitle = Instance.new("TextLabel")
-            ColorPickerTitle.Name = "Title"
-            ColorPickerTitle.Parent = ColorPicker
-            ColorPickerTitle.Text = ColorPickerSettings.Name
-            ColorPickerTitle.TextColor3 = SelectedTheme.TextColor
-            ColorPickerTitle.TextSize = 16
-            ColorPickerTitle.TextScaled = true
-            ColorPickerTitle.Font = Enum.Font.SourceSans
-            ColorPickerTitle.BackgroundTransparency = 1
-            ColorPickerTitle.Size = UDim2.new(0.8, 0, 1, 0)
-            ColorPickerTitle.TextXAlignment = Enum.TextXAlignment.Left
-            ColorPickerTitle.Position = UDim2.new(0, 10, 0, 0)
-
-            local CurrentColorDisplay = Instance.new("Frame")
-            CurrentColorDisplay.Name = "CurrentColorDisplay"
-            CurrentColorDisplay.Parent = ColorPicker
-            CurrentColorDisplay.Size = UDim2.new(0, 25, 0, 25)
-            CurrentColorDisplay.Position = UDim2.new(1, -35, 0.5, 0)
-            CurrentColorDisplay.AnchorPoint = Vector2.new(1, 0.5)
-            CurrentColorDisplay.BackgroundColor3 = ColorPickerSettings.Color
-            CurrentColorDisplay.BorderSizePixel = 0
-            local CurrentColorDisplayUICorner = Instance.new("UICorner")
-            CurrentColorDisplayUICorner.Parent = CurrentColorDisplay
-            CurrentColorDisplayUICorner.CornerRadius = UDim.new(0, 5)
-            local CurrentColorDisplayUIStroke = Instance.new("UIStroke")
-            CurrentColorDisplayUIStroke.Parent = CurrentColorDisplay
-            CurrentColorDisplayUIStroke.Color = SelectedTheme.ElementStroke
-            CurrentColorDisplayUIStroke.Thickness = 1
-
-            local ColorPickerInteract = Instance.new("TextButton")
-            ColorPickerInteract.Name = "Interact"
-            ColorPickerInteract.Parent = ColorPicker
-            ColorPickerInteract.Size = UDim2.new(1, 0, 1, 0)
-            ColorPickerInteract.BackgroundTransparency = 1
-            ColorPickerInteract.Text = ""
-
-            local isExpanded = false
-            local expandedHeight = 150
-
-            ColorPickerInteract.MouseButton1Click:Connect(function()
-                if isExpanded then
-                    isExpanded = false
-                    TweenService:Create(ColorPicker, TweenInfo.new(0.3), {Size = UDim2.new(1, 0, 0, 45)}):Play()
-                else
-                    isExpanded = true
-                    TweenService:Create(ColorPicker, TweenInfo.new(0.3), {Size = UDim2.new(1, 0, 0, expandedHeight)}):Play()
-                end
-            end)
-
-            ColorPicker.MouseEnter:Connect(function()
-                TweenService:Create(ColorPicker, TweenInfo.new(0.2), {BackgroundColor3 = SelectedTheme.ElementBackgroundHover}):Play()
-            end)
-
-            ColorPicker.MouseLeave:Connect(function()
-                TweenService:Create(ColorPicker, TweenInfo.new(0.2), {BackgroundColor3 = SelectedTheme.ElementBackground}):Play()
-            end)
-
-            connectTheme(Main, function()
-                ColorPicker.BackgroundColor3 = SelectedTheme.ElementBackground
-                ColorPickerUIStroke.Color = SelectedTheme.ElementStroke
-                ColorPickerTitle.TextColor3 = SelectedTheme.TextColor
-                CurrentColorDisplayUIStroke.Color = SelectedTheme.ElementStroke
-            end)
-
-            return {
-                Set = function(newColor)
-                    ColorPickerSettings.Color = newColor
-                    CurrentColorDisplay.BackgroundColor3 = newColor
-                    if ColorPickerSettings.Callback then
-                        pcall(ColorPickerSettings.Callback, newColor)
-                    end
-                end,
-                GetColor = function()
-                    return ColorPickerSettings.Color
-                end
-            }
-        end
-
-        -- Section
-        function Tab:CreateSection(SectionName)
-            local SectionSpace = Instance.new("Frame")
-            SectionSpace.Name = "SectionSpacing"
-            SectionSpace.Parent = TabPage
-            SectionSpace.Size = UDim2.new(1, 0, 0, 10)
-            SectionSpace.BackgroundTransparency = 1
-            SectionSpace.Visible = true
-
-            local Section = Instance.new("Frame")
-            Section.Name = "SectionTitle"
-            Section.Parent = TabPage
-            Section.Size = UDim2.new(1, 0, 0, 20)
-            Section.BackgroundTransparency = 1
-            Section.BorderSizePixel = 0
-
-            local SectionTitle = Instance.new("TextLabel")
-            SectionTitle.Name = "Title"
-            SectionTitle.Parent = Section
-            SectionTitle.Text = SectionName
-            SectionTitle.TextColor3 = SelectedTheme.TextColor
-            SectionTitle.TextSize = 16
-            SectionTitle.Font = Enum.Font.SourceSansBold
-            SectionTitle.BackgroundTransparency = 1
-            SectionTitle.Size = UDim2.new(1, 0, 1, 0)
-            SectionTitle.TextXAlignment = Enum.TextXAlignment.Left
-            SectionTitle.TextTransparency = 0.4
-
-            connectTheme(Main, function()
-                SectionTitle.TextColor3 = SelectedTheme.TextColor
-            end)
-
-            return {
-                Set = function(NewSectionName)
-                    SectionTitle.Text = NewSectionName
-                end
-            }
-        end
-
-        -- Divider
-        function Tab:CreateDivider()
-            local DividerFrame = Instance.new("Frame")
-            DividerFrame.Name = "Divider"
-            DividerFrame.Parent = TabPage
-            DividerFrame.Size = UDim2.new(1, -20, 0, 5)
-            DividerFrame.Position = UDim2.new(0, 10, 0, 0)
-            DividerFrame.BackgroundTransparency = 1
-            DividerFrame.BorderSizePixel = 0
-
-            local DividerLine = Instance.new("Frame")
-            DividerLine.Name = "Divider"
-            DividerLine.Parent = DividerFrame
-            DividerLine.Size = UDim2.new(1, 0, 0, 1)
-            DividerLine.BackgroundColor3 = SelectedTheme.ElementStroke
-            DividerLine.BorderSizePixel = 0
-            DividerLine.BackgroundTransparency = 0.85
-
-            connectTheme(Main, function()
-                DividerLine.BackgroundColor3 = SelectedTheme.ElementStroke
-            end)
-
-            return {
-                Set = function(Value)
-                    DividerFrame.Visible = Value
-                end
-            }
-        end
-
-        -- Label
-        function Tab:CreateLabel(LabelText, Icon, Color, IgnoreTheme)
-            local Label = Instance.new("Frame")
-            Label.Name = "Label"
-            Label.Parent = TabPage
-            Label.Size = UDim2.new(1, 0, 0, 30)
-            Label.BackgroundColor3 = Color or SelectedTheme.SecondaryElementBackground
-            Label.BorderSizePixel = 0
-            local LabelUICorner = Instance.new("UICorner")
-            LabelUICorner.Parent = Label
-            LabelUICorner.CornerRadius = UDim.new(0, 5)
-            local LabelUIStroke = Instance.new("UIStroke")
-            LabelUIStroke.Parent = Label
-            LabelUIStroke.Color = Color or SelectedTheme.SecondaryElementStroke
-            LabelUIStroke.Thickness = 1
-
-            local LabelTitle = Instance.new("TextLabel")
-            LabelTitle.Name = "Title"
-            LabelTitle.Parent = Label
-            LabelTitle.Text = LabelText
-            LabelTitle.TextColor3 = SelectedTheme.TextColor
-            LabelTitle.TextSize = 16
-            LabelTitle.TextScaled = true
-            LabelTitle.Font = Enum.Font.SourceSans
-            LabelTitle.BackgroundTransparency = 1
-            LabelTitle.Size = UDim2.new(1, 0, 1, 0)
-            LabelTitle.TextXAlignment = Enum.TextXAlignment.Center
-
-            local LabelIcon = nil
-            if Icon then
-                LabelIcon = Instance.new("ImageLabel")
-                LabelIcon.Name = "Icon"
-                LabelIcon.Parent = Label
-                LabelIcon.BackgroundTransparency = 1
-                LabelIcon.Image = getAssetUri(Icon)
-                LabelIcon.ImageColor3 = SelectedTheme.TextColor
-                LabelIcon.Size = UDim2.new(0, 24, 0, 24)
-                LabelIcon.Position = UDim2.new(0, 5, 0.5, 0)
-                LabelIcon.AnchorPoint = Vector2.new(0, 0.5)
-                LabelIcon.Visible = true
-                LabelTitle.Position = UDim2.new(0, 35, 0.5, 0)
-                LabelTitle.Size = UDim2.new(1, -35, 0, 16)
-                LabelTitle.TextXAlignment = Enum.TextXAlignment.Left
-            end
-
-            connectTheme(Main, function()
-                Label.BackgroundColor3 = IgnoreTheme and (Color or Label.BackgroundColor3) or SelectedTheme.SecondaryElementBackground
-                LabelUIStroke.Color = IgnoreTheme and (Color or LabelUIStroke.Color) or SelectedTheme.SecondaryElementStroke
-                LabelTitle.TextColor3 = SelectedTheme.TextColor
-                if LabelIcon then LabelIcon.ImageColor3 = SelectedTheme.TextColor end
-            end)
-
-            return {
-                Set = function(NewText, NewIcon, NewColor)
-                    LabelTitle.Text = NewText
-                    if NewColor then
-                        Label.BackgroundColor3 = NewColor
-                        LabelUIStroke.Color = NewColor
-                    end
-                    if NewIcon then
-                        if LabelIcon then
-                            LabelIcon.Image = getAssetUri(NewIcon)
-                        else
-                            local newIcon = Instance.new("ImageLabel")
-                            newIcon.Name = "Icon"
-                            newIcon.Parent = Label
-                            newIcon.BackgroundTransparency = 1
-                            newIcon.Image = getAssetUri(NewIcon)
-                            newIcon.ImageColor3 = SelectedTheme.TextColor
-                            newIcon.Size = UDim2.new(0, 24, 0, 24)
-                            newIcon.Position = UDim2.new(0, 5, 0.5, 0)
-                            newIcon.AnchorPoint = Vector2.new(0, 0.5)
-                            newIcon.Visible = true
-                            LabelTitle.Position = UDim2.new(0, 35, 0.5, 0)
-                            LabelTitle.Size = UDim2.new(1, -35, 0, 16)
-                            LabelTitle.TextXAlignment = Enum.TextXAlignment.Left
-                        end
-                    end
-                end
-            }
-        end
-
-        -- Paragraph
-        function Tab:CreateParagraph(ParagraphSettings)
-            local Paragraph = Instance.new("Frame")
-            Paragraph.Name = "Paragraph"
-            Paragraph.Parent = TabPage
-            Paragraph.Size = UDim2.new(1, 0, 0, 60)
-            Paragraph.BackgroundColor3 = SelectedTheme.SecondaryElementBackground
-            Paragraph.BorderSizePixel = 0
-            local ParagraphUICorner = Instance.new("UICorner")
-            ParagraphUICorner.Parent = Paragraph
-            ParagraphUICorner.CornerRadius = UDim.new(0, 5)
-            local ParagraphUIStroke = Instance.new("UIStroke")
-            ParagraphUIStroke.Parent = Paragraph
-            ParagraphUIStroke.Color = SelectedTheme.SecondaryElementStroke
-            ParagraphUIStroke.Thickness = 1
-
-            local ParagraphTitle = Instance.new("TextLabel")
-            ParagraphTitle.Name = "Title"
-            ParagraphTitle.Parent = Paragraph
-            ParagraphTitle.Text = ParagraphSettings.Title
-            ParagraphTitle.TextColor3 = SelectedTheme.TextColor
-            ParagraphTitle.TextSize = 16
-            ParagraphTitle.TextScaled = false
-            ParagraphTitle.Font = Enum.Font.SourceSansBold
-            ParagraphTitle.BackgroundTransparency = 1
-            ParagraphTitle.Size = UDim2.new(1, 0, 0.5, 0)
-            ParagraphTitle.TextXAlignment = Enum.TextXAlignment.Left
-            ParagraphTitle.Position = UDim2.new(0, 10, 0, 0)
-
-            local ParagraphContent = Instance.new("TextLabel")
-            ParagraphContent.Name = "Content"
-            ParagraphContent.Parent = Paragraph
-            ParagraphContent.Text = ParagraphSettings.Content
-            ParagraphContent.TextColor3 = SelectedTheme.TextColor
-            ParagraphContent.TextSize = 14
-            ParagraphContent.TextScaled = false
-            ParagraphContent.Font = Enum.Font.SourceSans
-            ParagraphContent.BackgroundTransparency = 1
-            ParagraphContent.Size = UDim2.new(1, -20, 0.5, 0)
-            ParagraphContent.TextXAlignment = Enum.TextXAlignment.Left
-            ParagraphContent.Position = UDim2.new(0, 10, 0.5, 0)
-            ParagraphContent.TextWrapped = true
-
-            connectTheme(Main, function()
-                Paragraph.BackgroundColor3 = SelectedTheme.SecondaryElementBackground
-                ParagraphUIStroke.Color = SelectedTheme.SecondaryElementStroke
-                ParagraphTitle.TextColor3 = SelectedTheme.TextColor
-                ParagraphContent.TextColor3 = SelectedTheme.TextColor
-            end)
-
-            return {
-                Set = function(NewParagraphSettings)
-                    ParagraphTitle.Text = NewParagraphSettings.Title
-                    ParagraphContent.Text = NewParagraphSettings.Content
-                end
-            }
-        end
-
-        -- Input
-        function Tab:CreateInput(InputSettings)
-            local Input = Instance.new("Frame")
-            Input.Name = InputSettings.Name
-            Input.Parent = TabPage
-            Input.Size = UDim2.new(1, 0, 0, 60)
-            Input.BackgroundColor3 = SelectedTheme.ElementBackground
-            Input.BorderSizePixel = 0
-            local InputUICorner = Instance.new("UICorner")
-            InputUICorner.Parent = Input
-            InputUICorner.CornerRadius = UDim.new(0, 5)
-            local InputUIStroke = Instance.new("UIStroke")
-            InputUIStroke.Parent = Input
-            InputUIStroke.Color = SelectedTheme.ElementStroke
-            InputUIStroke.Thickness = 1
-
-            local InputTitle = Instance.new("TextLabel")
-            InputTitle.Name = "Title"
-            InputTitle.Parent = Input
-            InputTitle.Text = InputSettings.Name
-            InputTitle.TextColor3 = SelectedTheme.TextColor
-            InputTitle.TextSize = 16
-            InputTitle.TextScaled = true
-            InputTitle.Font = Enum.Font.SourceSans
-            InputTitle.BackgroundTransparency = 1
-            InputTitle.Size = UDim2.new(1, 0, 0.5, 0)
-            InputTitle.TextXAlignment = Enum.TextXAlignment.Left
-            InputTitle.Position = UDim2.new(0, 10, 0, 0)
-
-            local InputFrame = Instance.new("Frame")
-            InputFrame.Name = "InputFrame"
-            InputFrame.Parent = Input
-            InputFrame.Size = UDim2.new(1, -20, 0, 30)
-            InputFrame.Position = UDim2.new(0, 10, 0.5, 0)
-            InputFrame.BackgroundColor3 = SelectedTheme.InputBackground
-            InputFrame.BorderSizePixel = 0
-            local InputFrameUICorner = Instance.new("UICorner")
-            InputFrameUICorner.Parent = InputFrame
-            InputFrameUICorner.CornerRadius = UDim.new(0, 5)
-            local InputFrameUIStroke = Instance.new("UIStroke")
-            InputFrameUIStroke.Parent = InputFrame
-            InputFrameUIStroke.Color = SelectedTheme.InputStroke
-            InputFrameUIStroke.Thickness = 1
-
-            local InputBox = Instance.new("TextBox")
-            InputBox.Name = "InputBox"
-            InputBox.Parent = InputFrame
-            InputBox.Size = UDim2.new(1, -10, 1, 0)
-            InputBox.Position = UDim2.new(0, 5, 0, 0)
-            InputBox.PlaceholderText = InputSettings.PlaceholderText
-            InputBox.Text = InputSettings.CurrentValue or ""
-            InputBox.TextColor3 = SelectedTheme.TextColor
-            InputBox.TextSize = 14
-            InputBox.Font = Enum.Font.SourceSans
-            InputBox.BackgroundTransparency = 1
-            InputBox.ClearTextOnFocus = false
-
-            InputBox.FocusLost:Connect(function(enterPressed)
-                if InputSettings.Callback then
-                    pcall(InputSettings.Callback, InputBox.Text)
-                end
-                if InputSettings.RemoveTextAfterFocusLost then
-                    InputBox.Text = ""
-                end
-            end)
-
-            Input.MouseEnter:Connect(function()
-                TweenService:Create(Input, TweenInfo.new(0.2), {BackgroundColor3 = SelectedTheme.ElementBackgroundHover}):Play()
-            end)
-
-            Input.MouseLeave:Connect(function()
-                TweenService:Create(Input, TweenInfo.new(0.2), {BackgroundColor3 = SelectedTheme.ElementBackground}):Play()
-            end)
-
-            connectTheme(Main, function()
-                Input.BackgroundColor3 = SelectedTheme.ElementBackground
-                InputUIStroke.Color = SelectedTheme.ElementStroke
-                InputTitle.TextColor3 = SelectedTheme.TextColor
-                InputFrame.BackgroundColor3 = SelectedTheme.InputBackground
-                InputFrameUIStroke.Color = SelectedTheme.InputStroke
-                InputBox.TextColor3 = SelectedTheme.TextColor
-            end)
-
-            return {
-                Set = function(text)
-                    InputBox.Text = text
-                    if InputSettings.Callback then
-                        pcall(InputSettings.Callback, text)
-                    end
-                end
-            }
-        end
-        
-        -- Dropdown
-        function Tab:CreateDropdown(DropdownSettings)
-            local Dropdown = Instance.new("Frame")
-            Dropdown.Name = DropdownSettings.Name
-            Dropdown.Parent = TabPage
-            Dropdown.Size = UDim2.new(1, 0, 0, 45)
-            Dropdown.BackgroundColor3 = SelectedTheme.ElementBackground
-            Dropdown.BorderSizePixel = 0
-            local DropdownUICorner = Instance.new("UICorner")
-            DropdownUICorner.Parent = Dropdown
-            DropdownUICorner.CornerRadius = UDim.new(0, 5)
-            local DropdownUIStroke = Instance.new("UIStroke")
-            DropdownUIStroke.Parent = Dropdown
-            DropdownUIStroke.Color = SelectedTheme.ElementStroke
-            DropdownUIStroke.Thickness = 1
-
-            local DropdownTitle = Instance.new("TextLabel")
-            DropdownTitle.Name = "Title"
-            DropdownTitle.Parent = Dropdown
-            DropdownTitle.Text = DropdownSettings.Name
-            DropdownTitle.TextColor3 = SelectedTheme.TextColor
-            DropdownTitle.TextSize = 16
-            DropdownTitle.TextScaled = true
-            DropdownTitle.Font = Enum.Font.SourceSans
-            DropdownTitle.BackgroundTransparency = 1
-            DropdownTitle.Size = UDim2.new(1, 0, 0.5, 0)
-            DropdownTitle.TextXAlignment = Enum.TextXAlignment.Left
-            DropdownTitle.Position = UDim2.new(0, 10, 0, 0)
-
-            local SelectedText = Instance.new("TextLabel")
-            SelectedText.Name = "Selected"
-            SelectedText.Parent = Dropdown
-            SelectedText.Text = DropdownSettings.CurrentOption and DropdownSettings.CurrentOption[1] or "None"
-            SelectedText.TextColor3 = SelectedTheme.TextColor
-            SelectedText.TextSize = 14
-            SelectedText.TextScaled = true
-            SelectedText.Font = Enum.Font.SourceSans
-            SelectedText.BackgroundTransparency = 1
-            SelectedText.Size = UDim2.new(0.8, -30, 0.5, 0)
-            SelectedText.TextXAlignment = Enum.TextXAlignment.Right
-            SelectedText.Position = UDim2.new(0, 10, 0.5, 0)
-
-            local ToggleImage = Instance.new("ImageLabel")
-            ToggleImage.Name = "Toggle"
-            ToggleImage.Parent = Dropdown
-            ToggleImage.BackgroundTransparency = 1
-            ToggleImage.Image = "rbxassetid://11036884234" -- Example dropdown arrow icon (down arrow)
-            ToggleImage.ImageColor3 = SelectedTheme.TextColor
-            ToggleImage.Size = UDim2.new(0, 20, 0, 20)
-            ToggleImage.Position = UDim2.new(1, -30, 0.5, 0)
-            ToggleImage.AnchorPoint = Vector2.new(1, 0.5)
-
-            local DropdownList = Instance.new("ScrollingFrame")
-            DropdownList.Name = "List"
-            DropdownList.Parent = Dropdown
-            DropdownList.BackgroundTransparency = 1
-            DropdownList.Size = UDim2.new(1, 0, 0, 0)
-            DropdownList.Position = UDim2.new(0, 0, 1, 0)
-            DropdownList.CanvasSize = UDim2.new(0,0,0,0)
-            DropdownList.ScrollBarImageTransparency = 1
-            DropdownList.ScrollingDirection = Enum.ScrollingDirection.Y
-            DropdownList.Visible = false
-            local DropdownListLayout = Instance.new("UIListLayout")
-            DropdownListLayout.Parent = DropdownList
-            DropdownListLayout.FillDirection = Enum.FillDirection.Vertical
-            DropdownListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-            DropdownListLayout.Padding = UDim.new(0, 2)
-            DropdownListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-
-            local isExpanded = false
-
-            local function SetDropdownOptions()
-                for _, Option in ipairs(DropdownSettings.Options) do
-                    local OptionFrame = Instance.new("Frame")
-                    OptionFrame.Name = Option
-                    OptionFrame.Parent = DropdownList
-                    OptionFrame.Size = UDim2.new(1, 0, 0, 25)
-                    OptionFrame.BackgroundColor3 = SelectedTheme.DropdownUnselected
-                    OptionFrame.BorderSizePixel = 0
-                    local OptionFrameUICorner = Instance.new("UICorner")
-                    OptionFrameUICorner.Parent = OptionFrame
-                    OptionFrameUICorner.CornerRadius = UDim.new(0, 5)
-
-                    local OptionTitle = Instance.new("TextLabel")
-                    OptionTitle.Name = "Title"
-                    OptionTitle.Parent = OptionFrame
-                    OptionTitle.Text = Option
-                    OptionTitle.TextColor3 = SelectedTheme.TextColor
-                    OptionTitle.TextSize = 14
-                    OptionTitle.TextScaled = true
-                    OptionTitle.Font = Enum.Font.SourceSans
-                    OptionTitle.BackgroundTransparency = 1
-                    OptionTitle.Size = UDim2.new(1, 0, 1, 0)
-                    OptionTitle.TextXAlignment = Enum.TextXAlignment.Center
-
-                    local OptionInteract = Instance.new("TextButton")
-                    OptionInteract.Name = "Interact"
-                    OptionInteract.Parent = OptionFrame
-                    OptionInteract.Size = UDim2.new(1, 0, 1, 0)
-                    OptionInteract.BackgroundTransparency = 1
-                    OptionInteract.Text = ""
-
-                    if DropdownSettings.CurrentOption and table.find(DropdownSettings.CurrentOption, Option) then
-                        OptionFrame.BackgroundColor3 = SelectedTheme.DropdownSelected
-                    end
-
-                    OptionInteract.MouseButton1Click:Connect(function()
-                        if DropdownSettings.MultipleOptions then
-                            if table.find(DropdownSettings.CurrentOption, Option) then
-                                table.remove(DropdownSettings.CurrentOption, table.find(DropdownSettings.CurrentOption, Option))
-                                OptionFrame.BackgroundColor3 = SelectedTheme.DropdownUnselected
-                            else
-                                table.insert(DropdownSettings.CurrentOption, Option)
-                                OptionFrame.BackgroundColor3 = SelectedTheme.DropdownSelected
-                            end
-                        else
-                            DropdownSettings.CurrentOption = {Option}
-                            SelectedText.Text = Option
-                            for _, child in ipairs(DropdownList:GetChildren()) do
-                                if child:IsA("Frame") then
-                                    child.BackgroundColor3 = SelectedTheme.DropdownUnselected
-                                end
-                            end
-                            OptionFrame.BackgroundColor3 = SelectedTheme.DropdownSelected
-                            isExpanded = false
-                            TweenService:Create(Dropdown, TweenInfo.new(0.3), {Size = UDim2.new(1, 0, 0, 45)}):Play()
-                            DropdownList.Visible = false
-                            TweenService:Create(ToggleImage, TweenInfo.new(0.3), {Rotation = 180}):Play()
-                        end
-
-                        if DropdownSettings.Callback then
-                            pcall(DropdownSettings.Callback, DropdownSettings.CurrentOption)
-                        end
-
-                        if DropdownSettings.MultipleOptions then
-                            if #DropdownSettings.CurrentOption == 1 then
-                                SelectedText.Text = DropdownSettings.CurrentOption[1]
-                            elseif #DropdownSettings.CurrentOption == 0 then
-                                SelectedText.Text = "None"
-                            else
-                                SelectedText.Text = "Various"
-                            end
-                        end
-                    end)
-
-                    connectTheme(Main, function()
-                        OptionTitle.TextColor3 = SelectedTheme.TextColor
-                        if DropdownSettings.CurrentOption and table.find(DropdownSettings.CurrentOption, Option) then
-                            OptionFrame.BackgroundColor3 = SelectedTheme.DropdownSelected
-                        else
-                            OptionFrame.BackgroundColor3 = SelectedTheme.DropdownUnselected
-                        end
-                    end)
-                end
-            end
-
-            SetDropdownOptions()
-
-            Dropdown.Interact.MouseButton1Click:Connect(function()
-                if isExpanded then
-                    isExpanded = false
-                    TweenService:Create(Dropdown, TweenInfo.new(0.3), {Size = UDim2.new(1, 0, 0, 45)}):Play()
-                    DropdownList.Visible = false
-                    TweenService:Create(ToggleImage, TweenInfo.new(0.3), {Rotation = 180}):Play()
-                else
-                    isExpanded = true
-                    TweenService:Create(Dropdown, TweenInfo.new(0.3), {Size = UDim2.new(1, 0, 0, 45 + (#DropdownSettings.Options * 25) + 5)}):Play()
-                    DropdownList.Visible = true
-                    TweenService:Create(ToggleImage, TweenInfo.new(0.3), {Rotation = 0}):Play()
-                end
-            end)
-
-            Dropdown.MouseEnter:Connect(function()
-                if not isExpanded then
-                    TweenService:Create(Dropdown, TweenInfo.new(0.2), {BackgroundColor3 = SelectedTheme.ElementBackgroundHover}):Play()
-                end
-            end)
-
-            Dropdown.MouseLeave:Connect(function()
-                TweenService:Create(Dropdown, TweenInfo.new(0.2), {BackgroundColor3 = SelectedTheme.ElementBackground}):Play()
-            end)
-
-            connectTheme(Main, function()
-                Dropdown.BackgroundColor3 = SelectedTheme.ElementBackground
-                DropdownUIStroke.Color = SelectedTheme.ElementStroke
-                DropdownTitle.TextColor3 = SelectedTheme.TextColor
-                SelectedText.TextColor3 = SelectedTheme.TextColor
-                ToggleImage.ImageColor3 = SelectedTheme.TextColor
-            end)
-
-            return {
-                Set = function(NewOptions)
-                    DropdownSettings.CurrentOption = NewOptions
-                    if DropdownSettings.MultipleOptions then
-                        if #DropdownSettings.CurrentOption == 1 then
-                            SelectedText.Text = DropdownSettings.CurrentOption[1]
-                        elseif #DropdownSettings.CurrentOption == 0 then
-                            SelectedText.Text = "None"
-                        else
-                            SelectedText.Text = "Various"
-                        end
+        function Tab:CreateColumn(columnTitle, width)
+            width = width or 350
+
+            local ColumnContainer = Instance.new("Frame")
+            ColumnContainer.Name = columnTitle
+            ColumnContainer.Parent = TabContent
+            ColumnContainer.BackgroundColor3 = SelectedTheme.SecondaryElementBackground
+            ColumnContainer.BorderSizePixel = 0
+            ColumnContainer.Size = UDim2.new(0, width, 1, -36)
+            ColumnContainer.Position = UDim2.new(0, 0, 0, 18)
+            local ColumnCorner = Instance.new("UICorner")
+            ColumnCorner.CornerRadius = UDim.new(0, 6)
+            ColumnCorner.Parent = ColumnContainer
+
+            local ColumnTitle = Instance.new("TextLabel")
+            ColumnTitle.Parent = ColumnContainer
+            ColumnTitle.BackgroundTransparency = 1
+            ColumnTitle.Position = UDim2.new(0, 15, 0, 10)
+            ColumnTitle.Size = UDim2.new(1, -30, 0, 25)
+            ColumnTitle.Font = Enum.Font.GothamBold
+            ColumnTitle.Text = columnTitle
+            ColumnTitle.TextColor3 = Color3.fromRGB(180, 180, 180)
+            ColumnTitle.TextSize = 12
+            ColumnTitle.TextXAlignment = Enum.TextXAlignment.Left
+
+            local ColumnFrame = Instance.new("ScrollingFrame")
+            ColumnFrame.Name = "ColumnContent"
+            ColumnFrame.Parent = ColumnContainer
+            ColumnFrame.BackgroundTransparency = 1
+            ColumnFrame.BorderSizePixel = 0
+            ColumnFrame.Position = UDim2.new(0,0,0,35)
+            ColumnFrame.Size = UDim2.new(1,0,1,-40)
+            ColumnFrame.CanvasSize = UDim2.new(0,0,0,0)
+            ColumnFrame.ScrollBarThickness = 4
+            
+            local ColumnLayout = Instance.new("UIListLayout")
+            ColumnLayout.Parent = ColumnFrame
+            ColumnLayout.SortOrder = Enum.SortOrder.LayoutOrder
+            ColumnLayout.Padding = UDim.new(0, 5)
+            ColumnLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+            
+            local Column = {}
+
+            function Column:CreateToggle(settings)
+                local toggleState = settings.CurrentValue
+                local ToggleFrame = Instance.new("Frame")
+                ToggleFrame.Name = settings.Name
+                ToggleFrame.Parent = ColumnFrame
+                ToggleFrame.BackgroundColor3 = SelectedTheme.ElementBackground
+                ToggleFrame.BorderSizePixel = 0
+                ToggleFrame.Size = UDim2.new(1, -30, 0, 30)
+                local ToggleCorner = Instance.new("UICorner")
+                ToggleCorner.CornerRadius = UDim.new(0, 4)
+                ToggleCorner.Parent = ToggleFrame
+                
+                local Label = Instance.new("TextLabel")
+                Label.Parent = ToggleFrame
+                Label.BackgroundTransparency = 1
+                Label.Position = UDim2.new(0, 12, 0, 0)
+                Label.Size = UDim2.new(0, 200, 1, 0)
+                Label.Font = Enum.Font.Gotham
+                Label.Text = settings.Name
+                Label.TextSize = 13
+                Label.TextXAlignment = Enum.TextXAlignment.Left
+
+                local ToggleBg = Instance.new("Frame")
+                ToggleBg.Parent = ToggleFrame
+                ToggleBg.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+                ToggleBg.BorderSizePixel = 0
+                ToggleBg.Position = UDim2.new(1, -38, 0.5, -10)
+                ToggleBg.Size = UDim2.new(0, 32, 0, 20)
+                local BgCorner = Instance.new("UICorner")
+                BgCorner.CornerRadius = UDim.new(1, 0)
+                BgCorner.Parent = ToggleBg
+                
+                local ToggleButton = Instance.new("Frame")
+                ToggleButton.Parent = ToggleBg
+                ToggleButton.BorderSizePixel = 0
+                ToggleButton.Size = UDim2.new(0, 16, 0, 16)
+                local ButtonCorner = Instance.new("UICorner")
+                ButtonCorner.CornerRadius = UDim.new(1, 0)
+                ButtonCorner.Parent = ToggleButton
+
+                local function updateVisuals(value, animate)
+                    local pos = value and UDim2.new(0, 14, 0, 2) or UDim2.new(0, 2, 0, 2)
+                    local color = value and SelectedTheme.ToggleEnabled or SelectedTheme.ToggleDisabled
+                    local textColor = value and Color3.fromRGB(255, 200, 50) or SelectedTheme.TextColor
+                    if animate then
+                        TweenService:Create(ToggleButton, TweenInfo.new(0.15, Enum.EasingStyle.Quad), {Position = pos, BackgroundColor3 = color}):Play()
+                        TweenService:Create(Label, TweenInfo.new(0.15, Enum.EasingStyle.Quad), {TextColor3 = textColor}):Play()
                     else
-                        SelectedText.Text = DropdownSettings.CurrentOption[1]
-                    end
-                    for _, child in ipairs(DropdownList:GetChildren()) do
-                        if child:IsA("Frame") then
-                            if table.find(DropdownSettings.CurrentOption, child.Name) then
-                                child.BackgroundColor3 = SelectedTheme.DropdownSelected
-                            else
-                                child.BackgroundColor3 = SelectedTheme.DropdownUnselected
-                            end
-                        end
-                    end
-                    if DropdownSettings.Callback then
-                        pcall(DropdownSettings.Callback, DropdownSettings.CurrentOption)
-                    end
-                end,
-                Refresh = function(optionsTable)
-                    DropdownSettings.Options = optionsTable
-                    for _, option in DropdownList:GetChildren() do
-                        if option:IsA("Frame") then
-                            option:Destroy()
-                        end
-                    end
-                    SetDropdownOptions()
-                end
-            }
-        end
-
-        -- Keybind
-        function Tab:CreateKeybind(KeybindSettings)
-            local Keybind = Instance.new("Frame")
-            Keybind.Name = KeybindSettings.Name
-            Keybind.Parent = TabPage
-            Keybind.Size = UDim2.new(1, 0, 0, 60)
-            Keybind.BackgroundColor3 = SelectedTheme.ElementBackground
-            Keybind.BorderSizePixel = 0
-            local KeybindUICorner = Instance.new("UICorner")
-            KeybindUICorner.Parent = Keybind
-            KeybindUICorner.CornerRadius = UDim.new(0, 5)
-            local KeybindUIStroke = Instance.new("UIStroke")
-            KeybindUIStroke.Parent = Keybind
-            KeybindUIStroke.Color = SelectedTheme.ElementStroke
-            KeybindUIStroke.Thickness = 1
-
-            local KeybindTitle = Instance.new("TextLabel")
-            KeybindTitle.Name = "Title"
-            KeybindTitle.Parent = Keybind
-            KeybindTitle.Text = KeybindSettings.Name
-            KeybindTitle.TextColor3 = SelectedTheme.TextColor
-            KeybindTitle.TextSize = 16
-            KeybindTitle.TextScaled = true
-            KeybindTitle.Font = Enum.Font.SourceSans
-            KeybindTitle.BackgroundTransparency = 1
-            KeybindTitle.Size = UDim2.new(1, 0, 0.5, 0)
-            KeybindTitle.TextXAlignment = Enum.TextXAlignment.Left
-            KeybindTitle.Position = UDim2.new(0, 10, 0, 0)
-
-            local KeybindFrame = Instance.new("Frame")
-            KeybindFrame.Name = "KeybindFrame"
-            KeybindFrame.Parent = Keybind
-            KeybindFrame.Size = UDim2.new(1, -20, 0, 30)
-            KeybindFrame.Position = UDim2.new(0, 10, 0.5, 0)
-            KeybindFrame.BackgroundColor3 = SelectedTheme.InputBackground
-            KeybindFrame.BorderSizePixel = 0
-            local KeybindFrameUICorner = Instance.new("UICorner")
-            KeybindFrameUICorner.Parent = KeybindFrame
-            KeybindFrameUICorner.CornerRadius = UDim.new(0, 5)
-            local KeybindFrameUIStroke = Instance.new("UIStroke")
-            KeybindFrameUIStroke.Parent = KeybindFrame
-            KeybindFrameUIStroke.Color = SelectedTheme.InputStroke
-            KeybindFrameUIStroke.Thickness = 1
-
-            local KeybindBox = Instance.new("TextBox")
-            KeybindBox.Name = "KeybindBox"
-            KeybindBox.Parent = KeybindFrame
-            KeybindBox.Size = UDim2.new(1, -10, 1, 0)
-            KeybindBox.Position = UDim2.new(0, 5, 0, 0)
-            KeybindBox.Text = KeybindSettings.CurrentKeybind
-            KeybindBox.TextColor3 = SelectedTheme.TextColor
-            KeybindBox.TextSize = 14
-            KeybindBox.Font = Enum.Font.SourceSans
-            KeybindBox.BackgroundTransparency = 1
-            KeybindBox.ClearTextOnFocus = false
-            KeybindBox.TextEditable = false
-
-            local CheckingForKey = false
-
-            KeybindBox.Focused:Connect(function()
-                CheckingForKey = true
-                KeybindBox.Text = "..."
-            end)
-
-            KeybindBox.FocusLost:Connect(function()
-                CheckingForKey = false
-                KeybindBox.Text = KeybindSettings.CurrentKeybind
-            end)
-
-            UserInputService.InputBegan:Connect(function(input, processed)
-                if CheckingForKey and input.KeyCode ~= Enum.KeyCode.Unknown then
-                    local newKey = input.KeyCode.Name
-                    KeybindBox.Text = newKey
-                    KeybindSettings.CurrentKeybind = newKey
-                    KeybindBox:ReleaseFocus()
-                    if KeybindSettings.Callback and KeybindSettings.CallOnChange then
-                        pcall(KeybindSettings.Callback, newKey)
-                    end
-                elseif not CheckingForKey and not processed and input.KeyCode.Name == KeybindSettings.CurrentKeybind then
-                    if KeybindSettings.Callback then
-                        if KeybindSettings.HoldToInteract then
-                            local isHeld = true
-                            local connection
-                            connection = UserInputService.InputEnded:Connect(function(inputEndedEvent)
-                                if inputEndedEvent.KeyCode.Name == KeybindSettings.CurrentKeybind then
-                                    isHeld = false
-                                    connection:Disconnect()
-                                    pcall(KeybindSettings.Callback, false)
-                                end
-                            end)
-                            pcall(KeybindSettings.Callback, true)
-                        else
-                            pcall(KeybindSettings.Callback)
-                        end
+                        ToggleButton.Position = pos
+                        ToggleButton.BackgroundColor3 = color
+                        Label.TextColor3 = textColor
                     end
                 end
-            end)
+                updateVisuals(toggleState, false)
 
-            Keybind.MouseEnter:Connect(function()
-                TweenService:Create(Keybind, TweenInfo.new(0.2), {BackgroundColor3 = SelectedTheme.ElementBackgroundHover}):Play()
-            end)
+                local ClickButton = Instance.new("TextButton")
+                ClickButton.Parent = ToggleFrame
+                ClickButton.BackgroundTransparency = 1
+                ClickButton.Size = UDim2.new(1, 0, 1, 0)
+                ClickButton.Text = ""
 
-            Keybind.MouseLeave:Connect(function()
-                TweenService:Create(Keybind, TweenInfo.new(0.2), {BackgroundColor3 = SelectedTheme.ElementBackground}):Play()
-            end)
-
-            connectTheme(Main, function()
-                Keybind.BackgroundColor3 = SelectedTheme.ElementBackground
-                KeybindUIStroke.Color = SelectedTheme.ElementStroke
-                KeybindTitle.TextColor3 = SelectedTheme.TextColor
-                KeybindFrame.BackgroundColor3 = SelectedTheme.InputBackground
-                KeybindFrameUIStroke.Color = SelectedTheme.InputStroke
-                KeybindBox.TextColor3 = SelectedTheme.TextColor
-            end)
-
-            return {
-                Set = function(newKey)
-                    KeybindSettings.CurrentKeybind = newKey
-                    KeybindBox.Text = newKey
-                    if KeybindSettings.Callback and KeybindSettings.CallOnChange then
-                        pcall(KeybindSettings.Callback, newKey)
-                    end
-                end
-            }
-        end
-
-        -- Toggle
-        function Tab:CreateToggle(ToggleSettings)
-            local Toggle = Instance.new("Frame")
-            Toggle.Name = ToggleSettings.Name
-            Toggle.Parent = TabPage
-            Toggle.Size = UDim2.new(1, 0, 0, 45)
-            Toggle.BackgroundColor3 = SelectedTheme.ElementBackground
-            Toggle.BorderSizePixel = 0
-            local ToggleUICorner = Instance.new("UICorner")
-            ToggleUICorner.Parent = Toggle
-            ToggleUICorner.CornerRadius = UDim.new(0, 5)
-            local ToggleUIStroke = Instance.new("UIStroke")
-            ToggleUIStroke.Parent = Toggle
-            ToggleUIStroke.Color = SelectedTheme.ElementStroke
-            ToggleUIStroke.Thickness = 1
-
-            local ToggleTitle = Instance.new("TextLabel")
-            ToggleTitle.Name = "Title"
-            ToggleTitle.Parent = Toggle
-            ToggleTitle.Text = ToggleSettings.Name
-            ToggleTitle.TextColor3 = SelectedTheme.TextColor
-            ToggleTitle.TextSize = 16
-            ToggleTitle.TextScaled = true
-            ToggleTitle.Font = Enum.Font.SourceSans
-            ToggleTitle.BackgroundTransparency = 1
-            ToggleTitle.Size = UDim2.new(0.8, 0, 1, 0)
-            ToggleTitle.TextXAlignment = Enum.TextXAlignment.Left
-            ToggleTitle.Position = UDim2.new(0, 10, 0, 0)
-
-            local Switch = Instance.new("Frame")
-            Switch.Name = "Switch"
-            Switch.Parent = Toggle
-            Switch.Size = UDim2.new(0, 40, 0, 20)
-            Switch.Position = UDim2.new(1, -50, 0.5, 0)
-            Switch.AnchorPoint = Vector2.new(1, 0.5)
-            Switch.BackgroundColor3 = SelectedTheme.ToggleBackground
-            Switch.BorderSizePixel = 0
-            local SwitchUICorner = Instance.new("UICorner")
-            SwitchUICorner.Parent = Switch
-            SwitchUICorner.CornerRadius = UDim.new(0, 10)
-            local SwitchUIStroke = Instance.new("UIStroke")
-            SwitchUIStroke.Parent = Switch
-            SwitchUIStroke.Color = SelectedTheme.ToggleDisabledOuterStroke
-            SwitchUIStroke.Thickness = 1
-
-            local Indicator = Instance.new("Frame")
-            Indicator.Name = "Indicator"
-            Indicator.Parent = Switch
-            Indicator.Size = UDim2.new(0, 17, 0, 17)
-            Indicator.AnchorPoint = Vector2.new(0.5, 0.5)
-            local IndicatorUICorner = Instance.new("UICorner")
-            IndicatorUICorner.Parent = Indicator
-            IndicatorUICorner.CornerRadius = UDim.new(0, 8.5)
-            local IndicatorUIStroke = Instance.new("UIStroke")
-            IndicatorUIStroke.Parent = Indicator
-            IndicatorUIStroke.Thickness = 1
-
-            local function updateToggleVisuals(value)
-                if value then
-                    Indicator.Position = UDim2.new(1, -10, 0.5, 0)
-                    IndicatorUIStroke.Color = SelectedTheme.ToggleEnabledStroke
-                    Indicator.BackgroundColor3 = SelectedTheme.ToggleEnabled
-                    SwitchUIStroke.Color = SelectedTheme.ToggleEnabledOuterStroke
-                else
-                    Indicator.Position = UDim2.new(0, 10, 0.5, 0)
-                    IndicatorUIStroke.Color = SelectedTheme.ToggleDisabledStroke
-                    Indicator.BackgroundColor3 = SelectedTheme.ToggleDisabled
-                    SwitchUIStroke.Color = SelectedTheme.ToggleDisabledOuterStroke
-                end
+                ClickButton.MouseButton1Click:Connect(function()
+                    toggleState = not toggleState
+                    updateVisuals(toggleState, true)
+                    if settings.Callback then pcall(settings.Callback, toggleState) end
+                end)
+                 return { Set = function(v) toggleState = v; updateVisuals(v, true) end, GetValue = function() return toggleState end}
             end
-            updateToggleVisuals(ToggleSettings.CurrentValue)
-
-            Toggle.MouseEnter:Connect(function()
-                TweenService:Create(Toggle, TweenInfo.new(0.2), {BackgroundColor3 = SelectedTheme.ElementBackgroundHover}):Play()
-            end)
-
-            Toggle.MouseLeave:Connect(function()
-                TweenService:Create(Toggle, TweenInfo.new(0.2), {BackgroundColor3 = SelectedTheme.ElementBackground}):Play()
-            end)
-
-            Toggle.Interact.MouseButton1Click:Connect(function()
-                ToggleSettings.CurrentValue = not ToggleSettings.CurrentValue
-                updateToggleVisuals(ToggleSettings.CurrentValue)
-                if ToggleSettings.Callback then
-                    pcall(ToggleSettings.Callback, ToggleSettings.CurrentValue)
-                end
-            end)
-
-            connectTheme(Main, function()
-                Toggle.BackgroundColor3 = SelectedTheme.ElementBackground
-                ToggleUIStroke.Color = SelectedTheme.ElementStroke
-                ToggleTitle.TextColor3 = SelectedTheme.TextColor
-                Switch.BackgroundColor3 = SelectedTheme.ToggleBackground
-                updateToggleVisuals(ToggleSettings.CurrentValue)
-            end)
-
-            return {
-                Set = function(newValue)
-                    ToggleSettings.CurrentValue = newValue
-                    updateToggleVisuals(newValue)
-                    if ToggleSettings.Callback then
-                        pcall(ToggleSettings.Callback, newValue)
-                    end
-                end,
-                GetValue = function()
-                    return ToggleSettings.CurrentValue
-                end
-            }
+            
+            return Column
         end
-        
-        -- Slider
-        function Tab:CreateSlider(SliderSettings)
-            local Slider = Instance.new("Frame")
-            Slider.Name = SliderSettings.Name
-            Slider.Parent = TabPage
-            Slider.Size = UDim2.new(1, 0, 0, 60)
-            Slider.BackgroundColor3 = SelectedTheme.ElementBackground
-            Slider.BorderSizePixel = 0
-            local SliderUICorner = Instance.new("UICorner")
-            SliderUICorner.Parent = Slider
-            SliderUICorner.CornerRadius = UDim.new(0, 5)
-            local SliderUIStroke = Instance.new("UIStroke")
-            SliderUIStroke.Parent = Slider
-            SliderUIStroke.Color = SelectedTheme.ElementStroke
-            SliderUIStroke.Thickness = 1
-
-            local SliderTitle = Instance.new("TextLabel")
-            SliderTitle.Name = "Title"
-            SliderTitle.Parent = Slider
-            SliderTitle.Text = SliderSettings.Name
-            SliderTitle.TextColor3 = SelectedTheme.TextColor
-            SliderTitle.TextSize = 16
-            SliderTitle.TextScaled = true
-            SliderTitle.Font = Enum.Font.SourceSans
-            SliderTitle.BackgroundTransparency = 1
-            SliderTitle.Size = UDim2.new(1, 0, 0.5, 0)
-            SliderTitle.TextXAlignment = Enum.TextXAlignment.Left
-            SliderTitle.Position = UDim2.new(0, 10, 0, 0)
-
-            local MainSliderFrame = Instance.new("Frame")
-            MainSliderFrame.Name = "Main"
-            MainSliderFrame.Parent = Slider
-            MainSliderFrame.Size = UDim2.new(1, -20, 0, 20)
-            MainSliderFrame.Position = UDim2.new(0, 10, 0.5, 0)
-            MainSliderFrame.BackgroundColor3 = SelectedTheme.SliderBackground
-            MainSliderFrame.BorderSizePixel = 0
-            local MainSliderFrameUICorner = Instance.new("UICorner")
-            MainSliderFrameUICorner.Parent = MainSliderFrame
-            MainSliderFrameUICorner.CornerRadius = UDim.new(0, 10)
-            local MainSliderFrameUIStroke = Instance.new("UIStroke")
-            MainSliderFrameUIStroke.Parent = MainSliderFrame
-            MainSliderFrameUIStroke.Color = SelectedTheme.SliderStroke
-            MainSliderFrameUIStroke.Thickness = 1
-
-            local Progress = Instance.new("Frame")
-            Progress.Name = "Progress"
-            Progress.Parent = MainSliderFrame
-            Progress.Size = UDim2.new(0, 0, 1, 0)
-            Progress.BackgroundColor3 = SelectedTheme.SliderProgress
-            Progress.BorderSizePixel = 0
-            local ProgressUICorner = Instance.new("UICorner")
-            ProgressUICorner.Parent = Progress
-            ProgressUICorner.CornerRadius = UDim.new(0, 10)
-            local ProgressUIStroke = Instance.new("UIStroke")
-            ProgressUIStroke.Parent = Progress
-            ProgressUIStroke.Color = SelectedTheme.SliderStroke
-            ProgressUIStroke.Thickness = 1
-
-            local InformationText = Instance.new("TextLabel")
-            InformationText.Name = "Information"
-            InformationText.Parent = MainSliderFrame
-            InformationText.BackgroundTransparency = 1
-            InformationText.Size = UDim2.new(1, 0, 1, 0)
-            InformationText.TextColor3 = SelectedTheme.TextColor
-            InformationText.TextSize = 14
-            InformationText.Font = Enum.Font.SourceSans
-            InformationText.TextXAlignment = Enum.TextXAlignment.Center
-
-            local SliderInteract = Instance.new("TextButton")
-            SliderInteract.Name = "Interact"
-            SliderInteract.Parent = MainSliderFrame
-            SliderInteract.Size = UDim2.new(1, 0, 1, 0)
-            SliderInteract.BackgroundTransparency = 1
-            SliderInteract.Text = ""
-
-            local SLDragging = false
-
-            local function updateSliderVisuals(value)
-                local min, max = SliderSettings.Range[1], SliderSettings.Range[2]
-                local normalizedValue = (value - min) / (max - min)
-                local pixelWidth = MainSliderFrame.AbsoluteSize.X * normalizedValue
-                Progress.Size = UDim2.new(0, pixelWidth, 1, 0)
-                InformationText.Text = tostring(value) .. (SliderSettings.Suffix and " " .. SliderSettings.Suffix or "")
-            end
-            updateSliderVisuals(SliderSettings.CurrentValue)
-
-            SliderInteract.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                    SLDragging = true
-                end
-            end)
-
-            UserInputService.InputEnded:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                    SLDragging = false
-                end
-            end)
-
-            RunService.RenderStepped:Connect(function()
-                if SLDragging then
-                    local mouseX = UserInputService:GetMouseLocation().X
-                    local relativeX = mouseX - MainSliderFrame.AbsolutePosition.X
-                    local normalizedX = math.clamp(relativeX / MainSliderFrame.AbsoluteSize.X, 0, 1)
-
-                    local min, max = SliderSettings.Range[1], SliderSettings.Range[2]
-                    local increment = SliderSettings.Increment
-
-                    local newValue = min + normalizedX * (max - min)
-                    newValue = math.floor(newValue / increment + 0.5) * increment
-                    newValue = math.clamp(newValue, min, max)
-
-                    if newValue ~= SliderSettings.CurrentValue then
-                        SliderSettings.CurrentValue = newValue
-                        updateSliderVisuals(newValue)
-                        if SliderSettings.Callback then
-                            pcall(SliderSettings.Callback, newValue)
-                        end
-                    end
-                end
-            end)
-
-            Slider.MouseEnter:Connect(function()
-                TweenService:Create(Slider, TweenInfo.new(0.2), {BackgroundColor3 = SelectedTheme.ElementBackgroundHover}):Play()
-            end)
-
-            Slider.MouseLeave:Connect(function()
-                TweenService:Create(Slider, TweenInfo.new(0.2), {BackgroundColor3 = SelectedTheme.ElementBackground}):Play()
-            end)
-
-            connectTheme(Main, function()
-                Slider.BackgroundColor3 = SelectedTheme.ElementBackground
-                SliderUIStroke.Color = SelectedTheme.ElementStroke
-                SliderTitle.TextColor3 = SelectedTheme.TextColor
-                MainSliderFrame.BackgroundColor3 = SelectedTheme.SliderBackground
-                MainSliderFrameUIStroke.Color = SelectedTheme.SliderStroke
-                Progress.BackgroundColor3 = SelectedTheme.SliderProgress
-                ProgressUIStroke.Color = SelectedTheme.SliderStroke
-                InformationText.TextColor3 = SelectedTheme.TextColor
-            end)
-
-            return {
-                Set = function(newValue)
-                    SliderSettings.CurrentValue = math.clamp(newValue, SliderSettings.Range[1], SliderSettings.Range[2])
-                    updateSliderVisuals(SliderSettings.CurrentValue)
-                    if SliderSettings.Callback then
-                        pcall(SliderSettings.Callback, SliderSettings.CurrentValue)
-                    end
-                end,
-                GetValue = function()
-                    return SliderSettings.CurrentValue
-                end
-            }
-        end
-
         return Tab
     end
-
-    if Settings.Theme then
-        pcall(ChangeTheme, Settings.Theme)
-    end
-
     return Window
 end
 
@@ -1660,104 +379,3 @@ SapphireLibrary.ModifyTheme = function(NewTheme)
 end
 
 return SapphireLibrary
-
--- Example Usage (for testing in Roblox Studio or a similar environment):
--- local Sapphire = require(script.Parent.clean_rayfield) -- Adjust path if needed
--- local Window = Sapphire:CreateWindow({
---     Name = "My Awesome GUI",
---     Theme = 'Default', -- Or 'Ocean', 'AmberGlow', etc.
--- })
-
--- local Tab1 = Window:CreateTab("General", 4483362458) -- Tab with an icon (asset ID)
--- local Tab2 = Window:CreateTab("Settings", "settings") -- Tab with Lucide icon name (requires icon library)
-
--- Tab1:CreateSection("Basic Controls")
-
--- Tab1:CreateButton({
---     Name = "Click Me!",
---     Callback = function()
---         print("Button Clicked!")
---         Sapphire.ModifyTheme('Ocean') -- Example: Change theme on button click
---     end,
--- })
-
--- local toggleValue = false
--- Tab1:CreateToggle({
---     Name = "Enable Feature",
---     CurrentValue = toggleValue,
---     Callback = function(value)
---         toggleValue = value
---         print("Feature Enabled: " .. tostring(value))
---     end,
--- })
-
--- local sliderVal = 50
--- Tab1:CreateSlider({
---     Name = "Adjust Value",
---     Range = {0, 100},
---     Increment = 5,
---     Suffix = "Units",
---     CurrentValue = sliderVal,
---     Callback = function(value)
---         sliderVal = value
---         print("Slider Value: " .. value)
---     end,
--- })
-
--- local inputText = "Default Text"
--- Tab1:CreateInput({
---     Name = "Enter Text",
---     CurrentValue = inputText,
---     PlaceholderText = "Type here...",
---     RemoveTextAfterFocusLost = false,
---     Callback = function(text)
---         inputText = text
---         print("Input Text: " .. text)
---     end,
--- })
-
--- Tab1:CreateDivider()
-
--- local selectedOptions = {"Option A"}
--- Tab1:CreateDropdown({
---     Name = "Select Options",
---     Options = {"Option A", "Option B", "Option C", "Option D", "Option E"},
---     CurrentOption = selectedOptions,
---     MultipleOptions = true,
---     Callback = function(options)
---         selectedOptions = options
---         print("Selected: " .. table.concat(options, ", "))
---     end,
--- })
-
--- local myKeybind = "Q"
--- Tab1:CreateKeybind({
---     Name = "Activate Ability",
---     CurrentKeybind = myKeybind,
---     HoldToInteract = false,
---     CallOnChange = true,
---     Callback = function(key)
---         print("Keybind 'Q' pressed!")
---     end,
--- })
-
--- local colorSetting = Color3.fromRGB(255, 0, 0)
--- Tab1:CreateColorPicker({
---     Name = "Choose Color",
---     Color = colorSetting,
---     Callback = function(color)
---         colorSetting = color
---         print("New Color: " .. tostring(color))
---     end,
--- })
-
--- Tab2:CreateSection("Information")
--- Tab2:CreateLabel("This is a simple label.")
--- Tab2:CreateLabel("Warning!", 4400704299, Color3.fromRGB(255, 150, 0), true)
--- Tab2:CreateParagraph({
---     Title = "About This GUI",
---     Content = "This GUI was created using the cleaned-up Sapphire library. It demonstrates various UI elements and their functionality.",
--- })
-
--- You would typically put this script in ServerScriptService or a similar place
--- and run it to see the GUI appear.
