@@ -1,353 +1,456 @@
--- CrimLib.lua
--- Модуль содержит ТОЛЬКО логику создания и визуального обновления GUI.
+local Library = {}
+local Components = {}
 
-local CrimLib = {}
-
--- Services
-local TweenService = game:GetService("TweenService")
+-- Сервисы Roblox
 local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 local CoreGui = game:GetService("CoreGui")
 
--- GUI Constants
-local COLOR_MAIN = Color3.fromRGB(25, 25, 25)
-local COLOR_TOPBAR = Color3.fromRGB(35, 35, 35)
-local COLOR_SIDEBAR = Color3.fromRGB(45, 45, 45)
-local COLOR_ACCENT = Color3.fromRGB(70, 200, 70) 
-local COLOR_OFF = Color3.fromRGB(35, 35, 35)    
-local COLOR_TEXT = Color3.fromRGB(255, 255, 255)
-local COLOR_BINDING = Color3.fromRGB(255, 165, 0) 
-local FONT = Enum.Font.Gotham
+-- Настройки GUI
+local GuiToggleKey = Enum.KeyCode.Insert -- Клавиша для открытия/закрытия
+local IsGuiVisible = false
 
--- Local State
-local CurrentTab = nil
+-- Тема, извлеченная из Crim.lua
+local CrimTheme = {
+    -- Основное окно / Фон
+    BACKGROUND = Color3.fromRGB(24, 24, 24), -- Цвет основного окна
+    SIDEBAR = Color3.fromRGB(18, 18, 18),   -- Цвет боковой панели
+    OUTLINE = Color3.fromRGB(35, 35, 35),   -- Цвет обводки (для рамки или неактивных элементов)
+    
+    -- Акцентный цвет (Зеленый)
+    ACCENT = Color3.fromRGB(70, 200, 70),   -- Цвет активных элементов и индикатора вкладки
 
--- === Utility Functions (для прозрачности) ===
+    -- Элементы (Кнопки, Слайдеры, Переключатели)
+    ELEMENT_BACKGROUND_OFF = Color3.fromRGB(35, 35, 35), -- Фон неактивного переключателя
+    ELEMENT_BACKGROUND_ON = Color3.fromRGB(70, 200, 70),  -- Фон активного переключателя
+    ELEMENT_TEXT = Color3.fromRGB(255, 255, 255),        -- Белый текст
+    ELEMENT_FONT = Enum.Font.Gotham,                    -- Шрифт Gotham
+    ELEMENT_TEXT_SIZE = 14,                             -- Размер текста
 
-local function recursiveSetTransparency(gui, opacity)
-    local targetTransparency = 1 - opacity
-    for _, child in pairs(gui:GetDescendants()) do
-        if child:IsA("GuiObject") and not child:IsA("ScreenGui") then
-            if child.Name ~= "SliderHandle" and child.Name ~= "KeybindButton" then
-                if child.BackgroundTransparency < 1 then
-                    child.BackgroundTransparency = targetTransparency
+    -- Слайдеры
+    SLIDER_KNOB = Color3.fromRGB(255, 255, 255),         -- Белый ползунок
+    
+    -- Текст вкладок
+    TAB_TEXT_UNSELECTED = Color3.fromRGB(140, 140, 140), -- Цвет невыбранного текста вкладки
+    TAB_TEXT_SELECTED = Color3.fromRGB(255, 255, 255),   -- Цвет выбранного текста вкладки
+}
+
+-- Вспомогательная функция для создания объектов
+local function create(className, properties)
+    local obj = Instance.new(className)
+    for k, v in pairs(properties) do
+        obj[k] = v
+    end
+    return obj
+end
+
+--================================================================================================================
+-- БИБЛИОТЕКА / ОКНО (Window)
+--================================================================================================================
+
+local WindowValue = { Tabs = {}, CurrentTab = nil }
+
+function Library:CreateWindow(settings)
+    settings = settings or {}
+
+    -- Основной ScreenGui
+    local ScreenGui = create("ScreenGui", {
+        Name = "Crimfield",
+        Parent = CoreGui,
+        DisplayOrder = 999,
+        IgnoreGuiInset = true,
+        ResetOnSpawn = false,
+    })
+
+    -- Главный фрейм (Окно)
+    local MainFrame = create("Frame", {
+        Name = "MainFrame",
+        Parent = ScreenGui,
+        Size = UDim2.new(0, 700, 0, 500),
+        Position = UDim2.new(0.5, -350, 0.5, -250), -- Центрирование
+        BackgroundColor3 = CrimTheme.BACKGROUND,
+        BackgroundTransparency = 0.1, -- Базовая прозрачность
+        ZIndex = 2,
+    })
+
+    create("UICorner", {
+        CornerRadius = UDim.new(0, 8),
+        Parent = MainFrame,
+    })
+    
+    -- Обводка основного фрейма (имитация дизайна Crim.lua)
+    create("UIStroke", {
+        Color = CrimTheme.OUTLINE,
+        Thickness = 1,
+        Parent = MainFrame
+    })
+
+    -- Боковая панель для вкладок
+    local SidebarFrame = create("Frame", {
+        Name = "SidebarFrame",
+        Parent = MainFrame,
+        Size = UDim2.new(0, 70, 1, 0),
+        BackgroundColor3 = CrimTheme.SIDEBAR,
+        ZIndex = 3,
+    })
+    
+    -- Контейнер для содержимого вкладок
+    local ContentFrame = create("Frame", {
+        Name = "ContentFrame",
+        Parent = MainFrame,
+        Size = UDim2.new(1, -70, 1, 0),
+        Position = UDim2.new(0, 70, 0, 0),
+        BackgroundTransparency = 1,
+        ClipsDescendants = true,
+        ZIndex = 2,
+    })
+    
+    local TabContainer = create("Frame", {
+        Name = "TabContainer",
+        Parent = ContentFrame,
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
+        ZIndex = 2,
+    })
+    
+    local TabPages = create("Frame", {
+        Name = "TabPages",
+        Parent = TabContainer,
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
+        ClipsDescendants = true,
+        ZIndex = 2,
+    })
+    
+    create("UIPageLayout", {
+        Name = "UIPageLayout",
+        Parent = TabPages,
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0, 0),
+        Animation = Enum.LayoutAnimation.None,
+    })
+
+    -- Заголовок окна
+    local TitleLabel = create("TextLabel", {
+        Name = "TitleLabel",
+        Parent = MainFrame,
+        Text = settings.Name or "Crimfield GUI",
+        Size = UDim2.new(1, -70, 0, 30),
+        Position = UDim2.new(0, 70, 0, 0),
+        Font = CrimTheme.ELEMENT_FONT,
+        TextSize = 18,
+        TextColor3 = CrimTheme.ACCENT,
+        BackgroundTransparency = 1,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextWrapped = true,
+        ZIndex = 3,
+    })
+    
+    -- Базовая функция перетаскивания (Draggable)
+    local isDragging = false
+    local dragOffset = Vector2.new()
+
+    MainFrame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            isDragging = true
+            local mousePos = UserInputService:GetMouseLocation()
+            dragOffset = mousePos - MainFrame.AbsolutePosition
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    isDragging = false
                 end
-                if child:IsA("TextLabel") or child:IsA("TextButton") then
-                    child.TextTransparency = targetTransparency
+            end)
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if isDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local mousePos = UserInputService:GetMouseLocation()
+            local newPos = mousePos - dragOffset
+            MainFrame.Position = UDim2.fromOffset(newPos.X, newPos.Y)
+        end
+    end)
+    
+    -- Видимость (Insert Key)
+    UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
+        if gameProcessedEvent then return end
+        if input.KeyCode == GuiToggleKey then
+            IsGuiVisible = not IsGuiVisible
+            MainFrame.Visible = IsGuiVisible
+            -- Установка поведения мыши (как в Crim.lua)
+            UserInputService.MouseBehavior = Enum.MouseBehavior.Default 
+        end
+    end)
+    
+    MainFrame.Visible = IsGuiVisible
+
+    -- Логика переключения вкладок
+    local function switchTab(tabButton, tabPage)
+        if WindowValue.CurrentTab then
+            -- Сброс стиля предыдущей кнопки
+            WindowValue.CurrentTab.Button.UIStroke.Color = CrimTheme.SIDEBAR
+            WindowValue.CurrentTab.Button.Title.TextColor3 = CrimTheme.TAB_TEXT_UNSELECTED
+        end
+        
+        -- Установка стиля активной кнопки (зеленая линия - как индикатор в Crim.lua)
+        tabButton.UIStroke.Color = CrimTheme.ACCENT
+        tabButton.Title.TextColor3 = CrimTheme.TAB_TEXT_SELECTED
+
+        -- Переключение страницы в UIPageLayout
+        TabPages.UIPageLayout:JumpTo(tabPage)
+        
+        WindowValue.CurrentTab = { Button = tabButton, Page = tabPage }
+    end
+    
+    --================================================================================================================
+    -- ВКЛАДКА (Tab)
+    --================================================================================================================
+
+    function WindowValue:CreateTab(tabSettings)
+        local TabValue = { Elements = {} }
+        
+        local TabPage = create("Frame", {
+            Name = tabSettings.Name,
+            Parent = TabPages,
+            BackgroundTransparency = 1,
+            Size = UDim2.new(1, 0, 1, 0),
+        })
+
+        -- Размещение элементов внутри вкладки (по вертикали)
+        create("UIListLayout", {
+            Parent = TabPage,
+            SortOrder = Enum.SortOrder.LayoutOrder,
+            Padding = UDim.new(0, 10),
+            HorizontalAlignment = Enum.HorizontalAlignment.Left,
+            VerticalAlignment = Enum.VerticalAlignment.Top,
+            FillDirection = Enum.FillDirection.Vertical,
+            -- Отступ слева (как в Crim.lua)
+            Position = UDim2.new(0, 20, 0, 20),
+        })
+        
+        -- Кнопка вкладки в Sidebar
+        local TabButton = create("TextButton", {
+            Name = tabSettings.Name .. "Tab",
+            Parent = SidebarFrame,
+            Size = UDim2.new(1, 0, 0, 70),
+            BackgroundTransparency = 1,
+            ZIndex = 4,
+        })
+        
+        local Title = create("TextLabel", {
+            Name = "Title",
+            Parent = TabButton,
+            Text = tabSettings.Name,
+            Size = UDim2.new(1, -10, 1, 0),
+            Position = UDim2.new(0, 5, 0, 0),
+            BackgroundTransparency = 1,
+            Font = CrimTheme.ELEMENT_FONT,
+            TextSize = CrimTheme.ELEMENT_TEXT_SIZE,
+            TextColor3 = CrimTheme.TAB_TEXT_UNSELECTED,
+            TextXAlignment = Enum.TextXAlignment.Left,
+        })
+
+        -- Обводка/индикатор (по умолчанию цвет боковой панели)
+        create("UIStroke", {
+            Color = CrimTheme.SIDEBAR,
+            Thickness = 2,
+            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+            Parent = TabButton,
+        })
+
+        TabButton.MouseButton1Click:Connect(function()
+            switchTab(TabButton, TabPage)
+        end)
+        
+        -- Автоматический выбор первой созданной вкладки
+        if not WindowValue.CurrentTab then
+            switchTab(TabButton, TabPage)
+        end
+
+        --================================================================================================================
+        -- ЭЛЕМЕНТЫ УПРАВЛЕНИЯ
+        --================================================================================================================
+
+        -- Переключатель (Toggle)
+        function TabValue:CreateToggle(elementSettings)
+            local ToggleValue = elementSettings.Default or false
+            local ToggleFrame = create("TextButton", {
+                Name = elementSettings.Name .. "Toggle",
+                Parent = TabPage,
+                Size = UDim2.new(0, 300, 0, 30),
+                BackgroundColor3 = ToggleValue and CrimTheme.ELEMENT_BACKGROUND_ON or CrimTheme.ELEMENT_BACKGROUND_OFF,
+                Font = CrimTheme.ELEMENT_FONT,
+                Text = elementSettings.Name,
+                TextColor3 = CrimTheme.ELEMENT_TEXT,
+                TextSize = CrimTheme.ELEMENT_TEXT_SIZE,
+                TextXAlignment = Enum.TextXAlignment.Left,
+            })
+            create("UICorner", { Parent = ToggleFrame })
+
+            local StatusLabel = create("TextLabel", {
+                Name = "Status",
+                Parent = ToggleFrame,
+                BackgroundTransparency = 1,
+                Size = UDim2.new(0, 40, 1, 0),
+                Position = UDim2.new(1, -45, 0, 0),
+                Font = CrimTheme.ELEMENT_FONT,
+                Text = ToggleValue and "ON" or "OFF",
+                TextColor3 = CrimTheme.ELEMENT_TEXT,
+                TextSize = CrimTheme.ELEMENT_TEXT_SIZE,
+                TextXAlignment = Enum.TextXAlignment.Center,
+            })
+
+            local function updateToggle()
+                ToggleFrame.BackgroundColor3 = ToggleValue and CrimTheme.ELEMENT_BACKGROUND_ON or CrimTheme.ELEMENT_BACKGROUND_OFF
+                StatusLabel.Text = ToggleValue and "ON" or "OFF"
+                
+                if elementSettings.Callback then
+                    pcall(elementSettings.Callback, ToggleValue)
                 end
             end
-        end
-    end
-end
-
--- === Core GUI Setup Functions ===
-
-function CrimLib.Init()
-    local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "CrimsonGui"
-    ScreenGui.Parent = CoreGui
-
-    local MainFrame = Instance.new("Frame")
-    MainFrame.Name = "MainFrame"
-    MainFrame.Parent = ScreenGui
-    MainFrame.BackgroundColor3 = COLOR_MAIN
-    MainFrame.Position = UDim2.new(0.5, -200, 0.5, -250)
-    MainFrame.Size = UDim2.new(0, 400, 0, 500)
-    MainFrame.Active = true
-    MainFrame.Draggable = true
-    MainFrame.Visible = false
-    Instance.new("UICorner").Parent = MainFrame
-
-    local TopBar = Instance.new("Frame")
-    TopBar.Name = "TopBar"
-    TopBar.Parent = MainFrame
-    TopBar.BackgroundColor3 = COLOR_TOPBAR
-    TopBar.Size = UDim2.new(1, 0, 0, 30)
-
-    local Sidebar = Instance.new("Frame")
-    Sidebar.Name = "Sidebar"
-    Sidebar.Parent = MainFrame
-    Sidebar.BackgroundColor3 = COLOR_SIDEBAR
-    Sidebar.Position = UDim2.new(0, 0, 0, 30)
-    Sidebar.Size = UDim2.new(0, 100, 1, -60)
-    
-    local TabContentFrame = Instance.new("Frame")
-    TabContentFrame.Name = "TabContentFrame"
-    TabContentFrame.Parent = MainFrame
-    TabContentFrame.BackgroundColor3 = COLOR_TOPBAR
-    TabContentFrame.Position = UDim2.new(0, 100, 0, 30)
-    TabContentFrame.Size = UDim2.new(1, -100, 1, -60)
-    
-    local UIListLayout = Instance.new("UIListLayout")
-    UIListLayout.Parent = TabContentFrame
-    UIListLayout.Padding = UDim.new(0, 10)
-    UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    
-    local UIPadding = Instance.new("UIPadding")
-    UIPadding.Parent = TabContentFrame
-    UIPadding.PaddingTop = UDim.new(0, 10)
-    UIPadding.PaddingBottom = UDim.new(0, 10)
-    UIPadding.PaddingLeft = UDim.new(0, 10)
-    UIPadding.PaddingRight = UDim.new(0, 10)
-
-    local Layout = Instance.new("UIListLayout")
-    Layout.Parent = Sidebar
-    Layout.Padding = UDim.new(0, 5)
-    Layout.SortOrder = Enum.SortOrder.LayoutOrder
-
-    return MainFrame, Sidebar, TabContentFrame, ScreenGui
-end
-
-function CrimLib.CreateTabContent(name)
-    local frame = Instance.new("Frame")
-    frame.Name = name .. "Content"
-    frame.BackgroundColor3 = COLOR_TOPBAR
-    frame.Size = UDim2.new(1, 0, 1, 0)
-    frame.Visible = false
-    frame.LayoutOrder = 1
-    
-    local ListLayout = Instance.new("UIListLayout")
-    ListLayout.Parent = frame
-    ListLayout.Padding = UDim.new(0, 10)
-    ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    
-    return frame
-end
-
-function CrimLib.CreateTabButton(name, sidebar, index, tabContent)
-    local button = Instance.new("TextButton")
-    button.Name = name .. "Tab"
-    button.Parent = sidebar
-    button.BackgroundColor3 = COLOR_SIDEBAR
-    button.Size = UDim2.new(1, 0, 0, 30)
-    button.Font = FONT
-    button.Text = name
-    button.TextColor3 = COLOR_TEXT
-    button.TextSize = 14
-    button.LayoutOrder = index
-    
-    button.MouseButton1Click:Connect(function()
-        CrimLib.SwitchTab(tabContent, button)
-    end)
-
-    return button
-end
-
-function CrimLib.SwitchTab(tab, button)
-    if CurrentTab then
-        CurrentTab.Visible = false
-        if CurrentTab.TabButton then
-            CurrentTab.TabButton.BackgroundColor3 = COLOR_SIDEBAR
-        end
-    end
-    tab.Visible = true
-    tab.TabButton = button
-    if button then
-        button.BackgroundColor3 = COLOR_ACCENT
-    end
-    CurrentTab = tab
-end
-
-function CrimLib.UpdateToggleVisuals(toggleButton, statusLabel, newState)
-    local newColor = newState and COLOR_ACCENT or COLOR_OFF
-    TweenService:Create(toggleButton, TweenInfo.new(0.15), {BackgroundColor3 = newColor}):Play()
-    statusLabel.Text = newState and "ON" or "OFF"
-    statusLabel.TextColor3 = newState and COLOR_ACCENT or COLOR_OFF
-end
-
-function CrimLib.CreateButton(parent, name, layoutOrder, stateRef, stateKey, toggleCallback)
-    local Toggle = Instance.new("TextButton")
-    Toggle.Name = name:gsub("%s", ""):gsub("%-", "") .. "Toggle"
-    Toggle.Parent = parent
-    Toggle.BackgroundColor3 = stateRef[stateKey] and COLOR_ACCENT or COLOR_OFF
-    Toggle.Size = UDim2.new(1, 0, 0, 30)
-    Toggle.Font = FONT
-    Toggle.Text = " " .. name
-    Toggle.TextColor3 = COLOR_TEXT
-    Toggle.TextSize = 14
-    Toggle.TextXAlignment = Enum.TextXAlignment.Left
-    Toggle.LayoutOrder = layoutOrder
-    Instance.new("UICorner").Parent = Toggle
-
-    local Status = Instance.new("TextLabel")
-    Status.Name = "Status"
-    Status.Parent = Toggle
-    Status.BackgroundTransparency = 1
-    Status.Position = UDim2.new(1, -60, 0, 0)
-    Status.Size = UDim2.new(0, 60, 1, 0)
-    Status.Font = Enum.Font.GothamBold
-    Status.TextColor3 = COLOR_TEXT
-    Status.TextSize = 14
-    Status.TextXAlignment = Enum.TextXAlignment.Right
-    
-    CrimLib.UpdateToggleVisuals(Toggle, Status, stateRef[stateKey])
-    
-    Toggle.MouseButton1Click:Connect(function()
-        toggleCallback()
-        local newState = stateRef[stateKey]
-        CrimLib.UpdateToggleVisuals(Toggle, Status, newState)
-    end)
-
-    Toggle.updateVisuals = function(newState)
-        CrimLib.UpdateToggleVisuals(Toggle, Status, newState)
-    end
-    
-    return Toggle
-end
-
-function CrimLib.CreateSlider(parent, name, layoutOrder, minVal, maxVal, valueRef, valueKey, updateCallback)
-    local Frame = Instance.new("Frame")
-    Frame.Name = name:gsub("%s", ""):gsub("%-", "") .. "SliderFrame"
-    Frame.Parent = parent
-    Frame.BackgroundColor3 = COLOR_OFF
-    Frame.Size = UDim2.new(1, 0, 0, 40)
-    Frame.LayoutOrder = layoutOrder
-    Instance.new("UICorner").Parent = Frame
-    
-    local Label = Instance.new("TextLabel")
-    Label.Parent = Frame
-    Label.BackgroundTransparency = 1
-    Label.Position = UDim2.new(0, 0, 0, 0)
-    Label.Size = UDim2.new(1, 0, 0, 15)
-    Label.Font = FONT
-    Label.TextColor3 = COLOR_TEXT
-    Label.TextSize = 12
-    Label.TextXAlignment = Enum.TextXAlignment.Left
-    
-    local SliderBackground = Instance.new("Frame")
-    SliderBackground.Name = "SliderBackground"
-    SliderBackground.Parent = Frame
-    SliderBackground.BackgroundColor3 = COLOR_MAIN
-    SliderBackground.Position = UDim2.new(0.05, 0, 0.5, 0)
-    SliderBackground.Size = UDim2.new(0.9, 0, 0, 10)
-    Instance.new("UICorner").Parent = SliderBackground
-    
-    local SliderBar = Instance.new("Frame")
-    SliderBar.Name = "SliderBar"
-    SliderBar.Parent = SliderBackground
-    SliderBar.BackgroundColor3 = COLOR_ACCENT
-    SliderBar.Position = UDim2.new(0, 0, 1, 0)
-    
-    local Handle = Instance.new("Frame")
-    Handle.Name = "SliderHandle"
-    Handle.Parent = SliderBar
-    Handle.BackgroundColor3 = COLOR_TEXT
-    Handle.Size = UDim2.new(0, 10, 0, 10)
-    Handle.Position = UDim2.new(1, -5, 0.5, -5)
-    Handle.ZIndex = 2
-    Handle.Active = true
-    Instance.new("UICorner").Parent = Handle
-    
-    local isDragging = false
-    
-    local function updateVisuals(newValue)
-        local newRatio = (newValue - minVal) / (maxVal - minVal)
-        SliderBar.Size = UDim2.new(newRatio, 0, 1, 0)
-        local displayValue = math.floor(newValue * 10) / 10
-        Label.Text = name .. " (" .. tostring(displayValue) .. ")"
-    end
-
-    local function updateSlider(input)
-        local inputX = input.Position.X
-        local framePos = SliderBackground.AbsolutePosition.X
-        local frameSize = SliderBackground.AbsoluteSize.X
-        
-        local relativeX = math.min(math.max(inputX - framePos, 0), frameSize)
-        local ratio = relativeX / frameSize
-        local newValue = minVal + ratio * (maxVal - minVal)
-        newValue = math.floor(newValue * 100) / 100 
-        
-        valueRef[valueKey] = newValue 
-        updateVisuals(newValue)
-        
-        if updateCallback then
-            updateCallback(newValue)
-        end
-    end
-    
-    Handle.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            isDragging = true
-            updateSlider(input)
-        end
-    end)
-    
-    UserInputService.InputChanged:Connect(function(input)
-        if isDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            updateSlider(input)
-        end
-    end)
-    
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            isDragging = false
-        end
-    end)
-
-    Frame.updateVisuals = updateVisuals
-    updateVisuals(valueRef[valueKey])
-    
-    return Frame
-end
-
-function CrimLib.CreateKeybindButton(parent, name, layoutOrder, keybindRef, keybindKey, captureVarRef)
-    local Frame = Instance.new("Frame")
-    Frame.Name = name:gsub("%s", ""):gsub("%-", "") .. "KeybindFrame"
-    Frame.Parent = parent
-    Frame.BackgroundTransparency = 1
-    Frame.Size = UDim2.new(1, 0, 0, 30)
-    Frame.LayoutOrder = layoutOrder
-    
-    local Label = Instance.new("TextLabel")
-    Label.Parent = Frame
-    Label.BackgroundTransparency = 1
-    Label.Position = UDim2.new(0, 0, 0, 0)
-    Label.Size = UDim2.new(0, 200, 1, 0)
-    Label.Font = FONT
-    Label.TextColor3 = COLOR_TEXT
-    Label.TextSize = 14
-    Label.TextXAlignment = Enum.TextXAlignment.Left
-
-    local Button = Instance.new("TextButton")
-    Button.Name = "KeybindButton"
-    Button.Parent = Frame
-    Button.BackgroundColor3 = COLOR_OFF
-    Button.Position = UDim2.new(1, -100, 0, 0)
-    Button.Size = UDim2.new(0, 100, 1, 0)
-    Button.Font = FONT
-    Button.TextColor3 = COLOR_TEXT
-    Button.TextSize = 14
-    Instance.new("UICorner").Parent = Button
-    
-    local function updateVisuals()
-        Label.Text = name .. " (Current: " .. keybindRef[keybindKey] .. ")"
-        Button.Text = "BIND"
-        Button.BackgroundColor3 = COLOR_OFF
-    end
-    
-    Button.MouseButton1Click:Connect(function()
-        if captureVarRef.value then return end
-        captureVarRef.value = true
-        Button.Text = "..."
-        Button.BackgroundColor3 = COLOR_BINDING
-        
-        local connection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
-            if gameProcessed or input.UserInputType ~= Enum.UserInputType.Keyboard then return end
             
-            keybindRef[keybindKey] = input.KeyCode.Name
-            captureVarRef.value = false
-            connection:Disconnect()
-            updateVisuals()
-        end)
-    end)
+            ToggleFrame.MouseButton1Click:Connect(function()
+                ToggleValue = not ToggleValue
+                updateToggle()
+            end)
+            
+            updateToggle()
 
-    Frame.updateVisuals = updateVisuals
-    updateVisuals()
-    
-    return Frame
+            return {
+                Name = elementSettings.Name,
+                Value = ToggleValue,
+                Set = function(newValue)
+                    ToggleValue = newValue
+                    updateToggle()
+                end
+            }
+        end
+        
+        -- Слайдер (Slider)
+        function TabValue:CreateSlider(elementSettings)
+            local MIN = elementSettings.Min or 0
+            local MAX = elementSettings.Max or 100
+            local STEP = elementSettings.Step or 1
+            local CurrentValue = elementSettings.Default or MIN
+            
+            local SliderFrame = create("Frame", {
+                Name = elementSettings.Name .. "Slider",
+                Parent = TabPage,
+                Size = UDim2.new(0, 300, 0, 50), 
+                BackgroundTransparency = 1,
+            })
+            
+            local Label = create("TextLabel", {
+                Name = "Label",
+                Parent = SliderFrame,
+                Size = UDim2.new(1, 0, 0, 20),
+                Position = UDim2.new(0, 0, 0, 0),
+                BackgroundTransparency = 1,
+                Font = CrimTheme.ELEMENT_FONT,
+                Text = elementSettings.Name .. ": " .. tostring(CurrentValue),
+                TextColor3 = CrimTheme.ELEMENT_TEXT,
+                TextSize = CrimTheme.ELEMENT_TEXT_SIZE,
+                TextXAlignment = Enum.TextXAlignment.Left,
+            })
+
+            local SliderBar = create("Frame", {
+                Name = "SliderBar",
+                Parent = SliderFrame,
+                Size = UDim2.new(1, 0, 0, 8),
+                Position = UDim2.new(0, 0, 0, 30),
+                BackgroundColor3 = CrimTheme.ELEMENT_BACKGROUND_OFF,
+            })
+            create("UICorner", { Parent = SliderBar })
+
+            local ProgressFill = create("Frame", {
+                Name = "ProgressFill",
+                Parent = SliderBar,
+                Size = UDim2.new(0, 0, 1, 0),
+                Position = UDim2.new(0, 0, 0, 0),
+                BackgroundColor3 = CrimTheme.ACCENT,
+            })
+            create("UICorner", { Parent = ProgressFill })
+
+            local Knob = create("TextButton", {
+                Name = "Knob",
+                Parent = SliderBar,
+                Size = UDim2.new(0, 15, 0, 15),
+                BackgroundColor3 = CrimTheme.SLIDER_KNOB,
+                Text = "",
+            })
+            create("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = Knob }) -- Круглый ползунок
+            
+            local isDragging = false
+
+            local function updateSlider(value)
+                -- Применение шага и ограничение
+                value = math.floor(value / STEP + 0.5) * STEP
+                value = math.max(MIN, math.min(MAX, value))
+                
+                CurrentValue = value
+                
+                local normalized = (CurrentValue - MIN) / (MAX - MIN)
+                local barWidth = SliderBar.AbsoluteSize.X
+                local knobSize = Knob.AbsoluteSize.X
+                
+                -- Обновление UI
+                ProgressFill.Size = UDim2.new(normalized, 0, 1, 0)
+                -- Позиционирование ползунка по центру
+                Knob.Position = UDim2.new(normalized, -(knobSize / 2), 0.5, -(knobSize / 2))
+                Label.Text = string.format("%s: %.1f", elementSettings.Name, CurrentValue)
+                
+                if elementSettings.Callback then
+                    pcall(elementSettings.Callback, CurrentValue)
+                end
+            end
+
+            updateSlider(CurrentValue)
+            
+            -- Логика перетаскивания
+            Knob.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    isDragging = true
+                    input.Changed:Connect(function()
+                        if input.UserInputState == Enum.UserInputState.End then
+                            isDragging = false
+                        end
+                    end)
+                end
+            end)
+
+            UserInputService.InputChanged:Connect(function(input)
+                if isDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+                    local mousePos = UserInputService:GetMouseLocation()
+                    local barPos = SliderBar.AbsolutePosition
+                    local barWidth = SliderBar.AbsoluteSize.X
+                    
+                    local relativeX = math.clamp(mousePos.X - barPos.X, 0, barWidth)
+                    local normalized = relativeX / barWidth
+                    local newValue = MIN + (normalized * (MAX - MIN))
+                    
+                    updateSlider(newValue)
+                end
+            end)
+
+            return {
+                Name = elementSettings.Name,
+                Value = CurrentValue,
+                Set = function(newValue)
+                    updateSlider(newValue)
+                end,
+            }
+        end
+        -- Здесь можно добавить другие элементы (Button, Input, Dropdown и т.д.)
+
+        return TabValue
+    end
+
+    return WindowValue
 end
 
-function CrimLib.ApplyOpacity(mainFrame, opacity)
-    recursiveSetTransparency(mainFrame, opacity)
+-- Присвоение библиотеки к глобальной переменной для удобного доступа
+if getgenv then
+    getgenv().Crimfield = Library
 end
 
-return CrimLib
+return Library
