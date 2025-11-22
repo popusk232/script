@@ -1,5 +1,6 @@
 -- Sapphire GUI Library (v2.2 - Complete & Corrected)
 -- This script provides the core logic for creating a GUI with a sidebar and multi-column layout.
+-- This is the LIBRARY file. The content of this file should be on your GitHub.
 
 local SapphireLibrary = (function()
     local Services = {
@@ -119,6 +120,9 @@ local SapphireLibrary = (function()
         Sidebar.BorderSizePixel = 0
         Sidebar.Position = UDim2.new(0, 0, 0, 60)
         Sidebar.Size = UDim2.new(0, 70, 1, -60)
+        local SidebarLayout = Instance.new("UIListLayout", Sidebar)
+        SidebarLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        SidebarLayout.Padding = UDim.new(0, 0)
 
         local ContentFrame = Instance.new("Frame")
         ContentFrame.Name = "ContentFrame"
@@ -203,7 +207,7 @@ local SapphireLibrary = (function()
                 ColumnContainer.BackgroundColor3 = SelectedTheme.SecondaryElementBackground
                 ColumnContainer.BorderSizePixel = 0
                 ColumnContainer.Size = UDim2.new(0, width, 1, -36)
-                ColumnContainer.Position = UDim2.new(0, 0, 0, 18)
+                ColumnContainer.Position = UDim2.new(0, 18, 0, 18)
                 local ColumnCorner = Instance.new("UICorner", ColumnContainer)
                 ColumnCorner.CornerRadius = UDim.new(0, 6)
                 local ColumnTitle = Instance.new("TextLabel", ColumnContainer)
@@ -228,31 +232,6 @@ local SapphireLibrary = (function()
                 ColumnLayout.Padding = UDim.new(0, 5)
                 ColumnLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
                 local Column = {}
-                function Column:CreateButton(settings)
-                    local container = Instance.new("Frame", ColumnFrame)
-                    container.Name = settings.Name
-                    container.Size = UDim2.new(1, -20, 0, 30)
-                    container.BackgroundColor3 = SelectedTheme.ElementBackground
-                    container.BorderSizePixel = 0
-                    local corner = Instance.new("UICorner", container)
-                    corner.CornerRadius = UDim.new(0, 4)
-                    local title = Instance.new("TextLabel", container)
-                    title.Text = settings.Name
-                    title.TextColor3 = SelectedTheme.TextColor
-                    title.TextSize = 13
-                    title.Font = Enum.Font.Gotham
-                    title.BackgroundTransparency = 1
-                    title.Size = UDim2.new(1, 0, 1, 0)
-                    title.TextXAlignment = Enum.TextXAlignment.Center
-                    local button = Instance.new("TextButton", container)
-                    button.Size = UDim2.new(1, 0, 1, 0)
-                    button.BackgroundTransparency = 1
-                    button.Text = ""
-                    button.MouseButton1Click:Connect(function() if settings.Callback then pcall(settings.Callback) end end)
-                    button.MouseEnter:Connect(function() Services.TweenService:Create(container, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {BackgroundColor3 = SelectedTheme.ElementBackgroundHover}):Play() end)
-                    button.MouseLeave:Connect(function() Services.TweenService:Create(container, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {BackgroundColor3 = SelectedTheme.ElementBackground}):Play() end)
-                    return { Set = function(text) title.Text = text end }
-                end
                 function Column:CreateToggle(settings)
                     local toggleState = settings.CurrentValue
                     local frame = Instance.new("Frame", ColumnFrame)
@@ -337,7 +316,7 @@ local SapphireLibrary = (function()
                     local track = Instance.new("Frame", frame)
                     track.BackgroundColor3 = SelectedTheme.SliderBackground
                     track.BorderSizePixel = 0
-                    track.Position = UDim2.new(0.5, 0, 0.7, 0)
+                    track.Position = UDim2.new(0.5, 0, 0.65, 0)
                     track.Size = UDim2.new(1, -24, 0, 4)
                     local trackCorner = Instance.new("UICorner", track)
                     trackCorner.CornerRadius = UDim.new(1, 0)
