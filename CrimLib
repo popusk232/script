@@ -1,3 +1,8 @@
+--[[
+    CrimLib - GUI Library (Crim.lua Style)
+    Full implementation of the user interface based on the provided design.
+]]
+
 local Library = {}
 local Components = {}
 
@@ -7,32 +12,32 @@ local TweenService = game:GetService("TweenService")
 local CoreGui = game:GetService("CoreGui")
 
 -- Настройки GUI
-local GuiToggleKey = Enum.KeyCode.Insert -- Клавиша для открытия/закрытия
+local GuiToggleKey = Enum.KeyCode.Insert -- Клавиша для открытия/закрытия, как в Crim.lua
 local IsGuiVisible = false
 
--- Тема, извлеченная из Crim.lua
+-- Тема и стили, извлеченные из Crim.lua
 local CrimTheme = {
-    -- Основное окно / Фон
-    BACKGROUND = Color3.fromRGB(24, 24, 24), -- Цвет основного окна
-    SIDEBAR = Color3.fromRGB(18, 18, 18),   -- Цвет боковой панели
-    OUTLINE = Color3.fromRGB(35, 35, 35),   -- Цвет обводки (для рамки или неактивных элементов)
+    -- Цвета
+    BACKGROUND = Color3.fromRGB(24, 24, 24),    -- Цвет основного окна
+    SIDEBAR = Color3.fromRGB(18, 18, 18),       -- Цвет боковой панели
+    OUTLINE = Color3.fromRGB(35, 35, 35),       -- Цвет обводки и неактивных элементов
     
-    -- Акцентный цвет (Зеленый)
-    ACCENT = Color3.fromRGB(70, 200, 70),   -- Цвет активных элементов и индикатора вкладки
-
-    -- Элементы (Кнопки, Слайдеры, Переключатели)
-    ELEMENT_BACKGROUND_OFF = Color3.fromRGB(35, 35, 35), -- Фон неактивного переключателя
-    ELEMENT_BACKGROUND_ON = Color3.fromRGB(70, 200, 70),  -- Фон активного переключателя
+    ACCENT = Color3.fromRGB(70, 200, 70),       -- Акцентный (зеленый) цвет для активных элементов
+    
     ELEMENT_TEXT = Color3.fromRGB(255, 255, 255),        -- Белый текст
-    ELEMENT_FONT = Enum.Font.Gotham,                    -- Шрифт Gotham
-    ELEMENT_TEXT_SIZE = 14,                             -- Размер текста
+    ELEMENT_BACKGROUND_OFF = Color3.fromRGB(35, 35, 35), -- Фон неактивного элемента
+    ELEMENT_BACKGROUND_ON = Color3.fromRGB(70, 200, 70),  -- Фон активного элемента
 
-    -- Слайдеры
-    SLIDER_KNOB = Color3.fromRGB(255, 255, 255),         -- Белый ползунок
-    
-    -- Текст вкладок
-    TAB_TEXT_UNSELECTED = Color3.fromRGB(140, 140, 140), -- Цвет невыбранного текста вкладки
-    TAB_TEXT_SELECTED = Color3.fromRGB(255, 255, 255),   -- Цвет выбранного текста вкладки
+    -- Шрифт и размеры
+    FONT = Enum.Font.Gotham,
+    TEXT_SIZE_SMALL = 14,
+    TEXT_SIZE_MEDIUM = 16,
+    TEXT_SIZE_LARGE = 18,
+    WINDOW_SIZE = Vector2.new(700, 500),
+    TAB_WIDTH = 70,
+    COMPONENT_WIDTH = 300,
+    COMPONENT_HEIGHT = 30,
+    PADDING = 10, -- Вертикальный отступ между элементами
 }
 
 -- Вспомогательная функция для создания объектов
@@ -52,10 +57,16 @@ local WindowValue = { Tabs = {}, CurrentTab = nil }
 
 function Library:CreateWindow(settings)
     settings = settings or {}
+    
+    -- Проверка на существующий GUI
+    if CoreGui:FindFirstChild("CrimLib_ScreenGui") then
+        warn("CrimLib: GUI already exists.")
+        return CoreGui.CrimLib_ScreenGui.MainFrame.Object
+    end
 
     -- Основной ScreenGui
     local ScreenGui = create("ScreenGui", {
-        Name = "Crimfield",
+        Name = "CrimLib_ScreenGui",
         Parent = CoreGui,
         DisplayOrder = 999,
         IgnoreGuiInset = true,
@@ -66,10 +77,10 @@ function Library:CreateWindow(settings)
     local MainFrame = create("Frame", {
         Name = "MainFrame",
         Parent = ScreenGui,
-        Size = UDim2.new(0, 700, 0, 500),
-        Position = UDim2.new(0.5, -350, 0.5, -250), -- Центрирование
+        Size = UDim2.fromOffset(CrimTheme.WINDOW_SIZE.X, CrimTheme.WINDOW_SIZE.Y),
+        Position = UDim2.new(0.5, -CrimTheme.WINDOW_SIZE.X / 2, 0.5, -CrimTheme.WINDOW_SIZE.Y / 2), -- Центрирование
         BackgroundColor3 = CrimTheme.BACKGROUND,
-        BackgroundTransparency = 0.1, -- Базовая прозрачность
+        BackgroundTransparency = 0.1, -- Небольшая прозрачность
         ZIndex = 2,
     })
 
@@ -78,7 +89,7 @@ function Library:CreateWindow(settings)
         Parent = MainFrame,
     })
     
-    -- Обводка основного фрейма (имитация дизайна Crim.lua)
+    -- Обводка основного фрейма
     create("UIStroke", {
         Color = CrimTheme.OUTLINE,
         Thickness = 1,
@@ -89,33 +100,34 @@ function Library:CreateWindow(settings)
     local SidebarFrame = create("Frame", {
         Name = "SidebarFrame",
         Parent = MainFrame,
-        Size = UDim2.new(0, 70, 1, 0),
+        Size = UDim2.new(0, CrimTheme.TAB_WIDTH, 1, 0),
         BackgroundColor3 = CrimTheme.SIDEBAR,
         ZIndex = 3,
     })
     
+    create("UIListLayout", {
+        Name = "TabListLayout",
+        Parent = SidebarFrame,
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0, 0), -- Вкладки вплотную друг к другу
+        HorizontalAlignment = Enum.HorizontalAlignment.Center,
+        VerticalAlignment = Enum.VerticalAlignment.Top,
+    })
+
     -- Контейнер для содержимого вкладок
     local ContentFrame = create("Frame", {
         Name = "ContentFrame",
         Parent = MainFrame,
-        Size = UDim2.new(1, -70, 1, 0),
-        Position = UDim2.new(0, 70, 0, 0),
+        Size = UDim2.new(1, -CrimTheme.TAB_WIDTH, 1, 0),
+        Position = UDim2.new(0, CrimTheme.TAB_WIDTH, 0, 0),
         BackgroundTransparency = 1,
         ClipsDescendants = true,
         ZIndex = 2,
     })
     
-    local TabContainer = create("Frame", {
-        Name = "TabContainer",
-        Parent = ContentFrame,
-        Size = UDim2.new(1, 0, 1, 0),
-        BackgroundTransparency = 1,
-        ZIndex = 2,
-    })
-    
     local TabPages = create("Frame", {
         Name = "TabPages",
-        Parent = TabContainer,
+        Parent = ContentFrame,
         Size = UDim2.new(1, 0, 1, 0),
         BackgroundTransparency = 1,
         ClipsDescendants = true,
@@ -130,36 +142,49 @@ function Library:CreateWindow(settings)
         Animation = Enum.LayoutAnimation.None,
     })
 
-    -- Заголовок окна
+    -- Заголовок окна (в основном контенте, слева)
     local TitleLabel = create("TextLabel", {
         Name = "TitleLabel",
-        Parent = MainFrame,
+        Parent = ContentFrame,
         Text = settings.Name or "Crimfield GUI",
-        Size = UDim2.new(1, -70, 0, 30),
-        Position = UDim2.new(0, 70, 0, 0),
-        Font = CrimTheme.ELEMENT_FONT,
-        TextSize = 18,
+        Size = UDim2.new(1, 0, 0, 30),
+        Position = UDim2.new(0, 0, 0, 0),
+        Font = CrimTheme.FONT,
+        TextSize = CrimTheme.TEXT_SIZE_LARGE,
         TextColor3 = CrimTheme.ACCENT,
         BackgroundTransparency = 1,
         TextXAlignment = Enum.TextXAlignment.Left,
         TextWrapped = true,
+        TextScaled = false,
+        Padding = UDim.new(0, 15), -- Небольшой отступ слева
         ZIndex = 3,
     })
     
-    -- Базовая функция перетаскивания (Draggable)
+    -- Логика перетаскивания (Draggable)
     local isDragging = false
     local dragOffset = Vector2.new()
 
-    MainFrame.InputBegan:Connect(function(input)
+    local DragInput = MainFrame:FindFirstChild("TitleLabel") or MainFrame -- Можно перетаскивать за весь фрейм
+    
+    local function startDrag(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             isDragging = true
             local mousePos = UserInputService:GetMouseLocation()
             dragOffset = mousePos - MainFrame.AbsolutePosition
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    isDragging = false
-                end
-            end)
+        end
+    end
+    
+    local function endDrag()
+        isDragging = false
+    end
+
+    MainFrame.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        startDrag(input)
+    end)
+    MainFrame.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            endDrag()
         end
     end)
 
@@ -177,8 +202,13 @@ function Library:CreateWindow(settings)
         if input.KeyCode == GuiToggleKey then
             IsGuiVisible = not IsGuiVisible
             MainFrame.Visible = IsGuiVisible
-            -- Установка поведения мыши (как в Crim.lua)
-            UserInputService.MouseBehavior = Enum.MouseBehavior.Default 
+            
+            -- Управление поведением мыши (как в Crim.lua)
+            if IsGuiVisible then
+                UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+            else
+                UserInputService.MouseBehavior = Enum.MouseBehavior.Default -- Crim.lua использует Default в обоих случаях
+            end
         end
     end)
     
@@ -188,15 +218,15 @@ function Library:CreateWindow(settings)
     local function switchTab(tabButton, tabPage)
         if WindowValue.CurrentTab then
             -- Сброс стиля предыдущей кнопки
-            WindowValue.CurrentTab.Button.UIStroke.Color = CrimTheme.SIDEBAR
-            WindowValue.CurrentTab.Button.Title.TextColor3 = CrimTheme.TAB_TEXT_UNSELECTED
+            WindowValue.CurrentTab.Button.Border.Color = CrimTheme.SIDEBAR
+            WindowValue.CurrentTab.Button.Title.TextColor3 = CrimTheme.OUTLINE
         end
         
-        -- Установка стиля активной кнопки (зеленая линия - как индикатор в Crim.lua)
-        tabButton.UIStroke.Color = CrimTheme.ACCENT
-        tabButton.Title.TextColor3 = CrimTheme.TAB_TEXT_SELECTED
+        -- Установка стиля активной кнопки (зеленый индикатор - как в Crim.lua)
+        tabButton.Border.Color = CrimTheme.ACCENT
+        tabButton.Title.TextColor3 = CrimTheme.ELEMENT_TEXT
 
-        -- Переключение страницы в UIPageLayout
+        -- Переключение страницы
         TabPages.UIPageLayout:JumpTo(tabPage)
         
         WindowValue.CurrentTab = { Button = tabButton, Page = tabPage }
@@ -209,62 +239,80 @@ function Library:CreateWindow(settings)
     function WindowValue:CreateTab(tabSettings)
         local TabValue = { Elements = {} }
         
+        -- Контейнер страницы вкладки
         local TabPage = create("Frame", {
             Name = tabSettings.Name,
             Parent = TabPages,
             BackgroundTransparency = 1,
-            Size = UDim2.new(1, 0, 1, 0),
+            Size = UDim2.new(1, 0, 1, -30), -- Вычитаем высоту заголовка
+            Position = UDim2.new(0, 0, 0, 30),
+            ClipsDescendants = true,
+        })
+
+        -- Фрейм для размещения элементов с отступами
+        local ContentArea = create("Frame", {
+            Name = "ContentArea",
+            Parent = TabPage,
+            Size = UDim2.new(1, -20, 1, -20), -- Отступ 10px по краям
+            Position = UDim2.new(0, 10, 0, 10),
+            BackgroundTransparency = 1,
         })
 
         -- Размещение элементов внутри вкладки (по вертикали)
         create("UIListLayout", {
-            Parent = TabPage,
+            Parent = ContentArea,
             SortOrder = Enum.SortOrder.LayoutOrder,
-            Padding = UDim.new(0, 10),
+            Padding = UDim.new(0, CrimTheme.PADDING),
             HorizontalAlignment = Enum.HorizontalAlignment.Left,
             VerticalAlignment = Enum.VerticalAlignment.Top,
             FillDirection = Enum.FillDirection.Vertical,
-            -- Отступ слева (как в Crim.lua)
-            Position = UDim2.new(0, 20, 0, 20),
         })
         
         -- Кнопка вкладки в Sidebar
         local TabButton = create("TextButton", {
             Name = tabSettings.Name .. "Tab",
             Parent = SidebarFrame,
-            Size = UDim2.new(1, 0, 0, 70),
+            Size = UDim2.new(1, 0, 0, CrimTheme.TAB_WIDTH),
             BackgroundTransparency = 1,
             ZIndex = 4,
         })
         
+        -- Визуальный индикатор/обводка (Crim.lua style)
+        local Border = create("Frame", {
+            Name = "Border",
+            Parent = TabButton,
+            Size = UDim2.new(1, 0, 1, 0),
+            BackgroundTransparency = 1,
+            ZIndex = 5,
+        })
+        
+        create("UIStroke", {
+            Name = "UIStroke",
+            Color = CrimTheme.SIDEBAR,
+            Thickness = 2,
+            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+            Parent = Border,
+        })
+
         local Title = create("TextLabel", {
             Name = "Title",
             Parent = TabButton,
             Text = tabSettings.Name,
-            Size = UDim2.new(1, -10, 1, 0),
-            Position = UDim2.new(0, 5, 0, 0),
+            Size = UDim2.new(1, 0, 1, 0),
             BackgroundTransparency = 1,
-            Font = CrimTheme.ELEMENT_FONT,
-            TextSize = CrimTheme.ELEMENT_TEXT_SIZE,
-            TextColor3 = CrimTheme.TAB_TEXT_UNSELECTED,
-            TextXAlignment = Enum.TextXAlignment.Left,
-        })
-
-        -- Обводка/индикатор (по умолчанию цвет боковой панели)
-        create("UIStroke", {
-            Color = CrimTheme.SIDEBAR,
-            Thickness = 2,
-            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-            Parent = TabButton,
+            Font = CrimTheme.FONT,
+            TextSize = CrimTheme.TEXT_SIZE_SMALL,
+            TextColor3 = CrimTheme.OUTLINE, -- Неактивный текст
+            TextXAlignment = Enum.TextXAlignment.Center,
         })
 
         TabButton.MouseButton1Click:Connect(function()
-            switchTab(TabButton, TabPage)
+            switchTab(Border, TabPage)
         end)
         
         -- Автоматический выбор первой созданной вкладки
         if not WindowValue.CurrentTab then
-            switchTab(TabButton, TabPage)
+            switchTab(Border, TabPage)
         end
 
         --================================================================================================================
@@ -276,14 +324,15 @@ function Library:CreateWindow(settings)
             local ToggleValue = elementSettings.Default or false
             local ToggleFrame = create("TextButton", {
                 Name = elementSettings.Name .. "Toggle",
-                Parent = TabPage,
-                Size = UDim2.new(0, 300, 0, 30),
+                Parent = ContentArea,
+                Size = UDim2.new(0, CrimTheme.COMPONENT_WIDTH, 0, CrimTheme.COMPONENT_HEIGHT),
                 BackgroundColor3 = ToggleValue and CrimTheme.ELEMENT_BACKGROUND_ON or CrimTheme.ELEMENT_BACKGROUND_OFF,
-                Font = CrimTheme.ELEMENT_FONT,
+                Font = CrimTheme.FONT,
                 Text = elementSettings.Name,
                 TextColor3 = CrimTheme.ELEMENT_TEXT,
-                TextSize = CrimTheme.ELEMENT_TEXT_SIZE,
+                TextSize = CrimTheme.TEXT_SIZE_SMALL,
                 TextXAlignment = Enum.TextXAlignment.Left,
+                TextLabel = UDim.new(0, 15), -- Отступ слева для текста
             })
             create("UICorner", { Parent = ToggleFrame })
 
@@ -292,16 +341,20 @@ function Library:CreateWindow(settings)
                 Parent = ToggleFrame,
                 BackgroundTransparency = 1,
                 Size = UDim2.new(0, 40, 1, 0),
-                Position = UDim2.new(1, -45, 0, 0),
-                Font = CrimTheme.ELEMENT_FONT,
+                Position = UDim2.new(1, -55, 0, 0), -- Отступ справа
+                Font = CrimTheme.FONT,
                 Text = ToggleValue and "ON" or "OFF",
                 TextColor3 = CrimTheme.ELEMENT_TEXT,
-                TextSize = CrimTheme.ELEMENT_TEXT_SIZE,
-                TextXAlignment = Enum.TextXAlignment.Center,
+                TextSize = CrimTheme.TEXT_SIZE_SMALL,
+                TextXAlignment = Enum.TextXAlignment.Right,
             })
 
-            local function updateToggle()
-                ToggleFrame.BackgroundColor3 = ToggleValue and CrimTheme.ELEMENT_BACKGROUND_ON or CrimTheme.ELEMENT_BACKGROUND_OFF
+            local function updateToggle(newValue)
+                ToggleValue = newValue
+                TweenService:Create(ToggleFrame, TweenInfo.new(0.2), {
+                    BackgroundColor3 = ToggleValue and CrimTheme.ELEMENT_BACKGROUND_ON or CrimTheme.ELEMENT_BACKGROUND_OFF
+                }):Play()
+                
                 StatusLabel.Text = ToggleValue and "ON" or "OFF"
                 
                 if elementSettings.Callback then
@@ -310,19 +363,15 @@ function Library:CreateWindow(settings)
             end
             
             ToggleFrame.MouseButton1Click:Connect(function()
-                ToggleValue = not ToggleValue
-                updateToggle()
+                updateToggle(not ToggleValue)
             end)
             
-            updateToggle()
+            updateToggle(ToggleValue) -- Инициализация состояния
 
             return {
                 Name = elementSettings.Name,
                 Value = ToggleValue,
-                Set = function(newValue)
-                    ToggleValue = newValue
-                    updateToggle()
-                end
+                Set = updateToggle
             }
         end
         
@@ -335,8 +384,8 @@ function Library:CreateWindow(settings)
             
             local SliderFrame = create("Frame", {
                 Name = elementSettings.Name .. "Slider",
-                Parent = TabPage,
-                Size = UDim2.new(0, 300, 0, 50), 
+                Parent = ContentArea,
+                Size = UDim2.new(0, CrimTheme.COMPONENT_WIDTH, 0, 50), 
                 BackgroundTransparency = 1,
             })
             
@@ -346,10 +395,10 @@ function Library:CreateWindow(settings)
                 Size = UDim2.new(1, 0, 0, 20),
                 Position = UDim2.new(0, 0, 0, 0),
                 BackgroundTransparency = 1,
-                Font = CrimTheme.ELEMENT_FONT,
+                Font = CrimTheme.FONT,
                 Text = elementSettings.Name .. ": " .. tostring(CurrentValue),
                 TextColor3 = CrimTheme.ELEMENT_TEXT,
-                TextSize = CrimTheme.ELEMENT_TEXT_SIZE,
+                TextSize = CrimTheme.TEXT_SIZE_SMALL,
                 TextXAlignment = Enum.TextXAlignment.Left,
             })
 
@@ -360,7 +409,7 @@ function Library:CreateWindow(settings)
                 Position = UDim2.new(0, 0, 0, 30),
                 BackgroundColor3 = CrimTheme.ELEMENT_BACKGROUND_OFF,
             })
-            create("UICorner", { Parent = SliderBar })
+            create("UICorner", { CornerRadius = UDim.new(0, 4), Parent = SliderBar })
 
             local ProgressFill = create("Frame", {
                 Name = "ProgressFill",
@@ -369,88 +418,196 @@ function Library:CreateWindow(settings)
                 Position = UDim2.new(0, 0, 0, 0),
                 BackgroundColor3 = CrimTheme.ACCENT,
             })
-            create("UICorner", { Parent = ProgressFill })
+            create("UICorner", { CornerRadius = UDim.new(0, 4), Parent = ProgressFill })
 
             local Knob = create("TextButton", {
                 Name = "Knob",
                 Parent = SliderBar,
                 Size = UDim2.new(0, 15, 0, 15),
-                BackgroundColor3 = CrimTheme.SLIDER_KNOB,
+                BackgroundColor3 = CrimTheme.ELEMENT_TEXT, -- Белый ползунок
                 Text = "",
             })
             create("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = Knob }) -- Круглый ползунок
             
             local isDragging = false
 
-            local function updateSlider(value)
+            local function updateSlider(newValue)
                 -- Применение шага и ограничение
-                value = math.floor(value / STEP + 0.5) * STEP
+                local value = math.floor(newValue / STEP + 0.5) * STEP
                 value = math.max(MIN, math.min(MAX, value))
                 
                 CurrentValue = value
                 
                 local normalized = (CurrentValue - MIN) / (MAX - MIN)
-                local barWidth = SliderBar.AbsoluteSize.X
                 local knobSize = Knob.AbsoluteSize.X
                 
                 -- Обновление UI
-                ProgressFill.Size = UDim2.new(normalized, 0, 1, 0)
-                -- Позиционирование ползунка по центру
-                Knob.Position = UDim2.new(normalized, -(knobSize / 2), 0.5, -(knobSize / 2))
-                Label.Text = string.format("%s: %.1f", elementSettings.Name, CurrentValue)
+                TweenService:Create(ProgressFill, TweenInfo.new(0.1), { Size = UDim2.new(normalized, 0, 1, 0) }):Play()
+                TweenService:Create(Knob, TweenInfo.new(0.1), { Position = UDim2.new(normalized, -(knobSize / 2), 0.5, -(knobSize / 2)) }):Play()
+                
+                Label.Text = string.format("%s: %.f", elementSettings.Name, CurrentValue)
                 
                 if elementSettings.Callback then
                     pcall(elementSettings.Callback, CurrentValue)
                 end
             end
 
-            updateSlider(CurrentValue)
+            local function getValueFromInput(input)
+                local barPos = SliderBar.AbsolutePosition
+                local barWidth = SliderBar.AbsoluteSize.X
+                local mousePos = input.UserInputType == Enum.UserInputType.MouseMovement and UserInputService:GetMouseLocation() or input.Position
+                
+                local relativeX = math.clamp(mousePos.X - barPos.X, 0, barWidth)
+                local normalized = relativeX / barWidth
+                local newValue = MIN + (normalized * (MAX - MIN))
+                return newValue
+            end
             
-            -- Логика перетаскивания
             Knob.InputBegan:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.MouseButton1 then
                     isDragging = true
-                    input.Changed:Connect(function()
-                        if input.UserInputState == Enum.UserInputState.End then
-                            isDragging = false
-                        end
-                    end)
+                end
+            end)
+            Knob.InputEnded:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    isDragging = false
+                end
+            end)
+            
+            -- Позволяет начать перетаскивание с любого места на SliderBar
+            SliderBar.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    isDragging = true
+                    updateSlider(getValueFromInput(input))
+                end
+            end)
+            
+            UserInputService.InputChanged:Connect(function(input)
+                if isDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+                    updateSlider(getValueFromInput(input))
+                end
+            end)
+            
+            UserInputService.InputEnded:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    isDragging = false
                 end
             end)
 
-            UserInputService.InputChanged:Connect(function(input)
-                if isDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-                    local mousePos = UserInputService:GetMouseLocation()
-                    local barPos = SliderBar.AbsolutePosition
-                    local barWidth = SliderBar.AbsoluteSize.X
-                    
-                    local relativeX = math.clamp(mousePos.X - barPos.X, 0, barWidth)
-                    local normalized = relativeX / barWidth
-                    local newValue = MIN + (normalized * (MAX - MIN))
-                    
-                    updateSlider(newValue)
+            updateSlider(CurrentValue) -- Инициализация состояния
+
+            return {
+                Name = elementSettings.Name,
+                Value = CurrentValue,
+                Set = updateSlider,
+            }
+        end
+
+        -- Кнопка (Button)
+        function TabValue:CreateButton(elementSettings)
+            local ButtonFrame = create("TextButton", {
+                Name = elementSettings.Name .. "Button",
+                Parent = ContentArea,
+                Size = UDim2.new(0, CrimTheme.COMPONENT_WIDTH, 0, CrimTheme.COMPONENT_HEIGHT),
+                BackgroundColor3 = CrimTheme.ELEMENT_BACKGROUND_OFF,
+                Font = CrimTheme.FONT,
+                Text = elementSettings.Name,
+                TextColor3 = CrimTheme.ELEMENT_TEXT,
+                TextSize = CrimTheme.TEXT_SIZE_SMALL,
+            })
+            create("UICorner", { Parent = ButtonFrame })
+
+            ButtonFrame.MouseButton1Click:Connect(function()
+                if elementSettings.Callback then
+                    pcall(elementSettings.Callback)
                 end
             end)
 
             return {
                 Name = elementSettings.Name,
-                Value = CurrentValue,
-                Set = function(newValue)
-                    updateSlider(newValue)
-                end,
             }
         end
-        -- Здесь можно добавить другие элементы (Button, Input, Dropdown и т.д.)
+        
+        -- Бинды клавиш (Keybind)
+        function TabValue:CreateKeybind(elementSettings)
+            local CurrentKey = elementSettings.Default or "NONE"
+            local isCapturing = false
+
+            local KeybindFrame = create("TextButton", {
+                Name = elementSettings.Name .. "Keybind",
+                Parent = ContentArea,
+                Size = UDim2.new(0, CrimTheme.COMPONENT_WIDTH, 0, CrimTheme.COMPONENT_HEIGHT),
+                BackgroundColor3 = CrimTheme.ELEMENT_BACKGROUND_OFF,
+                Font = CrimTheme.FONT,
+                TextColor3 = CrimTheme.ELEMENT_TEXT,
+                TextSize = CrimTheme.TEXT_SIZE_SMALL,
+            })
+            create("UICorner", { Parent = KeybindFrame })
+
+            local function updateText()
+                KeybindFrame.Text = elementSettings.Name .. ": [" .. CurrentKey .. "]"
+            end
+
+            local connection
+            KeybindFrame.MouseButton1Click:Connect(function()
+                if isCapturing then return end
+                isCapturing = true
+                KeybindFrame.Text = elementSettings.Name .. ": [PRESS A KEY...]"
+                
+                -- Отключаем старое соединение, если оно было
+                if connection then connection:Disconnect() end
+
+                connection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+                    if gameProcessed then return end
+                    
+                    -- Захват клавиши клавиатуры или кнопки мыши
+                    if input.UserInputType == Enum.UserInputType.Keyboard or input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        connection:Disconnect()
+                        isCapturing = false
+                        
+                        -- Проверка на клавишу для отмены (например, Backspace)
+                        if input.KeyCode == Enum.KeyCode.Backspace or input.KeyCode == Enum.KeyCode.Delete then
+                            CurrentKey = "NONE"
+                        else
+                            CurrentKey = input.KeyCode.Name
+                        end
+                        
+                        updateText()
+                        if elementSettings.Callback then
+                            pcall(elementSettings.Callback, CurrentKey)
+                        end
+                    end
+                end)
+            end)
+            
+            updateText()
+
+            return {
+                Name = elementSettings.Name,
+                Value = CurrentKey,
+                Set = function(newKey)
+                    CurrentKey = newKey
+                    updateText()
+                    if elementSettings.Callback then
+                        pcall(elementSettings.Callback, CurrentKey)
+                    end
+                end
+            }
+        end
+
 
         return TabValue
     end
 
+    -- Добавляем объект окна для внешнего доступа
+    WindowValue.Object = MainFrame 
+
     return WindowValue
 end
 
--- Присвоение библиотеки к глобальной переменной для удобного доступа
+-- Присвоение библиотеки к глобальной переменной
 if getgenv then
-    getgenv().Crimfield = Library
+    getgenv().CrimLib = Library
 end
 
 return Library
