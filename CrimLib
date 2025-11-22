@@ -235,7 +235,6 @@ return (function()
                 ColumnFrame.Size = UDim2.new(1,0,1,-40)
                 ColumnFrame.CanvasSize = UDim2.new(0,0,0,0)
                 ColumnFrame.ScrollBarThickness = 4
-                ColumnFrame.AutomaticCanvasSize = Enum.AutomaticCanvasSize.Y
                 local ColumnLayout = Instance.new("UIListLayout", ColumnFrame)
                 ColumnLayout.SortOrder = Enum.SortOrder.LayoutOrder
                 ColumnLayout.Padding = UDim.new(0, 5)
