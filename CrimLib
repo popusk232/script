@@ -298,77 +298,218 @@ function SapphireLibrary:CreateWindow(Settings)
             
             local Column = {}
 
+            function Column:CreateButton(settings)
+                local container = Instance.new("Frame")
+                container.Name = settings.Name
+                container.Parent = ColumnFrame
+                container.Size = UDim2.new(1, -20, 0, 30)
+                container.BackgroundColor3 = SelectedTheme.ElementBackground
+                container.BorderSizePixel = 0
+                local corner = Instance.new("UICorner")
+                corner.CornerRadius = UDim.new(0, 4)
+                corner.Parent = container
+
+                local title = Instance.new("TextLabel")
+                title.Parent = container
+                title.Text = settings.Name
+                title.TextColor3 = SelectedTheme.TextColor
+                title.TextSize = 13
+                title.Font = Enum.Font.Gotham
+                title.BackgroundTransparency = 1
+                title.Size = UDim2.new(1, 0, 1, 0)
+                title.TextXAlignment = Enum.TextXAlignment.Center
+
+                local button = Instance.new("TextButton")
+                button.Parent = container
+                button.Size = UDim2.new(1, 0, 1, 0)
+                button.BackgroundTransparency = 1
+                button.Text = ""
+
+                button.MouseButton1Click:Connect(function() if settings.Callback then pcall(settings.Callback) end end)
+                button.MouseEnter:Connect(function() TweenService:Create(container, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {BackgroundColor3 = SelectedTheme.ElementBackgroundHover}):Play() end)
+                button.MouseLeave:Connect(function() TweenService:Create(container, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {BackgroundColor3 = SelectedTheme.ElementBackground}):Play() end)
+                
+                return { Set = function(text) title.Text = text end }
+            end
+
             function Column:CreateToggle(settings)
                 local toggleState = settings.CurrentValue
-                local ToggleFrame = Instance.new("Frame")
-                ToggleFrame.Name = settings.Name
-                ToggleFrame.Parent = ColumnFrame
-                ToggleFrame.BackgroundColor3 = SelectedTheme.ElementBackground
-                ToggleFrame.BorderSizePixel = 0
-                ToggleFrame.Size = UDim2.new(1, -30, 0, 30)
-                local ToggleCorner = Instance.new("UICorner")
-                ToggleCorner.CornerRadius = UDim.new(0, 4)
-                ToggleCorner.Parent = ToggleFrame
+                local frame = Instance.new("Frame")
+                frame.Name = settings.Name
+                frame.Parent = ColumnFrame
+                frame.Size = UDim2.new(1, -20, 0, 30)
+                frame.BackgroundColor3 = SelectedTheme.ElementBackground
+                frame.BorderSizePixel = 0
+                local corner = Instance.new("UICorner")
+                corner.CornerRadius = UDim.new(0, 4)
+                corner.Parent = frame
                 
-                local Label = Instance.new("TextLabel")
-                Label.Parent = ToggleFrame
-                Label.BackgroundTransparency = 1
-                Label.Position = UDim2.new(0, 12, 0, 0)
-                Label.Size = UDim2.new(0, 200, 1, 0)
-                Label.Font = Enum.Font.Gotham
-                Label.Text = settings.Name
-                Label.TextSize = 13
-                Label.TextXAlignment = Enum.TextXAlignment.Left
+                local label = Instance.new("TextLabel")
+                label.Parent = frame
+                label.BackgroundTransparency = 1
+                label.Position = UDim2.new(0, 12, 0, 0)
+                label.Size = UDim2.new(0, 200, 1, 0)
+                label.Font = Enum.Font.Gotham
+                label.Text = settings.Name
+                label.TextSize = 13
+                label.TextXAlignment = Enum.TextXAlignment.Left
 
-                local ToggleBg = Instance.new("Frame")
-                ToggleBg.Parent = ToggleFrame
-                ToggleBg.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-                ToggleBg.BorderSizePixel = 0
-                ToggleBg.Position = UDim2.new(1, -38, 0.5, -10)
-                ToggleBg.Size = UDim2.new(0, 32, 0, 20)
-                local BgCorner = Instance.new("UICorner")
-                BgCorner.CornerRadius = UDim.new(1, 0)
-                BgCorner.Parent = ToggleBg
+                local toggleBg = Instance.new("Frame")
+                toggleBg.Parent = frame
+                toggleBg.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+                toggleBg.BorderSizePixel = 0
+                toggleBg.Position = UDim2.new(1, -38, 0.5, -10)
+                toggleBg.Size = UDim2.new(0, 32, 0, 20)
+                local bgCorner = Instance.new("UICorner")
+                bgCorner.CornerRadius = UDim.new(1, 0)
+                bgCorner.Parent = toggleBg
                 
-                local ToggleButton = Instance.new("Frame")
-                ToggleButton.Parent = ToggleBg
-                ToggleButton.BorderSizePixel = 0
-                ToggleButton.Size = UDim2.new(0, 16, 0, 16)
-                local ButtonCorner = Instance.new("UICorner")
-                ButtonCorner.CornerRadius = UDim.new(1, 0)
-                ButtonCorner.Parent = ToggleButton
+                local toggleButton = Instance.new("Frame")
+                toggleButton.Parent = toggleBg
+                toggleButton.BorderSizePixel = 0
+                toggleButton.Size = UDim2.new(0, 16, 0, 16)
+                local buttonCorner = Instance.new("UICorner")
+                buttonCorner.CornerRadius = UDim.new(1, 0)
+                buttonCorner.Parent = toggleButton
 
                 local function updateVisuals(value, animate)
                     local pos = value and UDim2.new(0, 14, 0, 2) or UDim2.new(0, 2, 0, 2)
                     local color = value and SelectedTheme.ToggleEnabled or SelectedTheme.ToggleDisabled
                     local textColor = value and Color3.fromRGB(255, 200, 50) or SelectedTheme.TextColor
                     if animate then
-                        TweenService:Create(ToggleButton, TweenInfo.new(0.15, Enum.EasingStyle.Quad), {Position = pos, BackgroundColor3 = color}):Play()
-                        TweenService:Create(Label, TweenInfo.new(0.15, Enum.EasingStyle.Quad), {TextColor3 = textColor}):Play()
+                        TweenService:Create(toggleButton, TweenInfo.new(0.15, Enum.EasingStyle.Quad), {Position = pos, BackgroundColor3 = color}):Play()
+                        TweenService:Create(label, TweenInfo.new(0.15, Enum.EasingStyle.Quad), {TextColor3 = textColor}):Play()
                     else
-                        ToggleButton.Position = pos
-                        ToggleButton.BackgroundColor3 = color
-                        Label.TextColor3 = textColor
+                        toggleButton.Position = pos
+                        toggleButton.BackgroundColor3 = color
+                        label.TextColor3 = textColor
                     end
                 end
                 updateVisuals(toggleState, false)
 
-                local ClickButton = Instance.new("TextButton")
-                ClickButton.Parent = ToggleFrame
-                ClickButton.BackgroundTransparency = 1
-                ClickButton.Size = UDim2.new(1, 0, 1, 0)
-                ClickButton.Text = ""
+                local clickButton = Instance.new("TextButton")
+                clickButton.Parent = frame
+                clickButton.BackgroundTransparency = 1
+                clickButton.Size = UDim2.new(1, 0, 1, 0)
+                clickButton.Text = ""
 
-                ClickButton.MouseButton1Click:Connect(function()
+                clickButton.MouseButton1Click:Connect(function()
                     toggleState = not toggleState
                     updateVisuals(toggleState, true)
                     if settings.Callback then pcall(settings.Callback, toggleState) end
                 end)
-                 return { Set = function(v) toggleState = v; updateVisuals(v, true) end, GetValue = function() return toggleState end}
+                return { Set = function(v) toggleState = v; updateVisuals(v, true) end, GetValue = function() return toggleState end}
+            end
+
+            function Column:CreateSlider(settings)
+                local sliderValue = settings.CurrentValue
+                local dragging = false
+                
+                local frame = Instance.new("Frame")
+                frame.Name = settings.Name
+                frame.Parent = ColumnFrame
+                frame.Size = UDim2.new(1, -20, 0, 30)
+                frame.BackgroundColor3 = SelectedTheme.ElementBackground
+                frame.BorderSizePixel = 0
+                local corner = Instance.new("UICorner")
+                corner.CornerRadius = UDim.new(0, 4)
+                corner.Parent = frame
+
+                local title = Instance.new("TextLabel")
+                title.Parent = frame
+                title.BackgroundTransparency = 1
+                title.Position = UDim2.new(0, 12, 0, 0)
+                title.Size = UDim2.new(0, 150, 1, 0)
+                title.Font = Enum.Font.Gotham
+                title.Text = settings.Name
+                title.TextColor3 = SelectedTheme.TextColor
+                title.TextSize = 13
+                title.TextXAlignment = Enum.TextXAlignment.Left
+
+                local valueLabel = Instance.new("TextLabel")
+                valueLabel.Parent = frame
+                valueLabel.BackgroundTransparency = 1
+                valueLabel.Position = UDim2.new(1, -60, 0, 0)
+                valueLabel.Size = UDim2.new(0, 50, 1, 0)
+                valueLabel.Font = Enum.Font.GothamBold
+                valueLabel.TextColor3 = SelectedTheme.TextColor
+                valueLabel.TextSize = 13
+                valueLabel.TextXAlignment = Enum.TextXAlignment.Right
+
+                local track = Instance.new("Frame")
+                track.Parent = frame
+                track.BackgroundColor3 = SelectedTheme.SliderBackground
+                track.BorderSizePixel = 0
+                track.Position = UDim2.new(0.5, 0, 0.75, 0)
+                track.Size = UDim2.new(1, -24, 0, 4)
+                local trackCorner = Instance.new("UICorner")
+                trackCorner.CornerRadius = UDim.new(1, 0)
+                trackCorner.Parent = track
+
+                local fill = Instance.new("Frame")
+                fill.Parent = track
+                fill.BackgroundColor3 = SelectedTheme.SliderProgress
+                fill.BorderSizePixel = 0
+                local fillCorner = Instance.new("UICorner")
+                fillCorner.CornerRadius = UDim.new(1, 0)
+                fillCorner.Parent = fill
+
+                local thumb = Instance.new("Frame")
+                thumb.Parent = track
+                thumb.BackgroundColor3 = SelectedTheme.SliderProgress
+                thumb.BorderSizePixel = 0
+                thumb.Size = UDim2.new(0, 16, 0, 16)
+                thumb.ZIndex = 2
+                local thumbCorner = Instance.new("UICorner")
+                thumbCorner.CornerRadius = UDim.new(1, 0)
+                thumbCorner.Parent = thumb
+
+                local interact = Instance.new("TextButton")
+                interact.Parent = track
+                interact.Size = UDim2.new(1, 0, 3, 0)
+                interact.Position = UDim2.new(0,0,0.5, -3)
+                interact.BackgroundTransparency = 1
+                interact.Text = ""
+                interact.ZIndex = 3
+
+                local function updateVisuals(value)
+                    local min, max = settings.Range[1], settings.Range[2]
+                    local delta = math.clamp((value - min) / (max - min), 0, 1)
+                    fill.Size = UDim2.new(delta, 0, 1, 0)
+                    thumb.Position = UDim2.new(delta, -8, 0.5, -8)
+                    valueLabel.Text = tostring(math.floor(value)) .. (settings.Suffix or "")
+                end
+                updateVisuals(sliderValue)
+                
+                local function updateFromInput(input)
+                    local trackPos = track.AbsolutePosition.X
+                    local trackSize = track.AbsoluteSize.X
+                    local mousePos = input.Position.X
+                    
+                    local delta = math.clamp((mousePos - trackPos) / trackSize, 0, 1)
+                    local min, max = settings.Range[1], settings.Range[2]
+                    local increment = settings.Increment or 1
+                    local newValue = min + (max - min) * delta
+                    newValue = math.floor(newValue / increment + 0.5) * increment
+                    newValue = math.clamp(newValue, min, max)
+
+                    if sliderValue ~= newValue then
+                        sliderValue = newValue
+                        updateVisuals(newValue)
+                        if settings.Callback then pcall(settings.Callback, sliderValue) end
+                    end
+                end
+
+                interact.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true; updateFromInput(input) end end)
+                UserInputService.InputChanged:Connect(function(input) if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then updateFromInput(input) end end)
+                UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
+                return { Set = function(v) updateVisuals(v) end, GetValue = function() return sliderValue end}
             end
             
             return Column
         end
+        return Tab
+    end
         return Tab
     end
     return Window
