@@ -10,7 +10,11 @@ local function getService(name)
     end
     local success, service = pcall(function() return g:GetService(name) end)
     if success then
-        return if cloneref then cloneref(service) else service
+        if cloneref then
+            return cloneref(service)
+        else
+            return service
+        end
     else
         error("Rayfield: Failed to get service '"..tostring(name).."'. The game instance might be missing.", 0)
     end
