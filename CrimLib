@@ -1,7 +1,12 @@
--- Sapphire GUI Library (v2.2 - Complete & Corrected)
--- This script provides the core logic for creating a GUI with a sidebar and multi-column layout.
--- This is the LIBRARY file. The content of this file should be on your GitHub.
+--[[
+    Crim Standalone - Ported to Sapphire UI (v2.3)
+    This is a single, self-contained script that should be injected directly.
+    It includes the GUI library and all necessary logic to fix the "Could not load" error.
+]]
 
+-- =================================================================
+-- SAPPHIRE GUI LIBRARY (Self-Contained)
+-- =================================================================
 local SapphireLibrary = (function()
     local Services = {
         TweenService = game:GetService("TweenService"),
@@ -30,17 +35,6 @@ local SapphireLibrary = (function()
         }
     }
     local SelectedTheme = Library.Theme.Ragebot
-
-    local function ChangeTheme(Theme)
-        if typeof(Theme) == 'string' then
-            SelectedTheme = Library.Theme[Theme] or Library.Theme.Default
-        elseif typeof(Theme) == 'table' then
-            SelectedTheme = Theme
-        end
-        if _G.SapphireMain then
-            _G.SapphireMain.BackgroundColor3 = SelectedTheme.Background
-        end
-    end
 
     local function makeDraggable(object, dragObject)
         local dragging = false
@@ -72,7 +66,7 @@ local SapphireLibrary = (function()
     end
 
     function Library:CreateWindow(Settings)
-        ChangeTheme(Settings.Theme)
+        SelectedTheme = Library.Theme[Settings.Theme] or Library.Theme.Ragebot
 
         local ScreenGui = Instance.new("ScreenGui")
         ScreenGui.Name = "Sapphire"
@@ -89,21 +83,18 @@ local SapphireLibrary = (function()
         Main.Size = UDim2.new(0, 843, 0, 575)
         Main.AnchorPoint = Vector2.new(0.5, 0.5)
         Main.Visible = false
-        _G.SapphireMain = Main
         local MainCorner = Instance.new("UICorner", Main)
         MainCorner.CornerRadius = UDim.new(0, 8)
 
-        local Header = Instance.new("Frame")
+        local Header = Instance.new("Frame", Main)
         Header.Name = "Header"
-        Header.Parent = Main
         Header.BackgroundColor3 = SelectedTheme.Topbar
         Header.BorderSizePixel = 0
         Header.Size = UDim2.new(1, 0, 0, 60)
         local HeaderCorner = Instance.new("UICorner", Header)
         HeaderCorner.CornerRadius = UDim.new(0, 8)
 
-        local Title = Instance.new("TextLabel")
-        Title.Parent = Header
+        local Title = Instance.new("TextLabel", Header)
         Title.BackgroundTransparency = 1
         Title.Position = UDim2.new(0, 70, 0, 18)
         Title.Size = UDim2.new(0, 200, 0, 24)
@@ -113,9 +104,8 @@ local SapphireLibrary = (function()
         Title.TextSize = 20
         Title.TextXAlignment = Enum.TextXAlignment.Left
 
-        local Sidebar = Instance.new("Frame")
+        local Sidebar = Instance.new("Frame", Main)
         Sidebar.Name = "Sidebar"
-        Sidebar.Parent = Main
         Sidebar.BackgroundColor3 = SelectedTheme.Topbar
         Sidebar.BorderSizePixel = 0
         Sidebar.Position = UDim2.new(0, 0, 0, 60)
@@ -124,9 +114,8 @@ local SapphireLibrary = (function()
         SidebarLayout.SortOrder = Enum.SortOrder.LayoutOrder
         SidebarLayout.Padding = UDim.new(0, 0)
 
-        local ContentFrame = Instance.new("Frame")
+        local ContentFrame = Instance.new("Frame", Main)
         ContentFrame.Name = "ContentFrame"
-        ContentFrame.Parent = Main
         ContentFrame.BackgroundTransparency = 1
         ContentFrame.Position = UDim2.new(0, 70, 0, 60)
         ContentFrame.Size = UDim2.new(1, -70, 1, -60)
