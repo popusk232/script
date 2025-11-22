@@ -104,6 +104,25 @@ return (function()
         Title.TextSize = 20
         Title.TextXAlignment = Enum.TextXAlignment.Left
 
+        local CloseButton = Instance.new("TextButton", Header)
+        CloseButton.Name = "CloseButton"
+        CloseButton.BackgroundTransparency = 1
+        CloseButton.Size = UDim2.new(0, 30, 0, 30)
+        CloseButton.Position = UDim2.new(1, -35, 0, 15)
+        CloseButton.Font = Enum.Font.SourceSansBold
+        CloseButton.Text = "X"
+        CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        CloseButton.TextSize = 20
+
+        local onCloseCallback = nil
+        CloseButton.MouseButton1Click:Connect(function()
+            if onCloseCallback then
+                pcall(onCloseCallback)
+            else
+                Main.Visible = false -- Default behavior if no callback set
+            end
+        end)
+
         local Sidebar = Instance.new("Frame", Main)
         Sidebar.Name = "Sidebar"
         Sidebar.BackgroundColor3 = SelectedTheme.Topbar
@@ -216,6 +235,7 @@ return (function()
                 ColumnFrame.Size = UDim2.new(1,0,1,-40)
                 ColumnFrame.CanvasSize = UDim2.new(0,0,0,0)
                 ColumnFrame.ScrollBarThickness = 4
+                ColumnFrame.AutomaticCanvasSize = Enum.AutomaticCanvasSize.Y
                 local ColumnLayout = Instance.new("UIListLayout", ColumnFrame)
                 ColumnLayout.SortOrder = Enum.SortOrder.LayoutOrder
                 ColumnLayout.Padding = UDim.new(0, 5)
@@ -357,7 +377,102 @@ return (function()
                     Services.UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
                     return { Set = function(v) sliderValue=v; updateVisuals(v) end, GetValue = function() return sliderValue end}
                 end
-                function Column:CreateInput(settings)
+                function Column:CreateKeybindInput(settings)
+                    local keybindState = settings.CurrentValue -- Can be Enum.KeyCode or Enum.UserInputType
+                    local capturing = false
+                    local connections = {}
+
+                    local frame = Instance.new("Frame", ColumnFrame)
+                    frame.Name = settings.Name
+                    frame.Size = UDim2.new(1, -20, 0, 30)
+                    frame.BackgroundColor3 = SelectedTheme.ElementBackground
+                    frame.BorderSizePixel = 0
+                    local corner = Instance.new("UICorner", frame)
+                    corner.CornerRadius = UDim.new(0, 4)
+
+                    local title = Instance.new("TextLabel", frame)
+                    title.BackgroundTransparency = 1
+                    title.Position = UDim2.new(0, 12, 0, 0)
+                    title.Size = UDim2.new(0, 100, 1, 0)
+                    title.Font = Enum.Font.Gotham
+                    title.Text = settings.Name
+                    title.TextColor3 = SelectedTheme.TextColor
+                    title.TextSize = 13
+                    title.TextXAlignment = Enum.TextXAlignment.Left
+
+                    local keyButton = Instance.new("TextButton", frame)
+                    keyButton.Name = "KeybindButton"
+                    keyButton.BackgroundColor3 = SelectedTheme.InputBackground
+                    keyButton.BorderSizePixel = 0
+                    keyButton.Position = UDim2.new(1, -160, 0.5, -12)
+                    keyButton.Size = UDim2.new(0, 150, 0, 24)
+                    keyButton.Font = Enum.Font.Gotham
+                    keyButton.Text = keybindState and keybindState.Name or "NONE" -- Display current keybind name
+                    keyButton.TextColor3 = Color3.fromRGB(180, 180, 180)
+                    keyButton.TextSize = 12
+                    keyButton.TextXAlignment = Enum.TextXAlignment.Center
+                    local keyButtonCorner = Instance.new("UICorner", keyButton)
+                    keyButtonCorner.CornerRadius = UDim.new(0, 4)
+
+                    local function stopCapturing()
+                        capturing = false
+                        for _, conn in pairs(connections) do
+                            if conn and conn.Connected then conn:Disconnect() end
+                        end
+                        connections = {}
+                        keyButton.Text = keybindState and keybindState.Name or "NONE" -- Revert text to current bind
+                        keyButton.BackgroundColor3 = SelectedTheme.InputBackground -- Revert color
+                    end
+
+                    local function startCapturing()
+                        if capturing then return end
+                        capturing = true
+                        keyButton.Text = "PRESS A KEY..."
+                        keyButton.BackgroundColor3 = SelectedTheme.SliderProgress -- Highlight color
+
+                        -- Listen for keyboard and mouse input
+                        table.insert(connections, Services.UserInputService.InputBegan:Connect(function(input, processed)
+                            if processed then return end
+                            if capturing then
+                                local newKey = nil
+                                if input.UserInputType == Enum.UserInputType.Keyboard then
+                                    if input.KeyCode == Enum.KeyCode.Delete then -- Allow Delete to clear bind
+                                        newKey = nil -- Set to nil to indicate clear
+                                    elseif input.KeyCode ~= Enum.KeyCode.Escape then -- Escape cancels without binding
+                                        newKey = input.KeyCode
+                                    end
+                                elseif input.UserInputType == Enum.UserInputType.MouseButton1 or
+                                       input.UserInputType == Enum.UserInputType.MouseButton2 or
+                                       input.UserInputType == Enum.UserInputType.MouseButton3 then
+                                    newKey = input.UserInputType
+                                end
+                                
+                                if newKey ~= nil then -- A key/mouse was pressed and is not Escape or Delete
+                                    keybindState = newKey
+                                    if settings.Callback then pcall(settings.Callback, keybindState) end
+                                    stopCapturing()
+                                elseif input.KeyCode == Enum.KeyCode.Delete then -- If Delete was pressed
+                                    keybindState = nil
+                                    if settings.Callback then pcall(settings.Callback, keybindState) end
+                                    stopCapturing()
+                                elseif input.KeyCode == Enum.KeyCode.Escape then -- If Escape was pressed
+                                    stopCapturing()
+                                end
+                            end
+                        end))
+                    end
+
+                    keyButton.MouseButton1Click:Connect(startCapturing)
+
+                    return { 
+                        Set = function(key) 
+                            keybindState = key
+                            keyButton.Text = keybindState and keybindState.Name or "NONE"
+                        end,
+                        GetValue = function() return keybindState end
+                    }
+                end
+                function Column:CreateTextInput(settings)
                     local container = Instance.new("Frame", ColumnFrame)
                     container.Name = settings.Name
                     container.Size = UDim2.new(1, -20, 0, 30)
@@ -397,6 +512,9 @@ return (function()
         end
         Window.Toggle = function()
             Main.Visible = not Main.Visible
+        end
+        function Window:SetOnCloseCallback(callback)
+            onCloseCallback = callback
         end
         return Window
     end
