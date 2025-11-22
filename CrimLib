@@ -1,9 +1,13 @@
+local game = game
+if not game and getgenv then
+    game = getgenv().game
+end
+
 if debugX then
 	warn('Initialising Rayfield')
 end
 
 local function getService(name)
-	local game = getgenv().game 
 	local service = game:GetService(name)
 	return if cloneref then cloneref(service) else service
 end
