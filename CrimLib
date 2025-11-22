@@ -1,18 +1,19 @@
-local game = game
-if not game and getgenv then
-    game = getgenv().game
-end
-if not game and shared then
-    game = shared.game
-end
-
 if debugX then
 	warn('Initialising Rayfield')
 end
 
 local function getService(name)
-	local service = game:GetService(name)
-	return if cloneref then cloneref(service) else service
+    local g = game
+    if not g then
+        if getgenv then g = getgenv().game end
+        if not g and shared then g = shared.game end
+    end
+    local success, service = pcall(function() return g:GetService(name) end)
+    if success then
+        return if cloneref then cloneref(service) else service
+    else
+        error("Rayfield: Failed to get service '"..tostring(name).."'. The game instance might be missing.", 0)
+    end
 end
 
 local HttpService = getService('HttpService')
