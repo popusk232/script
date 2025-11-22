@@ -736,7 +736,7 @@ local function CreateLib(name, options)
     Topbar.BorderSizePixel = 0
     
     local Title = Instance.new('TextLabel', Topbar)
-    Title.Text = name .. " | " .. Release
+    Title.Text = tostring(name) .. " | " .. tostring(Release) -- ИСПРАВЛЕНО
     Title.TextColor3 = theme.TextColor
     Title.BackgroundTransparency = 1
     Title.Size = UDim2.new(1, 0, 1, 0)
