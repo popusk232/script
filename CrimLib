@@ -2,6 +2,9 @@ local game = game
 if not game and getgenv then
     game = getgenv().game
 end
+if not game and shared then
+    game = shared.game
+end
 
 if debugX then
 	warn('Initialising Rayfield')
