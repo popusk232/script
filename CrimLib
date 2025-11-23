@@ -1,13 +1,14 @@
 --[[
-    SAPPHIRE UI — ПОЛНЫЙ КЛОН ТВОЕГО ClickGui.lua
-    • Без обводки нигде
-    • Точные размеры и позиции иконок
-    • Insert — открыть/закрыть
-    • Delete — полностью удалить GUI
-    • Работает в любом эксплойте 2025 года
+    CrimLib — Финальная, чистая, без багов библиотека (2025)
+    • Исправлен баг с наложением вкладок
+    • Без обводки
+    • Insert / Delete
+    • Готово к загрузке по loadstring
 ]]
 
-local Sapphire = (function()
+local CrimLib = {}
+
+do
     local Services = {
         TweenService = game:GetService("TweenService"),
         UserInputService = game:GetService("UserInputService"),
@@ -41,13 +42,11 @@ local Sapphire = (function()
         return "https://assetdelivery.roblox.com/v1/asset/?id=" .. tostring(id):gsub("rbxassetid://", "")
     end
 
-    local Library = {}
-
-    function Library:CreateWindow(config)
+    function CrimLib:CreateWindow(config)
         local Name = (config and config.Name) or "Ragebot"
 
         local ScreenGui = Instance.new("ScreenGui")
-        ScreenGui.Name = "SapphireUI"
+        ScreenGui.Name = "CrimLib_UI"
         ScreenGui.Parent = Services.CoreGui
         ScreenGui.ResetOnSpawn = false
 
@@ -99,6 +98,7 @@ local Sapphire = (function()
 
         local Window = {}
         local CurrentTab = nil
+        local AllTabContents = {}
 
         local tabs = {
             {name = "Legitbot",     icon = 98370306170658,  size = UDim2.new(0,16.9,0,16.9), y = 15},
@@ -138,24 +138,35 @@ local Sapphire = (function()
             local TabContent = Instance.new("Frame", Content)
             TabContent.Size = UDim2.new(1,0,1,0)
             TabContent.BackgroundTransparency = 1
-            TabContent.Visible = data.active or false
+            TabContent.Visible = false
+            table.insert(AllTabContents, TabContent)
 
             local Layout = Instance.new("UIListLayout", TabContent)
             Layout.FillDirection = Enum.FillDirection.Horizontal
             Layout.Padding = UDim.new(0,18)
 
             ClickArea.MouseButton1Click:Connect(function()
+                for _, content in ipairs(AllTabContents) do
+                    content.Visible = false
+                end
+                TabContent.Visible = true
+
                 if CurrentTab then
-                    CurrentTab.Content.Visible = false
                     Services.TweenService:Create(CurrentTab.Button, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(18,18,18)}):Play()
                     Services.TweenService:Create(CurrentTab.Indicator, TweenInfo.new(0.2), {Size = UDim2.new(0,0,1,0)}):Play()
                 end
-                TabContent.Visible = true
+
                 CurrentTab = {Button = TabButton, Indicator = Indicator, Content = TabContent}
                 Title.Text = Name .. " - " .. data.name
                 Services.TweenService:Create(TabButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(25,25,25)}):Play()
                 Services.TweenService:Create(Indicator, TweenInfo.new(0.2), {Size = UDim2.new(0,4,1,0)}):Play()
             end)
+
+            if data.active then
+                TabContent.Visible = true
+                CurrentTab = {Button = TabButton, Indicator = Indicator, Content = TabContent}
+                Title.Text = Name .. " - " .. data.name
+            end
 
             local Tab = {}
 
@@ -246,27 +257,22 @@ local Sapphire = (function()
             Window[data.name] = Tab
         end
 
-        -- Клавиши
-        Services.UserInputService.InputBegan:Connect(function(inp, gp)
+        local conn = Services.UserInputService.InputBegan:Connect(function(inp, gp)
             if gp then return end
             if inp.KeyCode == Enum.KeyCode.Insert then
                 MainFrame.Visible = not MainFrame.Visible
             elseif inp.KeyCode == Enum.KeyCode.Delete then
+                conn:Disconnect()
                 ScreenGui:Destroy()
-                print("Sapphire UI полностью удалён (Delete нажата)")
             end
         end)
 
-        function Window:Toggle()
-            MainFrame.Visible = not MainFrame.Visible
-        end
-
-        function Window:Unload()
-            ScreenGui:Destroy()
-        end
+        function Window:Toggle() MainFrame.Visible = not MainFrame.Visible end
+        function Window:Unload() conn:Disconnect() ScreenGui:Destroy() end
 
         return Window
     end
+end
 
-    return Library
-end)()
+return CrimLib
+-- 222222
