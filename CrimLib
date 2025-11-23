@@ -1,6 +1,5 @@
 --[[
     CrimLib — 100% рабочая версия для loadstring с GitHub
-    Заливай сюда: https://raw.githubusercontent.com/popusk232/script/refs/heads/main/CrimLib.lua
 ]]
 
 local CrimLib = {}
