@@ -248,6 +248,32 @@ function Library:CreateWindow(config)
 
                 return Frame
             end
+            
+            function Elements:Button(options)
+                local Frame = Instance.new("Frame", Scroll)
+                Frame.Size = UDim2.new(1,-30,0,30)
+                Frame.BackgroundColor3 = Color3.fromRGB(28,28,28)
+                Frame.BorderSizePixel = 0
+                Instance.new("UICorner", Frame).CornerRadius = UDim.new(0,4)
+
+                local Label = Instance.new("TextLabel", Frame)
+                Label.Size = UDim2.new(1,0,1,0)
+                Label.Position = UDim2.new(0,0,0,0)
+                Label.BackgroundTransparency = 1
+                Label.Font = Enum.Font.Gotham
+                Label.Text = options.Name or "Button"
+                Label.TextColor3 = Color3.fromRGB(200,200,200)
+                Label.TextSize = 13
+                
+                local Click = Instance.new("TextButton", Frame)
+                Click.Size = UDim2.new(1,0,1,0)
+                Click.BackgroundTransparency = 1
+                Click.Text = ""
+                
+                Click.MouseButton1Click:Connect(function()
+                    if options.Callback then options.Callback() end
+                end)
+            end
 
             return Elements
         end
@@ -257,16 +283,14 @@ function Library:CreateWindow(config)
 
     local conn = Services.UserInputService.InputBegan:Connect(function(inp, gp)
         if gp then return end
-        if inp.KeyCode == Enum.KeyCode.Insert then
+        if inp.KeyCode == Enum.KeyCode.Insert or inp.KeyCode == Enum.KeyCode.Delete then
+            -- ИЗМЕНЕНИЕ: Клавиши Insert и Delete теперь обе переключают видимость
             MainFrame.Visible = not MainFrame.Visible
-        elseif inp.KeyCode == Enum.KeyCode.Delete then
-            conn:Disconnect()
-            ScreenGui:Destroy()
         end
     end)
 
     function Window:Toggle() MainFrame.Visible = not MainFrame.Visible end
-    function Window:Unload() conn:Disconnect() ScreenGui:Destroy() end
+    function Window:Unload() conn:Disconnect(); ScreenGui:Destroy() end
 
     return Window
 end
