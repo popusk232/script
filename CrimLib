@@ -31,7 +31,7 @@ return (function()
                 ToggleEnabled = Color3.fromRGB(60, 160, 255),
                 ToggleDisabled = Color3.fromRGB(60, 60, 60),
                 InputBackground = Color3.fromRGB(32, 32, 32),
-            },
+            }
         }
     }
     local SelectedTheme = Library.Theme.Ragebot
