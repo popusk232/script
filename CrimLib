@@ -155,8 +155,6 @@ return (function()
             local iconSize = iconSettings.Size or {32, 32}
             local iconColor = iconSettings.Color or Color3.fromRGB(200, 200, 200) -- Reverted to original default or white
 
-            -- Removed print statement
-
             local tabData = {}
             local tabIndex = #tabs + 1
             local IconFrame = Instance.new("Frame", Sidebar)
@@ -202,7 +200,7 @@ return (function()
                     local oldIndicator = currentTab.button:FindFirstChild("Indicator")
                     Services.TweenService:Create(currentTab.button, TweenInfo.new(0.2), {BackgroundColor3 = SelectedTheme.Topbar}):Play()
                     if oldIndicator then Services.TweenService:Create(oldIndicator, TweenInfo.new(0.2), {Size = UDim2.new(0, 0, 1, 0)}):Play() end
-                })
+                end
                 TabContent.Visible = true
                 currentTab = tabData
                 Title.Text = name
