@@ -7,7 +7,7 @@
 -- =================================================================
 -- SAPPHIRE GUI LIBRARY (Self-Contained)
 -- =================================================================
-return (function()
+local SapphireLibraryWrapper = function()
     local Services = {
         TweenService = game:GetService("TweenService"),
         UserInputService = game:GetService("UserInputService"),
@@ -528,5 +528,5 @@ return (function()
         return Window
     end
     
+    end
     return Library
-end)()
