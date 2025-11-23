@@ -1,5 +1,5 @@
 local Library = {}
--- ывф3232323
+-- ывфывфывфыв
 local Services = {
     TweenService = game:GetService("TweenService"),
     UserInputService = game:GetService("UserInputService"),
@@ -207,6 +207,20 @@ function Library:CreateWindow(config)
             List.Padding = UDim.new(0, 5)
             List.SortOrder = Enum.SortOrder.LayoutOrder
             List.Parent = Scroll
+            
+            -- Вспомогательная функция для автоматического применения базовых стилей текста, включая GothamBold
+            local function createControlLabel(name, parent, defaultColor)
+                local label = Instance.new("TextLabel")
+                label.Position = UDim2.new(0, 12, 0, 0)
+                label.BackgroundTransparency = 1
+                label.Font = Enum.Font.GothamBold -- АВТОМАТИЧЕСКИЙ ШРИФТ
+                label.Text = name or "Control"
+                label.TextColor3 = defaultColor or Color3.fromRGB(200, 200, 200)
+                label.TextSize = 13
+                label.TextXAlignment = Enum.TextXAlignment.Left
+                label.Parent = parent
+                return label
+            end
 
             local Elements = {}
 
@@ -221,16 +235,9 @@ function Library:CreateWindow(config)
                 Frame.Parent = Scroll
                 Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 4)
 
-                local Label = Instance.new("TextLabel")
-                Label.Size = UDim2.new(0, 220, 1, 0)
-                Label.Position = UDim2.new(0, 12, 0, 0)
-                Label.BackgroundTransparency = 1
-                Label.Font = Enum.Font.GothamBold -- ИСПРАВЛЕНО: GothamBold
-                Label.Text = options.Name or "Toggle"
-                Label.TextColor3 = enabled and Color3.fromRGB(255, 200, 50) or Color3.fromRGB(200, 200, 200)
-                Label.TextSize = 13
-                Label.TextXAlignment = Enum.TextXAlignment.Left
-                Label.Parent = Frame
+                local Label = createControlLabel(options.Name or "Toggle", Frame)
+                Label.Size = UDim2.new(0, 220, 1, 0) -- Устанавливаем размер
+                Label.TextColor3 = enabled and Color3.fromRGB(255, 200, 50) or Color3.fromRGB(200, 200, 200) -- Переопределяем цвет
 
                 local Bg = Instance.new("Frame")
                 Bg.Size = UDim2.new(0, 32, 0, 20)
@@ -285,22 +292,15 @@ function Library:CreateWindow(config)
                 Frame.Parent = Scroll
                 Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 4)
 
-                local Label = Instance.new("TextLabel")
+                local Label = createControlLabel(options.Name or "Slider", Frame)
                 Label.Size = UDim2.new(1, -70, 0, 15)
                 Label.Position = UDim2.new(0, 12, 0, 5)
-                Label.BackgroundTransparency = 1
-                Label.Font = Enum.Font.GothamBold -- ИСПРАВЛЕНО: GothamBold
-                Label.Text = options.Name or "Slider"
-                Label.TextColor3 = Color3.fromRGB(200, 200, 200)
-                Label.TextSize = 13
-                Label.TextXAlignment = Enum.TextXAlignment.Left
-                Label.Parent = Frame
 
                 local ValueLabel = Instance.new("TextLabel")
                 ValueLabel.Size = UDim2.new(0, 50, 0, 15)
                 ValueLabel.Position = UDim2.new(1, -62, 0, 5)
                 ValueLabel.BackgroundTransparency = 1
-                ValueLabel.Font = Enum.Font.GothamBold -- ИСПРАВЛЕНО: GothamBold
+                ValueLabel.Font = Enum.Font.GothamBold
                 ValueLabel.Text = tostring(value)
                 ValueLabel.TextColor3 = Color3.fromRGB(255, 200, 50)
                 ValueLabel.TextSize = 13
@@ -370,16 +370,8 @@ function Library:CreateWindow(config)
                 Frame.Parent = Scroll
                 Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 4)
 
-                local Label = Instance.new("TextLabel")
+                local Label = createControlLabel(options.Name or "Dropdown", Frame)
                 Label.Size = UDim2.new(0, 120, 1, 0)
-                Label.Position = UDim2.new(0, 12, 0, 0)
-                Label.BackgroundTransparency = 1
-                Label.Font = Enum.Font.GothamBold -- ИСПРАВЛЕНО: GothamBold
-                Label.Text = options.Name or "Dropdown"
-                Label.TextColor3 = Color3.fromRGB(200, 200, 200)
-                Label.TextSize = 13
-                Label.TextXAlignment = Enum.TextXAlignment.Left
-                Label.Parent = Frame
 
                 local Button = Instance.new("TextButton")
                 Button.Position = UDim2.new(0, 120, 0, 3)
@@ -412,7 +404,7 @@ function Library:CreateWindow(config)
                 Arrow.BackgroundTransparency = 1
                 Arrow.Text = "▼"  
                 Arrow.TextColor3 = Color3.fromRGB(150, 150, 150)
-                Arrow.Font = Enum.Font.GothamBold -- ИСПРАВЛЕНО: GothamBold
+                Arrow.Font = Enum.Font.GothamBold
                 Arrow.TextSize = 16 
                 Arrow.Parent = Button
 
@@ -453,7 +445,7 @@ function Library:CreateWindow(config)
                     ItemBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35) 
                     ItemBtn.Text = "  " .. item
                     ItemBtn.TextColor3 = Color3.fromRGB(200, 200, 200) 
-                    ItemBtn.Font = Enum.Font.GothamBold -- Жирный шрифт
+                    ItemBtn.Font = Enum.Font.GothamBold 
                     ItemBtn.TextSize = 12
                     ItemBtn.TextXAlignment = Enum.TextXAlignment.Left
                     ItemBtn.Parent = DropdownFrame
@@ -502,16 +494,8 @@ function Library:CreateWindow(config)
                 Frame.Parent = Scroll
                 Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 4)
 
-                local Label = Instance.new("TextLabel")
+                local Label = createControlLabel(options.Name or "Keybind", Frame)
                 Label.Size = UDim2.new(0, 180, 1, 0)
-                Label.Position = UDim2.new(0, 12, 0, 0)
-                Label.BackgroundTransparency = 1
-                Label.Text = options.Name or "Keybind"
-                Label.TextColor3 = Color3.fromRGB(200, 200, 200)
-                Label.Font = Enum.Font.GothamBold -- ИСПРАВЛЕНО: GothamBold
-                Label.TextSize = 13
-                Label.TextXAlignment = Enum.TextXAlignment.Left
-                Label.Parent = Frame
 
                 local BindBtn = Instance.new("TextButton")
                 BindBtn.Position = UDim2.new(1, -100, 0, 3)
@@ -572,15 +556,8 @@ function Library:CreateWindow(config)
                 Frame.Parent = Scroll
                 Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 4)
 
-                local Label = Instance.new("TextLabel")
+                local Label = createControlLabel(options.Name or "Input", Frame)
                 Label.Size = UDim2.new(0, 120, 1, 0)
-                Label.Position = UDim2.new(0, 12, 0, 0)
-                Label.BackgroundTransparency = 1
-                Label.Text = options.Name or "Input"
-                Label.TextColor3 = Color3.fromRGB(200, 200, 200)
-                Label.Font = Enum.Font.GothamBold -- ИСПРАВЛЕНО: GothamBold
-                Label.TextSize = 13
-                Label.Parent = Frame
 
                 local Box = Instance.new("TextBox")
                 Box.Position = UDim2.new(0, 120, 0, 3)
@@ -588,7 +565,7 @@ function Library:CreateWindow(config)
                 Box.BackgroundColor3 = Color3.fromRGB(32, 32, 32)
                 Box.Text = text
                 Box.TextColor3 = Color3.fromRGB(180, 180, 180)
-                Box.Font = Enum.Font.GothamBold -- ИСПРАВЛЕНО: GothamBold
+                Box.Font = Enum.Font.GothamBold 
                 Box.TextSize = 12
                 Box.Parent = Frame
                 Instance.new("UICorner", Box).CornerRadius = UDim.new(0, 4)
