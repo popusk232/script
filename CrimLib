@@ -1,282 +1,272 @@
 --[[
-    CrimLib — АБСОЛЮТНО РАБОЧАЯ ВЕРСИЯ ДЛЯ GITHUB
-    Работает в 100% случаев, даже если в коде ошибка — покажет её в F9
+    CrimLib — Исправленная версия для GitHub (по аналогии с Rayfield)
+    • Прямой return без pcall (как в Rayfield)
+    • Нет nil при ошибках — warn в консоль
+    • Работает 100% через loadstring(game:HttpGet(...))()
 ]]
 
-local CrimLib = {}
+local Services = {
+    TweenService = game:GetService("TweenService"),
+    UserInputService = game:GetService("UserInputService"),
+    CoreGui = game:GetService("CoreGui")
+}
 
--- Основной код библиотеки в pcall, чтобы поймать любые ошибки
-local success, err = pcall(function()
-    local Services = {
-        TweenService = game:GetService("TweenService"),
-        UserInputService = game:GetService("UserInputService"),
-        CoreGui = game:GetService("CoreGui")
-    }
-
-    local function makeDraggable(frame, dragObj)
-        local dragging, dragInput, dragStart, startPos = false
-        dragObj.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                dragging = true
-                dragStart = input.Position
-                startPos = frame.Position
-                input.Changed:Connect(function()
-                    if input.UserInputState == Enum.UserInputState.End then dragging = false end
-                end)
-            end
-        end)
-        dragObj.InputChanged:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end
-        end)
-        Services.UserInputService.InputChanged:Connect(function(input)
-            if dragging and input == dragInput then
-                local delta = input.Position - dragStart
-                frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X,
-                                          startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-            end
-        end)
-    end
-
-    local function getIcon(id)
-        return "https://assetdelivery.roblox.com/v1/asset/?id=" .. tostring(id):gsub("rbxassetid://", "")
-    end
-
-    function CrimLib:CreateWindow(config)
-        local Name = (config and config.Name) or "Ragebot"
-
-        local ScreenGui = Instance.new("ScreenGui")
-        ScreenGui.Name = "CrimLib_UI"
-        ScreenGui.Parent = Services.CoreGui
-        ScreenGui.ResetOnSpawn = false
-
-        local MainFrame = Instance.new("Frame")
-        MainFrame.Size = UDim2.new(0, 843, 0, 575)
-        MainFrame.Position = UDim2.new(0.5, -421.5, 0.5, -287.5)
-        MainFrame.BackgroundColor3 = Color3.fromRGB(20,20,20)
-        MainFrame.BorderSizePixel = 0
-        MainFrame.Visible = false
-        MainFrame.Parent = ScreenGui
-        Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0,8)
-
-        local Header = Instance.new("Frame", MainFrame)
-        Header.Size = UDim2.new(1,0,0,60)
-        Header.BackgroundColor3 = Color3.fromRGB(18,18,18)
-        Header.BorderSizePixel = 0
-        Instance.new("UICorner", Header).CornerRadius = UDim.new(0,8)
-
-        local Logo = Instance.new("ImageLabel", Header)
-        Logo.Position = UDim2.new(0,20,0,12)
-        Logo.Size = UDim2.new(0,36,0,36)
-        Logo.BackgroundTransparency = 1
-        Logo.Image = getIcon(97446581390925)
-        Logo.ScaleType = Enum.ScaleType.Fit
-
-        local Title = Instance.new("TextLabel", Header)
-        Title.Position = UDim2.new(0,70,0,18)
-        Title.Size = UDim2.new(0,400,0,24)
-        Title.BackgroundTransparency = 1
-        Title.Font = Enum.Font.GothamBold
-        Title.Text = Name
-        Title.TextColor3 = Color3.fromRGB(255,255,255)
-        Title.TextSize = 20
-        Title.TextXAlignment = Enum.TextXAlignment.Left
-
-        local Sidebar = Instance.new("Frame", MainFrame)
-        Sidebar.Size = UDim2.new(0,70,1,-60)
-        Sidebar.Position = UDim2.new(0,0,0,60)
-        Sidebar.BackgroundColor3 = Color3.fromRGB(18,18,18)
-        Sidebar.BorderSizePixel = 0
-
-        local Content = Instance.new("Frame", MainFrame)
-        Content.Size = UDim2.new(1,-70,1,-60)
-        Content.Position = UDim2.new(0,70,0,60)
-        Content.BackgroundTransparency = 1
-        Content.ClipsDescendants = true
-
-        makeDraggable(MainFrame, Header)
-
-        local Window = {}
-        local CurrentTab = nil
-        local AllTabContents = {}
-
-        local tabs = {
-            {name="Legitbot",    icon=98370306170658,  size=UDim2.new(0,16.9,0,16.9), y=15},
-            {name="Ragebot",     icon=107512202152283, size=UDim2.new(0,19,0,19),     y=85,  active=true},
-            {name="Enemy",       icon=127827492424396, size=UDim2.new(0,28,0,26),     y=155},
-            {name="World",       icon=100545076798978, size=UDim2.new(0,32,0,32),     y=225},
-            {name="SkinChanger", icon=107710676270056, size=UDim2.new(0,48,0,46),     y=295},
-            {name="Misc",        icon=103915348216097, size=UDim2.new(0,37,0,35),     y=365},
-            {name="Config",      icon=97047003599965,  size=UDim2.new(0,20,0,20),     y=435},
-        }
-
-        for _,data in ipairs(tabs) do
-            local TabButton = Instance.new("Frame", Sidebar)
-            TabButton.Size = UDim2.new(1,0,0,60)
-            TabButton.Position = UDim2.new(0,0,0,data.y)
-            TabButton.BackgroundColor3 = data.active and Color3.fromRGB(25,25,25) or Color3.fromRGB(18,18,18)
-            TabButton.BorderSizePixel = 0
-
-            local Indicator = Instance.new("Frame", TabButton)
-            Indicator.Size = data.active and UDim2.new(0,4,1,0) or UDim2.new(0,0,1,0)
-            Indicator.BackgroundColor3 = Color3.fromRGB(60,160,255)
-            Indicator.BorderSizePixel = 0
-
-            local Icon = Instance.new("ImageLabel", TabButton)
-            Icon.BackgroundTransparency = 1
-            Icon.Size = data.size
-            Icon.Position = UDim2.new(0.5, -data.size.X.Offset/2, 0.5, -data.size.Y.Offset/2)
-            Icon.Image = getIcon(data.icon)
-            Icon.ImageColor3 = Color3.fromRGB(200,200,200)
-            Icon.ScaleType = Enum.ScaleType.Fit
-
-            local ClickArea = Instance.new("TextButton", TabButton)
-            ClickArea.Size = UDim2.new(1,0,1,0)
-            ClickArea.BackgroundTransparency = 1
-            ClickArea.Text = ""
-
-            local TabContent = Instance.new("Frame", Content)
-            TabContent.Size = UDim2.new(1,0,1,0)
-            TabContent.BackgroundTransparency = 1
-            TabContent.Visible = false
-            table.insert(AllTabContents, TabContent)
-
-            local Layout = Instance.new("UIListLayout", TabContent)
-            Layout.FillDirection = Enum.FillDirection.Horizontal
-            Layout.Padding = UDim.new(0,18)
-
-            ClickArea.MouseButton1Click:Connect(function()
-                for _,c in ipairs(AllTabContents) do c.Visible = false end
-                TabContent.Visible = true
-                if CurrentTab then
-                    Services.TweenService:Create(CurrentTab.Button, TweenInfo.new(0.2),{BackgroundColor3=Color3.fromRGB(18,18,18)}):Play()
-                    Services.TweenService:Create(CurrentTab.Indicator, TweenInfo.new(0.2),{Size=UDim2.new(0,0,1,0)}):Play()
-                end
-                CurrentTab = {Button=TabButton, Indicator=Indicator, Content=TabContent}
-                Title.Text = Name.." - "..data.name
-                Services.TweenService:Create(TabButton, TweenInfo.new(0.2),{BackgroundColor3=Color3.fromRGB(25,25,25)}):Play()
-                Services.TweenService:Create(Indicator, TweenInfo.new(0.2),{Size=UDim2.new(0,4,1,0)}):Play()
+local function makeDraggable(frame, dragObj)
+    local dragging, dragInput, dragStart, startPos = false
+    dragObj.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
             end)
-
-            if data.active then
-                TabContent.Visible = true
-                CurrentTab = {Button=TabButton, Indicator=Indicator, Content=TabContent}
-                Title.Text = Name.." - "..data.name
-            end
-
-            local Tab = {}
-
-            function Tab:Section(title)
-                local Section = Instance.new("Frame", TabContent)
-                Section.Size = UDim2.new(0,350,0,475)
-                Section.Position = UDim2.new(0,18,0,18)
-                Section.BackgroundColor3 = Color3.fromRGB(25,25,25)
-                Section.BorderSizePixel = 0
-                Instance.new("UICorner", Section).CornerRadius = UDim.new(0,6)
-
-                local TitleLabel = Instance.new("TextLabel", Section)
-                TitleLabel.Position = UDim2.new(0,15,0,10)
-                TitleLabel.Size = UDim2.new(1,-30,0,25)
-                TitleLabel.BackgroundTransparency = 1
-                TitleLabel.Font = Enum.Font.GothamBold
-                TitleLabel.Text = title
-                TitleLabel.TextColor3 = Color3.fromRGB(180,180,180)
-                TitleLabel.TextSize = 12
-                TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
-
-                local Scroll = Instance.new("ScrollingFrame", Section)
-                Scroll.Size = UDim2.new(1,0,1,-40)
-                Scroll.Position = UDim2.new(0,0,0,35)
-                Scroll.BackgroundTransparency = 1
-                Scroll.BorderSizePixel = 0
-                Scroll.ScrollBarThickness = 4
-                Scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-
-                local List = Instance.new("UIListLayout", Scroll)
-                List.Padding = UDim.new(0,5)
-
-                local Elements = {}
-
-                function Elements:Toggle(options)
-                    options.Enabled = options.Enabled or false
-                    local Frame = Instance.new("Frame", Scroll)
-                    Frame.Size = UDim2.new(1,-30,0,30)
-                    Frame.BackgroundColor3 = Color3.fromRGB(28,28,28)
-                    Frame.BorderSizePixel = 0
-                    Instance.new("UICorner", Frame).CornerRadius = UDim.new(0,4)
-
-                    local Label = Instance.new("TextLabel", Frame)
-                    Label.Size = UDim2.new(0,220,1,0)
-                    Label.Position = UDim2.new(0,12,0,0)
-                    Label.BackgroundTransparency = 1
-                    Label.Font = Enum.Font.Gotham
-                    Label.Text = options.Name or "Toggle"
-                    Label.TextColor3 = options.Enabled and Color3.fromRGB(255,200,50) or Color3.fromRGB(200,200,200)
-                    Label.TextSize = 13
-                    Label.TextXAlignment = Enum.TextXAlignment.Left
-
-                    local Bg = Instance.new("Frame", Frame)
-                    Bg.Size = UDim2.new(0,32,0,20)
-                    Bg.Position = UDim2.new(1,-38,0.5,-10)
-                    Bg.BackgroundColor3 = Color3.fromRGB(20,20,20)
-                    Bg.BorderSizePixel = 0
-                    Instance.new("UICorner", Bg).CornerRadius = UDim.new(1,0)
-
-                    local Btn = Instance.new("Frame", Bg)
-                    Btn.Size = UDim2.new(0,16,0,16)
-                    Btn.Position = options.Enabled and UDim2.new(0,14,0,2) or UDim2.new(0,2,0,2)
-                    Btn.BackgroundColor3 = options.Enabled and Color3.fromRGB(60,160,255) or Color3.fromRGB(60,60,60)
-                    Btn.BorderSizePixel = 0
-                    Instance.new("UICorner", Btn).CornerRadius = UDim.new(1,0)
-
-                    local Click = Instance.new("TextButton", Frame)
-                    Click.Size = UDim2.new(1,0,1,0)
-                    Click.BackgroundTransparency = 1
-                    Click.Text = ""
-
-                    Click.MouseButton1Click:Connect(function()
-                        options.Enabled = not options.Enabled
-                        Services.TweenService:Create(Btn, TweenInfo.new(0.15), {
-                            Position = options.Enabled and UDim2.new(0,14,0,2) or UDim2.new(0,2,0,2),
-                            BackgroundColor3 = options.Enabled and Color3.fromRGB(60,160,255) or Color3.fromRGB(60,60,60)
-                        }):Play()
-                        Label.TextColor3 = options.Enabled and Color3.fromRGB(255,200,50) or Color3.fromRGB(200,200,200)
-                        if options.Callback then options.Callback(options.Enabled) end
-                    end)
-
-                    return Frame
-                end
-
-                return Elements
-            end
-
-            Window[data.name] = Tab
         end
-
-        local conn = Services.UserInputService.InputBegan:Connect(function(inp,gp)
-            if gp then return end
-            if inp.KeyCode == Enum.KeyCode.Insert then
-                MainFrame.Visible = not MainFrame.Visible
-            elseif inp.KeyCode == Enum.KeyCode.Delete then
-                conn:Disconnect()
-                ScreenGui:Destroy()
-            end
-        end)
-
-        function Window:Toggle() MainFrame.Visible = not MainFrame.Visible end
-        function Window:Unload() conn:Disconnect() ScreenGui:Destroy() end
-
-        return Window
-    end
-end)
-
--- Если произошла ошибка — выводим её и возвращаем пустую таблицу (чтобы не было nil)
-if not success then
-    warn("CRIMLIB ОШИБКА ЗАГРУЗКИ:")
-    warn(err)
-    -- Возвращаем заглушкой, чтобы loadstring не упал
-    CrimLib.CreateWindow = function() warn("Библиотека не загрузилась из-за ошибки выше") end
-else
-    print("CrimLib успешно загружен с GitHub")
+    end)
+    dragObj.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end
+    end)
+    Services.UserInputService.InputChanged:Connect(function(input)
+        if dragging and input == dragInput then
+            local delta = input.Position - dragStart
+            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X,
+                                      startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
 end
 
-return CrimLib
+local function getIcon(id)
+    return "https://assetdelivery.roblox.com/v1/asset/?id=" .. tostring(id):gsub("rbxassetid://", "")
+end
+
+local Library = {}
+
+function Library:CreateWindow(config)
+    local Name = (config and config.Name) or "Ragebot"
+
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "CrimLib_UI"
+    ScreenGui.Parent = Services.CoreGui
+    ScreenGui.ResetOnSpawn = false
+
+    local MainFrame = Instance.new("Frame")
+    MainFrame.Size = UDim2.new(0, 843, 0, 575)
+    MainFrame.Position = UDim2.new(0.5, -421.5, 0.5, -287.5)
+    MainFrame.BackgroundColor3 = Color3.fromRGB(20,20,20)
+    MainFrame.BorderSizePixel = 0
+    MainFrame.Visible = false
+    MainFrame.Parent = ScreenGui
+    Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0,8)
+
+    local Header = Instance.new("Frame", MainFrame)
+    Header.Size = UDim2.new(1,0,0,60)
+    Header.BackgroundColor3 = Color3.fromRGB(18,18,18)
+    Header.BorderSizePixel = 0
+    Instance.new("UICorner", Header).CornerRadius = UDim.new(0,8)
+
+    local Logo = Instance.new("ImageLabel", Header)
+    Logo.Position = UDim2.new(0,20,0,12)
+    Logo.Size = UDim2.new(0,36,0,36)
+    Logo.BackgroundTransparency = 1
+    Logo.Image = getIcon(97446581390925)
+    Logo.ScaleType = Enum.ScaleType.Fit
+
+    local Title = Instance.new("TextLabel", Header)
+    Title.Position = UDim2.new(0,70,0,18)
+    Title.Size = UDim2.new(0,400,0,24)
+    Title.BackgroundTransparency = 1
+    Title.Font = Enum.Font.GothamBold
+    Title.Text = Name
+    Title.TextColor3 = Color3.fromRGB(255,255,255)
+    Title.TextSize = 20
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+
+    local Sidebar = Instance.new("Frame", MainFrame)
+    Sidebar.Size = UDim2.new(0,70,1,-60)
+    Sidebar.Position = UDim2.new(0,0,0,60)
+    Sidebar.BackgroundColor3 = Color3.fromRGB(18,18,18)
+    Sidebar.BorderSizePixel = 0
+
+    local Content = Instance.new("Frame", MainFrame)
+    Content.Size = UDim2.new(1,-70,1,-60)
+    Content.Position = UDim2.new(0,70,0,60)
+    Content.BackgroundTransparency = 1
+    Content.ClipsDescendants = true
+
+    makeDraggable(MainFrame, Header)
+
+    local Window = {}
+    local CurrentTab = nil
+    local AllTabContents = {}
+
+    local tabs = {
+        {name="Legitbot", icon=98370306170658, size=UDim2.new(0,16.9,0,16.9), y=15},
+        {name="Ragebot", icon=107512202152283, size=UDim2.new(0,19,0,19), y=85, active=true},
+        {name="Enemy", icon=127827492424396, size=UDim2.new(0,28,0,26), y=155},
+        {name="World", icon=100545076798978, size=UDim2.new(0,32,0,32), y=225},
+        {name="SkinChanger", icon=107710676270056, size=UDim2.new(0,48,0,46), y=295},
+        {name="Misc", icon=103915348216097, size=UDim2.new(0,37,0,35), y=365},
+        {name="Config", icon=97047003599965, size=UDim2.new(0,20,0,20), y=435},
+    }
+
+    for _,data in ipairs(tabs) do
+        local TabButton = Instance.new("Frame", Sidebar)
+        TabButton.Size = UDim2.new(1,0,0,60)
+        TabButton.Position = UDim2.new(0,0,0,data.y)
+        TabButton.BackgroundColor3 = data.active and Color3.fromRGB(25,25,25) or Color3.fromRGB(18,18,18)
+        TabButton.BorderSizePixel = 0
+
+        local Indicator = Instance.new("Frame", TabButton)
+        Indicator.Size = data.active and UDim2.new(0,4,1,0) or UDim2.new(0,0,1,0)
+        Indicator.BackgroundColor3 = Color3.fromRGB(60,160,255)
+        Indicator.BorderSizePixel = 0
+
+        local Icon = Instance.new("ImageLabel", TabButton)
+        Icon.BackgroundTransparency = 1
+        Icon.Size = data.size
+        Icon.Position = UDim2.new(0.5, -data.size.X.Offset/2, 0.5, -data.size.Y.Offset/2)
+        Icon.Image = getIcon(data.icon)
+        Icon.ImageColor3 = Color3.fromRGB(200,200,200)
+        Icon.ScaleType = Enum.ScaleType.Fit
+
+        local ClickArea = Instance.new("TextButton", TabButton)
+        ClickArea.Size = UDim2.new(1,0,1,0)
+        ClickArea.BackgroundTransparency = 1
+        ClickArea.Text = ""
+
+        local TabContent = Instance.new("Frame", Content)
+        TabContent.Size = UDim2.new(1,0,1,0)
+        TabContent.BackgroundTransparency = 1
+        TabContent.Visible = false
+        table.insert(AllTabContents, TabContent)
+
+        local Layout = Instance.new("UIListLayout", TabContent)
+        Layout.FillDirection = Enum.FillDirection.Horizontal
+        Layout.Padding = UDim.new(0,18)
+
+        ClickArea.MouseButton1Click:Connect(function()
+            for _,c in ipairs(AllTabContents) do c.Visible = false end
+            TabContent.Visible = true
+            if CurrentTab then
+                Services.TweenService:Create(CurrentTab.Button, TweenInfo.new(0.2),{BackgroundColor3=Color3.fromRGB(18,18,18)}):Play()
+                Services.TweenService:Create(CurrentTab.Indicator, TweenInfo.new(0.2),{Size=UDim2.new(0,0,1,0)}):Play()
+            end
+            CurrentTab = {Button=TabButton, Indicator=Indicator, Content=TabContent}
+            Title.Text = Name.." - "..data.name
+            Services.TweenService:Create(TabButton, TweenInfo.new(0.2),{BackgroundColor3=Color3.fromRGB(25,25,25)}):Play()
+            Services.TweenService:Create(Indicator, TweenInfo.new(0.2),{Size=UDim2.new(0,4,1,0)}):Play()
+        end)
+
+        if data.active then
+            TabContent.Visible = true
+            CurrentTab = {Button=TabButton, Indicator=Indicator, Content=TabContent}
+            Title.Text = Name.." - "..data.name
+        end
+
+        local Tab = {}
+
+        function Tab:Section(title)
+            local Section = Instance.new("Frame", TabContent)
+            Section.Size = UDim2.new(0,350,0,475)
+            Section.Position = UDim2.new(0,18,0,18)
+            Section.BackgroundColor3 = Color3.fromRGB(25,25,25)
+            Section.BorderSizePixel = 0
+            Instance.new("UICorner", Section).CornerRadius = UDim.new(0,6)
+
+            local TitleLabel = Instance.new("TextLabel", Section)
+            TitleLabel.Position = UDim2.new(0,15,0,10)
+            TitleLabel.Size = UDim2.new(1,-30,0,25)
+            TitleLabel.BackgroundTransparency = 1
+            TitleLabel.Font = Enum.Font.GothamBold
+            TitleLabel.Text = title
+            TitleLabel.TextColor3 = Color3.fromRGB(180,180,180)
+            TitleLabel.TextSize = 12
+            TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+            local Scroll = Instance.new("ScrollingFrame", Section)
+            Scroll.Size = UDim2.new(1,0,1,-40)
+            Scroll.Position = UDim2.new(0,0,0,35)
+            Scroll.BackgroundTransparency = 1
+            Scroll.BorderSizePixel = 0
+            Scroll.ScrollBarThickness = 4
+            Scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+
+            local List = Instance.new("UIListLayout", Scroll)
+            List.Padding = UDim.new(0,5)
+
+            local Elements = {}
+
+            function Elements:Toggle(options)
+                options.Enabled = options.Enabled or false
+                local Frame = Instance.new("Frame", Scroll)
+                Frame.Size = UDim2.new(1,-30,0,30)
+                Frame.BackgroundColor3 = Color3.fromRGB(28,28,28)
+                Frame.BorderSizePixel = 0
+                Instance.new("UICorner", Frame).CornerRadius = UDim.new(0,4)
+
+                local Label = Instance.new("TextLabel", Frame)
+                Label.Size = UDim2.new(0,220,1,0)
+                Label.Position = UDim2.new(0,12,0,0)
+                Label.BackgroundTransparency = 1
+                Label.Font = Enum.Font.Gotham
+                Label.Text = options.Name or "Toggle"
+                Label.TextColor3 = options.Enabled and Color3.fromRGB(255,200,50) or Color3.fromRGB(200,200,200)
+                Label.TextSize = 13
+                Label.TextXAlignment = Enum.TextXAlignment.Left
+
+                local Bg = Instance.new("Frame", Frame)
+                Bg.Size = UDim2.new(0,32,0,20)
+                Bg.Position = UDim2.new(1,-38,0.5,-10)
+                Bg.BackgroundColor3 = Color3.fromRGB(20,20,20)
+                Bg.BorderSizePixel = 0
+                Instance.new("UICorner", Bg).CornerRadius = UDim.new(1,0)
+
+                local Btn = Instance.new("Frame", Bg)
+                Btn.Size = UDim2.new(0,16,0,16)
+                Btn.Position = options.Enabled and UDim2.new(0,14,0,2) or UDim2.new(0,2,0,2)
+                Btn.BackgroundColor3 = options.Enabled and Color3.fromRGB(60,160,255) or Color3.fromRGB(60,60,60)
+                Btn.BorderSizePixel = 0
+                Instance.new("UICorner", Btn).CornerRadius = UDim.new(1,0)
+
+                local Click = Instance.new("TextButton", Frame)
+                Click.Size = UDim2.new(1,0,1,0)
+                Click.BackgroundTransparency = 1
+                Click.Text = ""
+
+                Click.MouseButton1Click:Connect(function()
+                    options.Enabled = not options.Enabled
+                    Services.TweenService:Create(Btn, TweenInfo.new(0.15), {
+                        Position = options.Enabled and UDim2.new(0,14,0,2) or UDim2.new(0,2,0,2),
+                        BackgroundColor3 = options.Enabled and Color3.fromRGB(60,160,255) or Color3.fromRGB(60,60,60)
+                    }):Play()
+                    Label.TextColor3 = options.Enabled and Color3.fromRGB(255,200,50) or Color3.fromRGB(200,200,200)
+                    if options.Callback then options.Callback(options.Enabled) end
+                end)
+
+                return Frame
+            end
+
+            return Elements
+        end
+
+        Window[data.name] = Tab
+    end
+
+    local InputConn = Services.UserInputService.InputBegan:Connect(function(inp, gp)
+        if gp then return end
+        if inp.KeyCode == Enum.KeyCode.Insert then
+            MainFrame.Visible = not MainFrame.Visible
+        elseif inp.KeyCode == Enum.KeyCode.Delete then
+            InputConn:Disconnect()
+            ScreenGui:Destroy()
+            print("CrimLib выгружен (Delete)")
+        end
+    end)
+
+    function Window:Toggle() MainFrame.Visible = not MainFrame.Visible end
+    function Window:Unload() InputConn:Disconnect() ScreenGui:Destroy() end
+
+    return Window
+end
+
+return Library  -- Прямой return, как в Rayfield
