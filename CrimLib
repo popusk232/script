@@ -2,7 +2,7 @@
     SAPPHIRE UI — ФИНАЛЬНАЯ ВЕРСИЯ ДЛЯ GITHUB
     Работает в 100% случаев через loadstring
     НИКАКИХ IIFE, НИКАКИХ pcall, НИКАКИХ nil
-    Просто return Library — как в Rayfield, Orion, Linoria и т.д.
+    Просто return Library — как в Rayfield, Orion, Linoria и т.д. 222222
 ]]
 
 local Library = {}
@@ -283,18 +283,13 @@ function Library:CreateWindow(config)
 
     local conn = Services.UserInputService.InputBegan:Connect(function(inp, gp)
         if gp then return end
-        if inp.KeyCode == Enum.KeyCode.Insert then
         if inp.KeyCode == Enum.KeyCode.Insert or inp.KeyCode == Enum.KeyCode.Delete then
             -- ИЗМЕНЕНИЕ: Клавиши Insert и Delete теперь обе переключают видимость
             MainFrame.Visible = not MainFrame.Visible
-        elseif inp.KeyCode == Enum.KeyCode.Delete then
-            conn:Disconnect()
-            ScreenGui:Destroy()
         end
     end)
 
     function Window:Toggle() MainFrame.Visible = not MainFrame.Visible end
-    function Window:Unload() conn:Disconnect() ScreenGui:Destroy() end
     function Window:Unload() conn:Disconnect(); ScreenGui:Destroy() end
 
     return Window
