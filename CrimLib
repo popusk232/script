@@ -146,7 +146,11 @@ return (function()
         local tabs = {}
         local currentTab = nil
 
-        function Window:CreateTab(name, imageId)
+        function Window:CreateTab(name, imageId, iconSettings)
+            iconSettings = iconSettings or {}
+            local iconSize = iconSettings.Size or {32, 32}
+            local iconColor = iconSettings.Color or Color3.fromRGB(200, 200, 200)
+
             local tabData = {}
             local tabIndex = #tabs + 1
             local IconFrame = Instance.new("Frame", Sidebar)
@@ -162,11 +166,12 @@ return (function()
             ActiveIndicator.Size = UDim2.new(0, 0, 1, 0)
             local Icon = Instance.new("ImageLabel", IconFrame)
             Icon.BackgroundTransparency = 1
-            Icon.Position = UDim2.new(0.5, -16, 0.5, -16)
-            Icon.Size = UDim2.new(0, 32, 0, 32)
+            Icon.Position = UDim2.new(0.5, -iconSize[1]/2, 0.5, -iconSize[2]/2) -- Use iconSize
+            Icon.Size = UDim2.new(0, iconSize[1], 0, iconSize[2]) -- Use iconSize
             Icon.Image = getAssetUri(imageId)
-            Icon.ImageColor3 = Color3.fromRGB(200, 200, 200)
-            Icon.ScaleType = Enum.ScaleType.Crop
+            Icon.ImageColor3 = iconColor -- Use iconColor
+            Icon.ScaleType = Enum.ScaleType.Fit -- CHANGED: From Crop to Fit
+            Icon.ZIndex = 2 -- ADDED: Explicit ZIndex
             local TabButton = Instance.new("TextButton", IconFrame)
             TabButton.BackgroundTransparency = 1
             TabButton.Size = UDim2.new(1, 0, 1, 0)
