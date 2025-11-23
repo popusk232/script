@@ -1,5 +1,5 @@
 local Library = {}
--- 22213123
+-- 111111
 local Services = {
     TweenService = game:GetService("TweenService"),
     UserInputService = game:GetService("UserInputService"),
@@ -155,10 +155,7 @@ function Library:CreateWindow(config)
         Layout.Padding = UDim.new(0, 10)
         Layout.HorizontalAlignment = Enum.HorizontalAlignment.Left
         Layout.VerticalAlignment = Enum.VerticalAlignment.Top
-        Layout.FillDirection = Enum.FillDirection.Horizontal -- Горизонтальный порядок секций
-        
-        -- Добавление UIAspectRatioConstraint, чтобы секции были квадратными, если необходимо, 
-        -- но в данном случае лучше UIGridLayout или просто UIListLayout с горизонтальным FillDirection, как сделано.
+        Layout.FillDirection = Enum.FillDirection.Horizontal -- Расположение секций по горизонтали
 
         ClickArea.MouseButton1Click:Connect(function()
             if CurrentTab then
@@ -204,7 +201,8 @@ function Library:CreateWindow(config)
 
         function Tab:Section(name)
             local Frame = Instance.new("Frame")
-            Frame.Size = UDim2.new(0.5, -15, 1, -30)
+            -- Размер 0.5 позволяет разместить два окна горизонтально
+            Frame.Size = UDim2.new(0.5, -15, 1, -30) 
             Frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
             Frame.BorderSizePixel = 0
             Frame.Parent = TabContent
@@ -308,7 +306,7 @@ function Library:CreateWindow(config)
             end
 
             -- =====================================================================================
-            -- НОВАЯ ФУНКЦИЯ SLIDER (С УВЕЛИЧЕННЫМ ПРОСТРАНСТВОМ)
+            -- НОВАЯ ФУНКЦИЯ SLIDER (С УВЕЛИЧЕННОЙ ВЫСОТОЙ)
             -- =====================================================================================
             function Elements:Slider(options)
                 local label = options.Name
@@ -322,11 +320,12 @@ function Library:CreateWindow(config)
                 local dragging = false
                 
                 local SliderFrame = Instance.new("Frame")
-                SliderFrame.Parent = Scroll 
+                SliderFrame.Parent = Scroll
                 SliderFrame.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
                 SliderFrame.BorderSizePixel = 0
                 SliderFrame.Position = UDim2.new(0, 15, 0, 0)
-                SliderFrame.Size = UDim2.new(1, -30, 0, 40) -- <-- Увеличена высота до 40
+                -- Увеличение высоты до 40 для большего пространства
+                SliderFrame.Size = UDim2.new(1, -30, 0, 40)
 
                 local SliderCorner = Instance.new("UICorner")
                 SliderCorner.CornerRadius = UDim.new(0, 4)
@@ -334,7 +333,8 @@ function Library:CreateWindow(config)
                 
                 local Label = createControlLabel(label, SliderFrame, Color3.fromRGB(200, 200, 200))
                 Label.Position = UDim2.new(0, 12, 0, 0)
-                Label.Size = UDim2.new(0, 150, 0, 20) -- <-- Высота текста 20
+                -- Высота 20px для верхней строки
+                Label.Size = UDim2.new(0, 150, 0, 20)
                 Label.TextXAlignment = Enum.TextXAlignment.Left
 
                 if hasOverride then
@@ -342,7 +342,8 @@ function Library:CreateWindow(config)
                     OverrideLabel.Parent = SliderFrame
                     OverrideLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
                     OverrideLabel.BorderSizePixel = 0
-                    OverrideLabel.Position = UDim2.new(1, -50, 0, 3) -- Скорректировано
+                    -- Позиция в верхней строке (0-20px)
+                    OverrideLabel.Position = UDim2.new(1, -50, 0.5, -10) 
                     OverrideLabel.Size = UDim2.new(0, 35, 0, 16)
                     OverrideLabel.Font = Enum.Font.GothamBold
                     OverrideLabel.Text = "O"
@@ -358,7 +359,8 @@ function Library:CreateWindow(config)
                 ValueLabel.Parent = SliderFrame
                 ValueLabel.BackgroundTransparency = 1
                 ValueLabel.Position = UDim2.new(1, -62, 0, 0)
-                ValueLabel.Size = UDim2.new(0, 50, 0, 20) -- <-- Высота текста 20
+                -- Высота 20px для верхней строки
+                ValueLabel.Size = UDim2.new(0, 50, 0, 20)
                 ValueLabel.Font = Enum.Font.GothamBold
                 ValueLabel.Text = tostring(defaultValue)
                 ValueLabel.TextColor3 = Color3.fromRGB(255, 200, 50)
@@ -369,8 +371,9 @@ function Library:CreateWindow(config)
                 SliderTrack.Parent = SliderFrame
                 SliderTrack.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
                 SliderTrack.BorderSizePixel = 0
-                SliderTrack.Position = UDim2.new(0, 12, 0, 28) -- <-- Y позиция трека
-                SliderTrack.Size = UDim2.new(1, -24, 0, 6) -- <-- Высота трека 6
+                -- Позиция 20px - начало нижней строки
+                SliderTrack.Position = UDim2.new(0, 12, 0, 20) 
+                SliderTrack.Size = UDim2.new(1, -24, 0, 5)
                 
                 local TrackCorner = Instance.new("UICorner")
                 TrackCorner.CornerRadius = UDim.new(1, 0)
@@ -389,10 +392,10 @@ function Library:CreateWindow(config)
                 FillCorner.Parent = SliderFill
                 
                 local SliderThumb = Instance.new("Frame")
-                SliderThumb.Parent = SliderFrame -- Родитель - SliderFrame, чтобы позиционировать относительно него
+                SliderThumb.Parent = SliderTrack
                 SliderThumb.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
                 SliderThumb.BorderSizePixel = 0
-                SliderThumb.Position = UDim2.new(ratio, -8, 0, 23) -- <-- Y позиция для центрирования
+                SliderThumb.Position = UDim2.new(ratio, -8, 0.5, -8)
                 SliderThumb.Size = UDim2.new(0, 16, 0, 16)
                 
                 local ThumbCorner = Instance.new("UICorner")
@@ -422,7 +425,7 @@ function Library:CreateWindow(config)
                     newRatio = (sliderValue - minValue) / (maxValue - minValue)
                     
                     TS:Create(SliderFill, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {Size = UDim2.new(newRatio, 0, 1, 0)}):Play()
-                    TS:Create(SliderThumb, TweenInfo.new(newRatio, -8, 0, 23), {Position = UDim2.new(newRatio, -8, 0, 23)}):Play() -- Скорректирована позиция Y
+                    TS:Create(SliderThumb, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {Position = UDim2.new(newRatio, -8, 0.5, -8)}):Play()
                     ValueLabel.Text = tostring(sliderValue)
                     
                     if options.Callback then options.Callback(sliderValue) end
@@ -462,7 +465,7 @@ function Library:CreateWindow(config)
                         local newRatio = (sliderValue - minValue) / (maxValue - minValue)
                         
                         SliderFill.Size = UDim2.new(newRatio, 0, 1, 0)
-                        SliderThumb.Position = UDim2.new(newRatio, -8, 0, 23) -- Скорректирована позиция Y
+                        SliderThumb.Position = UDim2.new(newRatio, -8, 0.5, -8)
                         ValueLabel.Text = tostring(sliderValue)
                         
                         if options.Callback then options.Callback(sliderValue) end
