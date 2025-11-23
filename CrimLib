@@ -50,7 +50,7 @@ return (function()
                 startPos = object.Position
                 input.Changed:Connect(function()
                     if input.UserInputState == Enum.UserInputState.End then dragging = false end
-                end)
+                })
             end
         end)
         dragObject.InputChanged:Connect(function(input)
@@ -149,9 +149,9 @@ return (function()
         function Window:CreateTab(name, imageId, iconSettings)
             iconSettings = iconSettings or {}
             local iconSize = iconSettings.Size or {32, 32}
-            local iconColor = iconSettings.Color or Color3.fromRGB(255, 0, 0) -- Changed to RED for debugging
+            local iconColor = iconSettings.Color or Color3.fromRGB(200, 200, 200) -- Reverted to original default or white
 
-            print(string.format("Sapphire: Creating tab '%s' with icon '%s'. Size: %dx%d, Color: %s", name, imageId, iconSize[1], iconSize[2], tostring(iconColor)))
+            -- Removed print statement
 
             local tabData = {}
             local tabIndex = #tabs + 1
@@ -172,8 +172,8 @@ return (function()
             Icon.Size = UDim2.new(0, iconSize[1], 0, iconSize[2]) -- Use iconSize
             Icon.Image = getAssetUri(imageId)
             Icon.ImageColor3 = iconColor -- Use iconColor
-            Icon.ScaleType = Enum.ScaleType.Fit -- CHANGED: From Crop to Fit
-            Icon.ZIndex = 100 -- CHANGED: Increased ZIndex for debugging
+            Icon.ScaleType = Enum.ScaleType.Fit -- Keeps ScaleType.Fit
+            Icon.ZIndex = 2 -- Reverted to a standard ZIndex
             local TabButton = Instance.new("TextButton", IconFrame)
             TabButton.BackgroundTransparency = 1
             TabButton.Size = UDim2.new(1, 0, 1, 0)
@@ -198,7 +198,7 @@ return (function()
                     local oldIndicator = currentTab.button:FindFirstChild("Indicator")
                     Services.TweenService:Create(currentTab.button, TweenInfo.new(0.2), {BackgroundColor3 = SelectedTheme.Topbar}):Play()
                     if oldIndicator then Services.TweenService:Create(oldIndicator, TweenInfo.new(0.2), {Size = UDim2.new(0, 0, 1, 0)}):Play() end
-                end
+                })
                 TabContent.Visible = true
                 currentTab = tabData
                 Title.Text = name
