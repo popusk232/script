@@ -11,7 +11,7 @@ local Services = {
     CoreGui = game:GetService("CoreGui")
 }
 
--- Вспомогательная функция для перетаскивания (без изменений)
+-- Вспомогательная функция для перетаскивания
 local function makeDraggable(frame, dragObj)
     local dragging, dragInput, dragStart, startPos = false
     dragObj.InputBegan:Connect(function(input)
@@ -36,7 +36,7 @@ local function makeDraggable(frame, dragObj)
     end)
 end
 
--- Вспомогательная функция для иконок (без изменений)
+-- Вспомогательная функция для иконок (оставлена для полноты)
 local function getIcon(id)
     return "https://assetdelivery.roblox.com/v1/asset/?id=" .. tostring(id):gsub("rbxassetid://", "")
 end
@@ -95,7 +95,7 @@ local function Tab(data)
 
         local Elements = {}
 
-        -- Реализация Toggle (без изменений)
+        -- Реализация Toggle
         function Elements:Toggle(options)
             options.Enabled = options.Enabled or false
             local Frame = Instance.new("Frame", SectionFrame)
@@ -149,8 +149,8 @@ local function Tab(data)
         -- >>> РЕАЛИЗАЦИЯ SLIDER (ПОЛЗУНОК) <<<
         function Elements:Slider(options)
             local Frame = Instance.new("Frame", SectionFrame)
-            Frame.Size = UDim2.new(1,-10,0,40) -- Увеличиваем высоту для размещения ползунка
-            Frame.BackgroundColor3 = Color3.fromRGB(28,28,28)
+            Frame.Size = UDim2.new(1,-10,0,40) -- Увеличиваем высоту
+            Frame.BackgroundColor3 = Color3.fromRGB(28,28,28) 
             Frame.BorderSizePixel = 0
             Instance.new("UICorner", Frame).CornerRadius = UDim.new(0,4)
             
@@ -159,7 +159,6 @@ local function Tab(data)
             local Step = options.Step or 1
             local CurrentValue = options.Value or MinValue
             
-            -- Вычисление начального коэффициента
             local initialRatio = math.clamp((CurrentValue - MinValue) / (MaxValue - MinValue), 0, 1)
 
             local Label = Instance.new("TextLabel", Frame)
@@ -168,7 +167,7 @@ local function Tab(data)
             Label.BackgroundTransparency = 1
             Label.Font = Enum.Font.Gotham
             Label.Text = options.Name or "Slider"
-            Label.TextColor3 = Color3.fromRGB(200,200,200)
+            Label.TextColor3 = Color3.fromRGB(200,200,200) 
             Label.TextSize = 13
             Label.TextXAlignment = Enum.TextXAlignment.Left
 
@@ -186,7 +185,7 @@ local function Tab(data)
             local SliderTrack = Instance.new("Frame", Frame)
             SliderTrack.Size = UDim2.new(1,-30,0,5)
             SliderTrack.Position = UDim2.new(0,15,0,23)
-            SliderTrack.BackgroundColor3 = Color3.fromRGB(20,20,20)
+            SliderTrack.BackgroundColor3 = Color3.fromRGB(20,20,20) 
             SliderTrack.BorderSizePixel = 0
             Instance.new("UICorner", SliderTrack).CornerRadius = UDim.new(1,0)
             SliderTrack.Active = true
@@ -216,7 +215,6 @@ local function Tab(data)
                 local absolutePositionX = SliderTrack.AbsolutePosition.X
                 local absoluteSizeX = SliderTrack.AbsoluteSize.X
                 
-                -- Вычисление позиции X, ограниченной пределами трека
                 local x = math.clamp(mouseX - absolutePositionX, 0, absoluteSizeX)
                 local ratio = x / absoluteSizeX
                 
@@ -225,7 +223,6 @@ local function Tab(data)
                 -- Округление до шага (Step)
                 newValue = math.floor(newValue / Step + 0.5) * Step
                 
-                -- Ограничение диапазона и повторное вычисление коэффициента для точного отображения
                 CurrentValue = math.clamp(newValue, MinValue, MaxValue)
                 local finalRatio = (CurrentValue - MinValue) / (MaxValue - MinValue)
                 
@@ -236,7 +233,7 @@ local function Tab(data)
                 if options.Callback then options.Callback(CurrentValue) end
             end
 
-            -- Логика перетаскивания (как в ClickGui.lua)
+            -- Логика перетаскивания
             SliderThumb.InputBegan:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.MouseButton1 then
                     dragging = true
@@ -269,8 +266,7 @@ local function Tab(data)
         -- Скрываем/раскрываем секцию
         TitleLabel.MouseButton1Click:Connect(function()
             SectionFrame.Visible = not SectionFrame.Visible
-            -- ... (логика изменения размера Scroll.CanvasSize)
-            -- Оставим ее без изменений для простоты
+            -- Логика изменения CanvasSize должна быть добавлена здесь
         end)
         
         return Elements
@@ -280,7 +276,7 @@ local function Tab(data)
 end
 
 function Library:CreateWindow(config)
-    local Name = (config and config.Name) or "Ragebot"
+    local Name = (config and config.Name) or "Sapphire UI"
     local Tabs = (config and config.Tabs) or {}
 
     local ScreenGui = Instance.new("ScreenGui")
@@ -289,8 +285,8 @@ function Library:CreateWindow(config)
     ScreenGui.ResetOnSpawn = false
 
     local MainFrame = Instance.new("Frame")
-    MainFrame.Size = UDim2.new(0, 843, 0, 575)
-    MainFrame.Position = UDim2.new(0.5, -421.5, 0.5, -287.5)
+    MainFrame.Size = UDim2.new(0, 500, 0, 350) -- Уменьшенный размер для примера
+    MainFrame.Position = UDim2.new(0.5, -250, 0.5, -175)
     MainFrame.BackgroundColor3 = Color3.fromRGB(20,20,20)
     MainFrame.BorderSizePixel = 0
     MainFrame.Visible = false
@@ -299,35 +295,78 @@ function Library:CreateWindow(config)
     Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0,8)
     
     local Header = Instance.new("Frame", MainFrame)
-    Header.Size = UDim2.new(1,0,0,60)
+    Header.Size = UDim2.new(1,0,0,30)
     Header.BackgroundColor3 = Color3.fromRGB(18,18,18)
     Header.BorderSizePixel = 0
     Instance.new("UICorner", Header).CornerRadius = UDim.new(0,8)
 
-    -- ... (логика шапки и сайдбара, для краткости опущена, т.к. не связана с ползунком) ...
-    -- makeDraggable(MainFrame, Header) -- Предположим, это вызывается в конце
+    local TitleLabel = Instance.new("TextLabel", Header)
+    TitleLabel.Size = UDim2.new(1,0,1,0)
+    TitleLabel.BackgroundTransparency = 1
+    TitleLabel.Font = Enum.Font.GothamBold
+    TitleLabel.Text = Name
+    TitleLabel.TextColor3 = Color3.fromRGB(255,255,255)
+    TitleLabel.TextSize = 16
 
+    local Sidebar = Instance.new("Frame", MainFrame)
+    Sidebar.Size = UDim2.new(0,60,1,-30)
+    Sidebar.Position = UDim2.new(0,0,0,30)
+    Sidebar.BackgroundColor3 = Color3.fromRGB(15,15,15)
+    Sidebar.BorderSizePixel = 0
+    
+    local TabList = Instance.new("UIListLayout", Sidebar)
+    TabList.SortOrder = Enum.SortOrder.LayoutOrder
+    TabList.Padding = UDim.new(0, 5)
+    TabList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    TabList.VerticalAlignment = Enum.VerticalAlignment.Top
+    
     local Window = {}
-    local Sidebar = MainFrame:FindFirstChild("Sidebar") or Instance.new("Frame") -- Имитация сайдбара
-
     local currentTab = 1
+    
+    local tabButtons = {}
+
+    local function selectTab(index, button, content)
+        for i, btn in ipairs(tabButtons) do
+            btn.BackgroundColor3 = Color3.fromRGB(15,15,15)
+            Window[Tabs[i].name].Name.. "Content"].Visible = false
+        end
+        button.BackgroundColor3 = Color3.fromRGB(20,20,20)
+        content.Visible = true
+        currentTab = index
+    end
     
     for index, data in ipairs(Tabs) do
         data.active = (index == currentTab)
         data.ParentFrame = MainFrame
 
-        -- ... (логика создания кнопок в сайдбаре) ...
+        local TabButton = Instance.new("TextButton", Sidebar)
+        TabButton.Size = UDim2.new(1,-10,0,50)
+        TabButton.BackgroundColor3 = index == currentTab and Color3.fromRGB(20,20,20) or Color3.fromRGB(15,15,15)
+        TabButton.BorderSizePixel = 0
+        TabButton.Font = Enum.Font.GothamBold
+        TabButton.Text = data.name:sub(1,1)
+        TabButton.TextColor3 = Color3.fromRGB(255,200,50)
+        TabButton.TextSize = 14
+        Instance.new("UICorner", TabButton).CornerRadius = UDim.new(0,4)
+        table.insert(tabButtons, TabButton)
         
         local tabInstance = Tab(data)
         Window[data.name] = tabInstance
+        local tabContent = MainFrame:FindFirstChild(data.name .. "Content")
+
+        TabButton.MouseButton1Click:Connect(function()
+            selectTab(index, TabButton, tabContent)
+        end)
     end
+
+    -- Перетаскивание
+    makeDraggable(MainFrame, Header) 
 
     local conn = Services.UserInputService.InputBegan:Connect(function(inp, gp)
         if gp then return end
         if inp.KeyCode == Enum.KeyCode.Insert then
             MainFrame.Visible = not MainFrame.Visible
         elseif inp.KeyCode == Enum.KeyCode.Delete then
-            -- Оставляем оригинальное поведение для совместимости
             conn:Disconnect()
             ScreenGui:Destroy()
         end
