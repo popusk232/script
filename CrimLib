@@ -1,6 +1,7 @@
 --[[
-    SAPPHIRE UI — ФИНАЛЬНАЯ ВЕРСИЯ ДЛЯ GITHUB
+    SAPPHIRE UI — ФИНАЛЬНАЯ ВЕРСИЯ
     (МОДИФИЦИРОВАНО: Добавлен элемент Elements:Slider)
+    Сохраните этот код как отдельный файл или используйте для loadstring.
 ]]
 
 local Library = {}
@@ -36,11 +37,6 @@ local function makeDraggable(frame, dragObj)
     end)
 end
 
--- Вспомогательная функция для иконок (оставлена для полноты)
-local function getIcon(id)
-    return "https://assetdelivery.roblox.com/v1/asset/?id=" .. tostring(id):gsub("rbxassetid://", "")
-end
-
 local function Tab(data)
     local Tab = {}
 
@@ -62,7 +58,6 @@ local function Tab(data)
     List.HorizontalAlignment = Enum.HorizontalAlignment.Center
     List.VerticalAlignment = Enum.VerticalAlignment.Top
 
-    -- Основной метод добавления секций
     function Tab:Section(title)
         local Frame = Instance.new("Frame", Scroll)
         Frame.Size = UDim2.new(1,-10,0,0)
@@ -95,7 +90,7 @@ local function Tab(data)
 
         local Elements = {}
 
-        -- Реализация Toggle
+        -- Toggle
         function Elements:Toggle(options)
             options.Enabled = options.Enabled or false
             local Frame = Instance.new("Frame", SectionFrame)
@@ -149,7 +144,7 @@ local function Tab(data)
         -- >>> РЕАЛИЗАЦИЯ SLIDER (ПОЛЗУНОК) <<<
         function Elements:Slider(options)
             local Frame = Instance.new("Frame", SectionFrame)
-            Frame.Size = UDim2.new(1,-10,0,40) -- Увеличиваем высоту
+            Frame.Size = UDim2.new(1,-10,0,40) 
             Frame.BackgroundColor3 = Color3.fromRGB(28,28,28) 
             Frame.BorderSizePixel = 0
             Instance.new("UICorner", Frame).CornerRadius = UDim.new(0,4)
@@ -220,7 +215,6 @@ local function Tab(data)
                 
                 local newValue = MinValue + ratio * (MaxValue - MinValue)
                 
-                -- Округление до шага (Step)
                 newValue = math.floor(newValue / Step + 0.5) * Step
                 
                 CurrentValue = math.clamp(newValue, MinValue, MaxValue)
@@ -233,17 +227,14 @@ local function Tab(data)
                 if options.Callback then options.Callback(CurrentValue) end
             end
 
-            -- Логика перетаскивания
             SliderThumb.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    dragging = true
-                end
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true end
             end)
             
             SliderTrack.InputBegan:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.MouseButton1 then
                     dragging = true
-                    updateSlider(input) -- Обновление сразу при клике на трек
+                    updateSlider(input)
                 end
             end)
 
@@ -254,19 +245,15 @@ local function Tab(data)
             end)
             
             Services.UserInputService.InputEnded:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    dragging = false
-                end
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
             end)
 
             return Frame
         end
         -- <<< КОНЕЦ SLIDER >>>
         
-        -- Скрываем/раскрываем секцию
         TitleLabel.MouseButton1Click:Connect(function()
             SectionFrame.Visible = not SectionFrame.Visible
-            -- Логика изменения CanvasSize должна быть добавлена здесь
         end)
         
         return Elements
@@ -285,7 +272,7 @@ function Library:CreateWindow(config)
     ScreenGui.ResetOnSpawn = false
 
     local MainFrame = Instance.new("Frame")
-    MainFrame.Size = UDim2.new(0, 500, 0, 350) -- Уменьшенный размер для примера
+    MainFrame.Size = UDim2.new(0, 500, 0, 350)
     MainFrame.Position = UDim2.new(0.5, -250, 0.5, -175)
     MainFrame.BackgroundColor3 = Color3.fromRGB(20,20,20)
     MainFrame.BorderSizePixel = 0
@@ -328,7 +315,7 @@ function Library:CreateWindow(config)
     local function selectTab(index, button, content)
         for i, btn in ipairs(tabButtons) do
             btn.BackgroundColor3 = Color3.fromRGB(15,15,15)
-            Window[Tabs[i].name].Name.. "Content"].Visible = false
+            MainFrame:FindFirstChild(Tabs[i].name.. "Content").Visible = false
         end
         button.BackgroundColor3 = Color3.fromRGB(20,20,20)
         content.Visible = true
@@ -359,7 +346,6 @@ function Library:CreateWindow(config)
         end)
     end
 
-    -- Перетаскивание
     makeDraggable(MainFrame, Header) 
 
     local conn = Services.UserInputService.InputBegan:Connect(function(inp, gp)
