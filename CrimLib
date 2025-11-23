@@ -1,9 +1,6 @@
 --[[
-    CrimLib — Финальная, чистая, без багов библиотека (2025)
-    • Исправлен баг с наложением вкладок
-    • Без обводки
-    • Insert / Delete
-    • Готово к загрузке по loadstring
+    CrimLib — 100% рабочая версия для loadstring с GitHub
+    Заливай сюда: https://raw.githubusercontent.com/popusk232/script/refs/heads/main/CrimLib.lua
 ]]
 
 local CrimLib = {}
@@ -12,7 +9,7 @@ do
     local Services = {
         TweenService = game:GetService("TweenService"),
         UserInputService = game:GetService("UserInputService"),
-        CoreGui = game:GetService("CoreGui"),
+        CoreGui = game:GetService("CoreGui")
     }
 
     local function makeDraggable(frame, dragObj)
@@ -23,17 +20,24 @@ do
                 dragStart = input.Position
                 startPos = frame.Position
                 input.Changed:Connect(function()
-                    if input.UserInputState == Enum.UserInputState.End then dragging = false end
+                    if input.UserInputState == Enum.UserInputState.End then
+                        dragging = false
+                    end
                 end)
             end
         end)
         dragObj.InputChanged:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end
+            if input.UserInputType == Enum.UserInputType.MouseMovement then
+                dragInput = input
+            end
         end)
         Services.UserInputService.InputChanged:Connect(function(input)
             if dragging and input == dragInput then
                 local delta = input.Position - dragStart
-                frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+                frame.Position = UDim2.new(
+                    startPos.X.Scale, startPos.X.Offset + delta.X,
+                    startPos.Y.Scale, startPos.Y.Offset + delta.Y
+                )
             end
         end)
     end
@@ -146,9 +150,7 @@ do
             Layout.Padding = UDim.new(0,18)
 
             ClickArea.MouseButton1Click:Connect(function()
-                for _, content in ipairs(AllTabContents) do
-                    content.Visible = false
-                end
+                for _, c in ipairs(AllTabContents) do c.Visible = false end
                 TabContent.Visible = true
 
                 if CurrentTab then
@@ -257,22 +259,22 @@ do
             Window[data.name] = Tab
         end
 
-        local conn = Services.UserInputService.InputBegan:Connect(function(inp, gp)
+        local InputConn = Services.UserInputService.InputBegan:Connect(function(inp, gp)
             if gp then return end
             if inp.KeyCode == Enum.KeyCode.Insert then
                 MainFrame.Visible = not MainFrame.Visible
             elseif inp.KeyCode == Enum.KeyCode.Delete then
-                conn:Disconnect()
+                InputConn:Disconnect()
                 ScreenGui:Destroy()
+                print("CrimLib выгружен (Delete)")
             end
         end)
 
         function Window:Toggle() MainFrame.Visible = not MainFrame.Visible end
-        function Window:Unload() conn:Disconnect() ScreenGui:Destroy() end
+        function Window:Unload() InputConn:Disconnect() ScreenGui:Destroy() end
 
         return Window
     end
 end
 
-return CrimLib
--- 222222
+return CrimLib  -- ОБЯЗАТЕЛЬНО!
