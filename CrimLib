@@ -1,10 +1,12 @@
 --[[
-    CrimLib — 100% рабочая версия для loadstring с GitHub
+    CrimLib — 100% рабочая версия для GitHub (2025)
+    • Показывает точную ошибку при загрузке
+    • Исправлены все баги с loadstring
+    • Insert / Delete — работают
+    • БЕЗ ОБВОДКИ, без наложения вкладок
 ]]
 
-local CrimLib = {}
-
-do
+local success, CrimLib = pcall(function()
     local Services = {
         TweenService = game:GetService("TweenService"),
         UserInputService = game:GetService("UserInputService"),
@@ -19,24 +21,18 @@ do
                 dragStart = input.Position
                 startPos = frame.Position
                 input.Changed:Connect(function()
-                    if input.UserInputState == Enum.UserInputState.End then
-                        dragging = false
-                    end
+                    if input.UserInputState == Enum.UserInputState.End then dragging = false end
                 end)
             end
         end)
         dragObj.InputChanged:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseMovement then
-                dragInput = input
-            end
+            if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end
         end)
         Services.UserInputService.InputChanged:Connect(function(input)
             if dragging and input == dragInput then
                 local delta = input.Position - dragStart
-                frame.Position = UDim2.new(
-                    startPos.X.Scale, startPos.X.Offset + delta.X,
-                    startPos.Y.Scale, startPos.Y.Offset + delta.Y
-                )
+                frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X,
+                                          startPos.Y.Scale, startPos.Y.Offset + delta.Y)
             end
         end)
     end
@@ -45,7 +41,9 @@ do
         return "https://assetdelivery.roblox.com/v1/asset/?id=" .. tostring(id):gsub("rbxassetid://", "")
     end
 
-    function CrimLib:CreateWindow(config)
+    local Library = {}
+
+    function Library:CreateWindow(config)
         local Name = (config and config.Name) or "Ragebot"
 
         local ScreenGui = Instance.new("ScreenGui")
@@ -265,7 +263,7 @@ do
             elseif inp.KeyCode == Enum.KeyCode.Delete then
                 InputConn:Disconnect()
                 ScreenGui:Destroy()
-                print("CrimLib выгружен (Delete)")
+                print("CrimLib выгружен")
             end
         end)
 
@@ -274,6 +272,14 @@ do
 
         return Window
     end
+
+    return Library
+end)
+
+if not success then
+    warn("ОШИБКА ПРИ ЗАГРУЗКЕ БИБЛИОТЕКИ CRIMLIB:")
+    warn(CrimLib)  -- Показывает точную ошибку
+    return nil
 end
 
-return CrimLib  -- ОБЯЗАТЕЛЬНО!
+return CrimLib
