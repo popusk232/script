@@ -1,5 +1,5 @@
 local Library = {}
-
+-- 2222
 local Services = {
     TweenService = game:GetService("TweenService"),
     UserInputService = game:GetService("UserInputService"),
@@ -53,8 +53,8 @@ function Library:CreateWindow(config)
     MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
     MainFrame.BorderSizePixel = 0
     MainFrame.Visible = false
-    MainFrame.Parent = ScreenGui
     MainFrame.ClipsDescendants = true
+    MainFrame.Parent = ScreenGui
     Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
 
     local Header = Instance.new("Frame")
@@ -206,24 +206,8 @@ function Library:CreateWindow(config)
             List.SortOrder = Enum.SortOrder.LayoutOrder
             List.Parent = Scroll
 
-            local function createControlLabel(name, parent)
-                local label = Instance.new("TextLabel")
-                label.Position = UDim2.new(0, 12, 0, 0)
-                label.BackgroundTransparency = 1
-                label.Font = Enum.Font.GothamBold
-                label.Text = name or "Control"
-                label.TextColor3 = Color3.fromRGB(200, 200, 200)
-                label.TextSize = 13
-                label.TextXAlignment = Enum.TextXAlignment.Left
-                label.Parent = parent
-                return label
-            end
-
             local Elements = {}
 
-            -- Toggle, Dropdown, Keybind, Textbox, Button — остаются как были (если нужны — скажи, добавлю)
-
-            -- КРАСИВЫЙ СЛАЙДЕР (как в ClickGui)
             function Elements:Slider(options)
                 local value = options.Value or options.Min or 0
                 local min = options.Min or 0
@@ -238,9 +222,16 @@ function Library:CreateWindow(config)
                 Frame.Parent = Scroll
                 Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 4)
 
-                local Label = createControlLabel(options.Name or "Slider", Frame)
-                Label.Size = UDim2.new(1, -70, 0, 15)
-                Label.Position = UDim2.new(0, 12, 0, 5)
+                local NameLabel = Instance.new("TextLabel")
+                NameLabel.Position = UDim2.new(0, 12, 0, 5)
+                NameLabel.Size = UDim2.new(1, -70, 0, 15)
+                NameLabel.BackgroundTransparency = 1
+                NameLabel.Font = Enum.Font.GothamBold
+                NameLabel.Text = options.Name or "Slider"
+                NameLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+                NameLabel.TextSize = 13
+                NameLabel.TextXAlignment = Enum.TextXAlignment.Left
+                NameLabel.Parent = Frame
 
                 local ValueLabel = Instance.new("TextLabel")
                 ValueLabel.Size = UDim2.new(0, 60, 0, 15)
@@ -272,8 +263,8 @@ function Library:CreateWindow(config)
                 Thumb.Size = UDim2.new(0, 14, 0, 14)
                 Thumb.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
                 Thumb.Position = UDim2.new(0, -7, 0.5, -7)
-                Thumb.Parent = Track
                 Thumb.ZIndex = 2
+                Thumb.Parent = Track
                 Instance.new("UICorner", Thumb).CornerRadius = UDim.new(1, 0)
 
                 local function update(val)
@@ -287,33 +278,95 @@ function Library:CreateWindow(config)
                 end
 
                 local dragging = false
+
                 Thumb.InputBegan:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true end
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        dragging = true
+                    end
                 end)
 
                 Track.InputBegan:Connect(function(input)
                     if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                        local rel = math.clamp((input.Position.X - Track.AbsolutePosition.X) / Track.AbsoluteSize.X, 0, 1)
-                        update(min + rel * (max - min))
+                        local relX = math.clamp((input.Position.X - Track.AbsolutePosition.X) / Track.AbsoluteSize.X, 0, 1)
+                        update(min + relX * (max - min))
                         dragging = true
                     end
                 end)
 
                 Services.UserInputService.InputChanged:Connect(function(input)
                     if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-                        local rel = math.clamp((input.Position.X - Track.AbsolutePosition.X) / Track.AbsoluteSize.X, 0, 1)
-                        update(min + rel * (max - min))
+                        local relX = math.clamp((input.Position.X - Track.AbsolutePosition.X) / Track.AbsoluteSize.X, 0, 1)
+                        update(min + relX * (max - min))
                     end
                 end)
 
                 Services.UserInputService.InputEnded:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        dragging = false
+                    end
                 end)
 
                 update(value)
 
                 local obj = {}
-                function obj:Set(v) if typeof(v) == "number" then update(v) end end
+                function obj:Set(v)
+                    if typeof(v) == "number" then
+                        update(v)
+                    end
+                end
+                return obj
+            end
+
+            function Elements:Toggle(options)
+                local enabled = options.Enabled or false
+                local callback = options.Callback or function() end
+
+                local Frame = Instance.new("Frame")
+                Frame.Size = UDim2.new(1, -30, 0, 30)
+                Frame.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+                Frame.BorderSizePixel = 0
+                Frame.Parent = Scroll
+                Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 4)
+
+                local Label = Instance.new("TextLabel")
+                Label.Position = UDim2.new(0, 12, 0, 0)
+                Label.Size = UDim2.new(1, -60, 1, 0)
+                Label.BackgroundTransparency = 1
+                Label.Font = Enum.Font.GothamBold
+                Label.Text = options.Name or "Toggle"
+                Label.TextColor3 = Color3.fromRGB(200, 200, 200)
+                Label.TextSize = 13
+                Label.TextXAlignment = Enum.TextXAlignment.Left
+                Label.Parent = Frame
+
+                local ToggleBtn = Instance.new("TextButton")
+                ToggleBtn.Size = UDim2.new(0, 40, 0, 20)
+                ToggleBtn.Position = UDim2.new(1, -52, 0.5, -10)
+                ToggleBtn.BackgroundColor3 = enabled and Color3.fromRGB(60, 160, 255) or Color3.fromRGB(50, 50, 50)
+                ToggleBtn.Text = ""
+                ToggleBtn.Parent = Frame
+                Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 10)
+
+                local Inner = Instance.new("Frame")
+                Inner.Size = UDim2.new(0, 16, 0, 16)
+                Inner.Position = enabled and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)
+                Inner.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+                Inner.Parent = ToggleBtn
+                Instance.new("UICorner", Inner).CornerRadius = UDim.new(1, 0)
+
+                ToggleBtn.MouseButton1Click:Connect(function()
+                    enabled = not enabled
+                    Services.TweenService:Create(ToggleBtn, TweenInfo.new(0.2), {BackgroundColor3 = enabled and Color3.fromRGB(60, 160, 255) or Color3.fromRGB(50, 50, 50)}):Play()
+                    Services.TweenService:Create(Inner, TweenInfo.new(0.2), {Position = enabled and UDim2.new(1, -18, 0.5, -8) or UDim2.new(0, 2, 0.5, -8)}):Play()
+                    callback(enabled)
+                end)
+
+                local obj = {}
+                function obj:Set(state)
+                    if enabled ~= state then
+                        ToggleBtn.MouseButton1Click:Fire()
+                    end
+                end
                 return obj
             end
 
@@ -323,13 +376,15 @@ function Library:CreateWindow(config)
         Window[data.name] = Tab
     end
 
-    Services.UserInputService.InputBegan:Connect(function(input, gp)
-        if not gp and input.KeyCode == Enum.KeyCode.Insert then
+    Services.UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if not gameProcessed and input.KeyCode == Enum.KeyCode.Insert then
             MainFrame.Visible = not MainFrame.Visible
         end
     end)
 
-    function Window:Toggle() MainFrame.Visible = not MainFrame.Visible end
+    function Window:Toggle()
+        MainFrame.Visible = not MainFrame.Visible
+    end
 
     return Window
 end
