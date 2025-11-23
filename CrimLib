@@ -1,5 +1,5 @@
 local Library = {}
--- 2222
+-- ывфывфывфыв
 local Services = {
     TweenService = game:GetService("TweenService"),
     UserInputService = game:GetService("UserInputService"),
@@ -155,6 +155,7 @@ function Library:CreateWindow(config)
         Layout.Padding = UDim.new(0, 10)
         Layout.HorizontalAlignment = Enum.HorizontalAlignment.Left
         Layout.VerticalAlignment = Enum.VerticalAlignment.Top
+        Layout.FillDirection = Enum.FillDirection.Horizontal -- <--- ИЗМЕНЕНИЕ: Горизонтальный порядок
 
         ClickArea.MouseButton1Click:Connect(function()
             if CurrentTab then
@@ -200,7 +201,7 @@ function Library:CreateWindow(config)
 
         function Tab:Section(name)
             local Frame = Instance.new("Frame")
-            Frame.Size = UDim2.new(0.5, -15, 1, -30)
+            Frame.Size = UDim2.new(0.5, -15, 1, -30) -- Размер 0.5 позволяет разместить два окна горизонтально
             Frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
             Frame.BorderSizePixel = 0
             Frame.Parent = TabContent
