@@ -1,5 +1,5 @@
 local Library = {}
--- ывфывфывфыв
+-- 22222
 local Services = {
     TweenService = game:GetService("TweenService"),
     UserInputService = game:GetService("UserInputService"),
@@ -392,12 +392,24 @@ function Library:CreateWindow(config)
                 Button.TextXAlignment = Enum.TextXAlignment.Left
                 Button.Parent = Frame
                 Instance.new("UICorner", Button).CornerRadius = UDim.new(0, 4)
+                
+                -- ИСПРАВЛЕНО 1: Визуальный отклик на нажатие кнопки Dropdown
+                Button.InputBegan:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        Button.BackgroundColor3 = Color3.fromRGB(25, 25, 25) -- Темнее при нажатии
+                    end
+                end)
+                Button.InputEnded:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        Button.BackgroundColor3 = Color3.fromRGB(32, 32, 32) -- Возврат к нормальному
+                    end
+                end)
 
                 local Arrow = Instance.new("TextLabel")
                 Arrow.Size = UDim2.new(0, 20, 1, 0)
                 Arrow.Position = UDim2.new(1, -20, 0, 0)
                 Arrow.BackgroundTransparency = 1
-                Arrow.Text = "Down"
+                Arrow.Text = "▼"  -- Заменил "Down" на более универсальный символ
                 Arrow.TextColor3 = Color3.fromRGB(150, 150, 150)
                 Arrow.Font = Enum.Font.Gotham
                 Arrow.Parent = Button
@@ -426,22 +438,35 @@ function Library:CreateWindow(config)
                         DropdownFrame.Position = UDim2.new(0, pos.X, 0, pos.Y)
                         DropdownFrame.Size = UDim2.new(0, 180, 0, math.min(#items * 26, 150))
                     else
-                        DropdownFrame.Size = UDim2.new(0, 0, 0, 0)
+                        -- Анимация закрытия
+                        Services.TweenService:Create(DropdownFrame, TweenInfo.new(0.2), {Size = UDim2.new(0, 180, 0, 0)}):Play()
+                        task.wait(0.2)
+                        DropdownFrame.Visible = false
                     end
                 end)
 
                 for _, item in ipairs(items) do
                     local ItemBtn = Instance.new("TextButton")
-                    ItemBtn.Size = UDim2.new(1, -4, 0, 24)
-                    ItemBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+                    ItemBtn.Size = UDim2.new(1, 0, 0, 24) -- ИСПРАВЛЕНО 2: Убрал -4, чтобы ItemBtn занимал всю ширину для лучшей читаемости
+                    ItemBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35) -- Немного светлее для фона, чтобы выделить от Frame
                     ItemBtn.Text = "  " .. item
-                    ItemBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+                    ItemBtn.TextColor3 = Color3.fromRGB(200, 200, 200) -- ИСПРАВЛЕНО 2: Изменил цвет текста на более светлый для видимости
                     ItemBtn.Font = Enum.Font.Gotham
                     ItemBtn.TextSize = 12
                     ItemBtn.TextXAlignment = Enum.TextXAlignment.Left
                     ItemBtn.Parent = DropdownFrame
                     Instance.new("UICorner", ItemBtn).CornerRadius = UDim.new(0, 4)
-
+                    
+                    -- ИСПРАВЛЕНО 1: Визуальный отклик на нажатие пункта Dropdown
+                    local normalColor = Color3.fromRGB(35, 35, 35)
+                    local hoverColor = Color3.fromRGB(45, 45, 45)
+                    ItemBtn.MouseEnter:Connect(function()
+                        ItemBtn.BackgroundColor3 = hoverColor
+                    end)
+                    ItemBtn.MouseLeave:Connect(function()
+                        ItemBtn.BackgroundColor3 = normalColor
+                    end)
+                    
                     ItemBtn.MouseButton1Click:Connect(function()
                         selected = item
                         Button.Text = "  " .. selected
@@ -449,6 +474,7 @@ function Library:CreateWindow(config)
                         DropdownFrame.Visible = false
                         Arrow.Rotation = 0
                         callback(selected)
+                        ItemBtn.BackgroundColor3 = normalColor -- Сброс цвета после клика
                     end)
                 end
 
@@ -492,20 +518,34 @@ function Library:CreateWindow(config)
                 BindBtn.Text = key.Name == "Unknown" and "[...]" or "["..key.Name.."]"
                 BindBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
                 BindBtn.Font = Enum.Font.Gotham
-                BindBtn.TextSize = 12
+                BindBtn.TextSize = 14 -- ИСПРАВЛЕНО 3: Увеличил размер текста бинда
                 BindBtn.Parent = Frame
                 Instance.new("UICorner", BindBtn).CornerRadius = UDim.new(0, 4)
+                
+                -- ИСПРАВЛЕНО 1: Визуальный отклик на нажатие кнопки Keybind
+                BindBtn.InputBegan:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        BindBtn.BackgroundColor3 = Color3.fromRGB(25, 25, 25) -- Темнее при нажатии
+                    end
+                end)
+                BindBtn.InputEnded:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        BindBtn.BackgroundColor3 = Color3.fromRGB(32, 32, 32) -- Возврат к нормальному
+                    end
+                end)
 
                 local listening = false
                 BindBtn.MouseButton1Click:Connect(function()
                     listening = true
                     BindBtn.Text = "[...]"
+                    BindBtn.BackgroundColor3 = Color3.fromRGB(60, 160, 255) -- Синий цвет при ожидании ввода
                 end)
 
                 Services.UserInputService.InputBegan:Connect(function(input)
                     if listening and input.KeyCode ~= Enum.KeyCode.Unknown then
                         key = input.KeyCode
                         BindBtn.Text = "["..key.Name.."]"
+                        BindBtn.BackgroundColor3 = Color3.fromRGB(32, 32, 32) -- Возврат к нормальному после установки
                         listening = false
                         callback(key)
                     end
@@ -581,6 +621,21 @@ function Library:CreateWindow(config)
                 Btn.Font = Enum.Font.GothamBold
                 Btn.TextSize = 13
                 Btn.Parent = Frame
+                
+                -- ИСПРАВЛЕНО 1: Визуальный отклик на нажатие кнопки
+                local normalColor = Color3.fromRGB(28, 28, 28)
+                local pressedColor = Color3.fromRGB(22, 22, 22)
+
+                Btn.InputBegan:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        Frame.BackgroundColor3 = pressedColor -- Темнее при нажатии
+                    end
+                end)
+                Btn.InputEnded:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        Frame.BackgroundColor3 = normalColor -- Возврат к нормальному
+                    end
+                end)
 
                 Btn.MouseButton1Click:Connect(callback)
                 return Frame
