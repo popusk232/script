@@ -62,7 +62,11 @@ return (function()
     end
 
     local function getAssetUri(id)
-        return "rbxassetid://" .. (tonumber(id) or 0)
+        if type(id) == "string" and id:sub(1, 12) == "rbxassetid://" then
+            return id
+        else
+            return "rbxassetid://" .. (tonumber(id) or 0)
+        end
     end
 
     function Library:CreateWindow(Settings)
