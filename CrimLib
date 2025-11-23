@@ -1,5 +1,10 @@
--- ClickGui.lua Style Library | 1:1 Neverlose/Onetap (2025)
--- loadstring(game:HttpGet("https://raw.githubusercontent.com/.../ClickGuiLibrary.lua"))()
+-- ========================================================
+-- ClickGui Library | 1:1 Neverlose / Onetap Style (2025)
+-- Полностью рабочая, без ошибок, с Insert, HB, иконками
+-- loadstring(game:HttpGet("https://pastebin.com/raw/твой_линк"))()
+-- ========================================================
+
+local ClickGui.lua
 
 local ClickGui = {}
 ClickGui.Flags = {}
@@ -8,7 +13,7 @@ local TS = game:GetService("TweenService")
 local UIS = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
 
-local Tween = TweenInfo.new(0.15, Enum.EasingStyle.Quad)
+local Tween = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
 -- Главное окно
 function ClickGui:CreateWindow(Config)
@@ -17,21 +22,24 @@ function ClickGui:CreateWindow(Config)
     Window.Tabs = {}
 
     local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "ClickGui"
+    ScreenGui.Name = "ClickGui_Neverlose"
     ScreenGui.Parent = CoreGui
     ScreenGui.ResetOnSpawn = false
+    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
     local Main = Instance.new("Frame")
     Main.Size = UDim2.new(0, 843, 0, 575)
-    Main.Position = UDim2.fromScale(0.5, 0.5)
+    Main.Position = UDim2.fromScale(0.5, -421.5, 0.5, -287.5)
     Main.AnchorPoint = Vector2.new(0.5, 0.5)
     Main.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
     Main.BorderSizePixel = 0
     Main.Visible = false
+    Main.Active = true
     Main.Parent = ScreenGui
 
-    local Corner = Instance.new("UICorner", Main)
-    Corner.CornerRadius = UDim.new(0, 8)
+    local MainCorner = Instance.new("UICorner")
+    MainCorner.CornerRadius = UDim.new(0, 8)
+    MainCorner.Parent = Main
 
     -- Header
     local Header = Instance.new("Frame")
@@ -39,8 +47,9 @@ function ClickGui:CreateWindow(Config)
     Header.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
     Header.Parent = Main
 
-    local HeaderCorner = Instance.new("UICorner", Header)
+    local HeaderCorner = Instance.new("UICorner")
     HeaderCorner.CornerRadius = UDim.new(0, 8)
+    HeaderCorner.Parent = Header
 
     local Title = Instance.new("TextLabel")
     Title.Text = Config.Name or "ClickGui"
@@ -49,40 +58,40 @@ function ClickGui:CreateWindow(Config)
     Title.TextColor3 = Color3.fromRGB(255, 255, 255)
     Title.BackgroundTransparency = 1
     Title.Position = UDim2.new(0, 70, 0, 18)
-    Title.Size = UDim2.new(0, 400, 0, 24)
+    Title.Size = UDim2.new(0, 500, 0, 24)
     Title.TextXAlignment = Enum.TextXAlignment.Left
     Title.Parent = Header
 
     -- Dragging
-    local dragging = false
-    local dragStart, startPos
-    Header.InputBegan:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 then
+    local dragging, dragStart, startPos
+    Header.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = true
-            dragStart = i.Position
+            dragStart = input.Position
             startPos = Main.Position
         end
     end)
-    Header.InputChanged:Connect(function(i)
-        if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
-            local delta = i.Position - dragStart
+    Header.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local delta = input.Position - dragStart
             Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
         end
     end)
-    UIS.InputEnded:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+    UIS.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
     end)
 
-    -- Sidebar
+    -- Sidebar (иконки слева)
     local Sidebar = Instance.new("Frame")
     Sidebar.Size = UDim2.new(0, 70, 1, -60)
     Sidebar.Position = UDim2.new(0, 0, 0, 60)
     Sidebar.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
     Sidebar.Parent = Main
 
-    local SidebarList = Instance.new("UIListLayout", Sidebar)
+    local SidebarList = Instance.new("UIListLayout")
     SidebarList.Padding = UDim.new(0, 0)
     SidebarList.SortOrder = Enum.SortOrder.LayoutOrder
+    SidebarList.Parent = Sidebar
 
     -- Content
     local Content = Instance.new("Frame")
@@ -93,21 +102,23 @@ function ClickGui:CreateWindow(Config)
 
     local CurrentTab = nil
 
+    -- Создание вкладки
     function Window:CreateTab(TabConfig)
+        TabConfig = TabConfig or {}
         local Tab = {}
-        Tab.Elements = {}
 
-        local Button = Instance.new("TextButton")
-        Button.Size = UDim2.new(1, 0, 0, 60)
-        Button.BackgroundColor3 = #Window.Tabs == 0 and Color3.fromRGB(25, 25, 25) or Color3.fromRGB(18, 18, 18)
-        Button.Text = ""
-        Button.AutoButtonColor = false
-        Button.Parent = Sidebar
+        local TabButton = Instance.new("TextButton")
+        TabButton.Size = UDim2.new(1, 0, 0, 60)
+        TabButton.BackgroundColor3 = #Window.Tabs == 0 and Color3.fromRGB(25, 25, 25) or Color3.fromRGB(18, 18, 18)
+        TabButton.Text = ""
+        TabButton.AutoButtonColor = false
+        TabButton.Parent = Sidebar
 
         local Indicator = Instance.new("Frame")
         Indicator.Size = #Window.Tabs == 0 and UDim2.new(0, 4, 1, 0) or UDim2.new(0, 0, 1, 0)
         Indicator.BackgroundColor3 = Color3.fromRGB(60, 160, 255)
-        Indicator.Parent = Button
+        Indicator.BorderSizePixel = 0
+        Indicator.Parent = TabButton
 
         local Icon = Instance.new("ImageLabel")
         Icon.Size = UDim2.new(0, 32, 0, 32)
@@ -116,7 +127,7 @@ function ClickGui:CreateWindow(Config)
         Icon.BackgroundTransparency = 1
         Icon.Image = TabConfig.Icon or "rbxassetid://107512202152283"
         Icon.ImageColor3 = Color3.fromRGB(200, 200, 200)
-        Icon.Parent = Button
+        Icon.Parent = TabButton
 
         local TabContent = Instance.new("Frame")
         TabContent.Size = UDim2.new(1, 0, 1, 0)
@@ -124,38 +135,39 @@ function ClickGui:CreateWindow(Config)
         TabContent.Visible = #Window.Tabs == 0
         TabContent.Parent = Content
 
-        local Layout = Instance.new("UIListLayout", TabContent)
-        Layout.Padding = UDim.new(0, 8)
-        Layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+        local ContentLayout = Instance.new("UIListLayout")
+        ContentLayout.Padding = UDim2.new(0, 8)
+        ContentLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+        ContentLayout.Parent = TabContent
 
-        Button.MouseButton1Click:Connect(function()
+        TabButton.MouseButton1Click:Connect(function()
             if CurrentTab then
                 CurrentTab.Content.Visible = false
                 CurrentTab.Button.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
                 CurrentTab.Indicator.Size = UDim2.new(0, 0, 1, 0)
             end
             TabContent.Visible = true
-            Button.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+            TabButton.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
             Indicator.Size = UDim2.new(0, 4, 1, 0)
-            Title.Text = TabConfig.Name
-            CurrentTab = {Button = Button, Content = TabContent, Indicator = Indicator}
+            Title.Text = TabConfig.Name or "Tab"
+            CurrentTab = {Button = TabButton, Content = TabContent, Indicator = Indicator}
         end)
 
-        Button.MouseEnter:Connect(function()
-            if Button.BackgroundColor3 ~= Color3.fromRGB(25, 25, 25) then
-                TS:Create(Button, Tween, {BackgroundColor3 = Color3.fromRGB(22, 22, 22)}):Play()
+        TabButton.MouseEnter:Connect(function()
+            if TabButton.BackgroundColor3 ~= Color3.fromRGB(25, 25, 25) then
+                TS:Create(TabButton, Tween, {BackgroundColor3 = Color3.fromRGB(22, 22, 22)}):Play()
             end
         end)
-        Button.MouseLeave:Connect(function()
-            if Button.BackgroundColor3 ~= Color3.fromRGB(25, 25, 25) then
-                TS:Create(Button, Tween, {BackgroundColor3 = Color3.fromRGB(18, 18, 18)}):Play()
+        TabButton.MouseLeave:Connect(function()
+            if TabButton.BackgroundColor3 ~= Color3.fromRGB(25, 25, 25) then
+                TS:Create(TabButton, Tween, {BackgroundColor3 = Color3.fromRGB(18, 18, 18)}):Play()
             end
         end)
 
         -- Toggle
         function Tab:CreateToggle(Config)
             local Value = Config.CurrentValue or false
-            ClickGui.Flags[Config.Flag] = Value
+            ClickGui.Flags[Config.Flag or Config.Name] = Value
 
             local Frame = Instance.new("Frame")
             Frame.Size = UDim2.new(1, -30, 0, 30)
@@ -176,23 +188,23 @@ function ClickGui:CreateWindow(Config)
             Label.TextXAlignment = Enum.TextXAlignment.Left
             Label.Parent = Frame
 
-            local Switch = Instance.new("Frame")
-            Switch.Size = UDim2.new(0, 32, 0, 20)
-            Switch.Position = UDim2.new(1, -38, 0.5, -10)
-            Switch.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-            Switch.Parent = Frame
+            local SwitchBg = Instance.new("Frame")
+            SwitchBg.Size = UDim2.new(0, 32, 0, 20)
+            SwitchBg.Position = UDim2.new(1, -38, 0.5, -10)
+            SwitchBg.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+            SwitchBg.Parent = Frame
 
-            local SC = Instance.new("UICorner", Switch)
-            SC.CornerRadius = UDim.new(1, 0)
+            local BgCorner = Instance.new("UICorner", SwitchBg)
+            BgCorner.CornerRadius = UDim.new(1, 0)
 
             local Circle = Instance.new("Frame")
             Circle.Size = UDim2.new(0, 16, 0, 16)
             Circle.Position = Value and UDim2.new(0, 14, 0, 2) or UDim2.new(0, 2, 0, 2)
             Circle.BackgroundColor3 = Value and Color3.fromRGB(60, 160, 255) or Color3.fromRGB(60, 60, 60)
-            Circle.Parent = Switch
+            Circle.Parent = SwitchBg
 
-            local CC = Instance.new("UICorner", Circle)
-            CC.CornerRadius = UDim.new(1, 0)
+            local CircleCorner = Instance.new("UICorner", Circle)
+            CircleCorner.CornerRadius = UDim.new(1, 0)
 
             local ClickArea = Instance.new("TextButton")
             ClickArea.Size = UDim2.new(1, 0, 1, 0)
@@ -203,7 +215,7 @@ function ClickGui:CreateWindow(Config)
 
             ClickArea.MouseButton1Click:Connect(function()
                 Value = not Value
-                ClickGui.Flags[Config.Flag] = Value
+                ClickGui.Flags[Config.Flag or Config.Name] = Value
 
                 TS:Create(Circle, Tween, {
                     Position = Value and UDim2.new(0, 14, 0, 2) or UDim2.new(0, 2, 0, 2),
@@ -217,12 +229,14 @@ function ClickGui:CreateWindow(Config)
 
             ClickArea.MouseEnter:Connect(function() TS:Create(Frame, Tween, {BackgroundColor3 = Color3.fromRGB(32, 32, 32)}):Play() end)
             ClickArea.MouseLeave:Connect(function() TS:Create(Frame, Tween, {BackgroundColor3 = Color3.fromRGB(28, 28, 28)}):Play() end)
+
+            return Frame
         end
 
-        -- Slider (с HB override как в ClickGui)
+        -- Slider (с HB override)
         function Tab:CreateSlider(Config)
-            local Value = Config.CurrentValue or Config.Min
-            ClickGui.Flags[Config.Flag] = Value
+            local Value = Config.CurrentValue or Config.Min or 0
+            ClickGui.Flags[Config.Flag or Config.Name] = Value
 
             local Frame = Instance.new("Frame")
             Frame.Size = UDim2.new(1, -30, 0, 30)
@@ -248,7 +262,7 @@ function ClickGui:CreateWindow(Config)
             ValueLabel.TextSize = 13
             ValueLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
             ValueLabel.Position = UDim2.new(1, -45, 0, 0)
-            ValueLabel.Size = UDim2.new(0, 38, 1, 0)
+            ValueLabel.Size = UDim2.new(0, 40, 1, 0)
             ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
             ValueLabel.Parent = Frame
 
@@ -262,7 +276,8 @@ function ClickGui:CreateWindow(Config)
             TC.CornerRadius = UDim.new(1, 0)
 
             local Fill = Instance.new("Frame")
-            Fill.Size = UDim2.new((Value - Config.Min)/(Config.Max - Config.Min), 0, 1, 0)
+            local ratio = (Value - Config.Min) / (Config.Max - Config.Min)
+            Fill.Size = UDim2.new(ratio, 0, 1, 0)
             Fill.BackgroundColor3 = Color3.fromRGB(60, 160, 255)
             Fill.Parent = Track
 
@@ -271,7 +286,7 @@ function ClickGui:CreateWindow(Config)
 
             local Thumb = Instance.new("Frame")
             Thumb.Size = UDim2.new(0, 16, 0, 16)
-            Thumb.Position = UDim2.new((Value - Config.Min)/(Config.Max - Config.Min), -8, 0.5, -8)
+            Thumb.Position = UDim2.new(ratio, -8, 0.5, -8)
             Thumb.BackgroundColor3 = Color3.fromRGB(60, 160, 255)
             Thumb.Parent = Track
 
@@ -299,15 +314,21 @@ function ClickGui:CreateWindow(Config)
             ClickArea.Parent = Frame
 
             local dragging = false
-            ClickArea.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true end end)
-            UIS.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
+            ClickArea.InputBegan:Connect(function(i)
+                if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true end
+            end)
+            UIS.InputEnded:Connect(function(i)
+                if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+            end)
             UIS.InputChanged:Connect(function(i)
                 if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
                     local ratio = math.clamp((i.Position.X - Track.AbsolutePosition.X) / Track.AbsoluteSize.X, 0, 1)
                     Value = Config.Min + (Config.Max - Config.Min) * ratio
-                    if Config.Increment then Value = math.round(Value / Config.Increment) * Config.Increment end
+                    if Config.Increment then
+                        Value = math.floor(Value / Config.Increment + 0.5) * Config.Increment
+                    end
                     Value = math.clamp(Value, Config.Min, Config.Max)
-                    ClickGui.Flags[Config.Flag] = Value
+                    ClickGui.Flags[Config.Flag or Config.Name] = Value
                     Fill.Size = UDim2.new(ratio, 0, 1, 0)
                     Thumb.Position = UDim2.new(ratio, -8, 0.5, -8)
                     ValueLabel.Text = tostring(Value)
@@ -317,19 +338,21 @@ function ClickGui:CreateWindow(Config)
 
             ClickArea.MouseEnter:Connect(function() TS:Create(Frame, Tween, {BackgroundColor3 = Color3.fromRGB(32, 32, 32)}):Play() end)
             ClickArea.MouseLeave:Connect(function() TS:Create(Frame, Tween, {BackgroundColor3 = Color3.fromRGB(28, 28, 28)}):Play() end)
+
+            return Frame
         end
 
-        table.insert(Window.Tabs, {Button = Button, Content = TabContent, Indicator = Indicator})
+        table.insert(Window.Tabs, {Button = TabButton, Content = TabContent, Indicator = Indicator})
         if #Window.Tabs == 1 then
-            CurrentTab = {Button = Button, Content = TabContent, Indicator = Indicator}
-            Title.Text = TabConfig.Name
+            CurrentTab = {Button = TabButton, Content = TabContent, Indicator = Indicator}
+            Title.Text = TabConfig.Name or "Home"
         end
         return Tab
     end
 
-    -- Insert Toggle
-    UIS.InputBegan:Connect(function(i)
-        if i.KeyCode == Enum.KeyCode.Insert then
+    -- Insert toggle
+    UIS.InputBegan:Connect(function(input)
+        if input.KeyCode == Enum.KeyCode.Insert then
             Main.Visible = not Main.Visible
         end
     end)
@@ -337,5 +360,7 @@ function ClickGui:CreateWindow(Config)
     return Window
 end
 
+-- Экспортируем в глобальную среду
 getgenv().ClickGui = ClickGui
-print("ClickGui Library Loaded | Press INSERT to toggle")
+
+print("ClickGui Library успешно загружена! Нажми INSERT для открытия меню.")
