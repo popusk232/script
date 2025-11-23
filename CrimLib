@@ -7,7 +7,6 @@
 -- =================================================================
 -- SAPPHIRE GUI LIBRARY (Self-Contained)
 -- =================================================================
-local SapphireLibraryWrapper = function()
     local Services = {
         TweenService = game:GetService("TweenService"),
         UserInputService = game:GetService("UserInputService"),
@@ -58,7 +57,7 @@ local SapphireLibraryWrapper = function()
         end)
         Services.UserInputService.InputChanged:Connect(function(input)
             if input == dragInput and dragging then update(input) end
-        end)
+        })
     end
 
     local function getAssetUri(id)
@@ -528,5 +527,4 @@ local SapphireLibraryWrapper = function()
         return Window
     end
     
-    end
     return Library
