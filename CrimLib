@@ -1,5 +1,5 @@
 local Library = {}
--- 2222
+
 local Services = {
     TweenService = game:GetService("TweenService"),
     UserInputService = game:GetService("UserInputService"),
@@ -108,7 +108,7 @@ function Library:CreateWindow(config)
         {name="Enemy",       icon=127827492424396, y=155,  size={28,26}},
         {name="World",       icon=100545076798978, y=225,  size={32,32}},
         {name="SkinChanger", icon=107710676270056, y=295,  size={48,46}},
-        {name="Misc",        icon=103915348216097, y=365,  size={37,35}},
+        {name="Misc",        icon=103quilibrium348216097, y=365,  size={37,35}},
         {name="Config",      icon=97047003599965,  y=435,  size={20,20}},
     }
 
@@ -239,7 +239,7 @@ function Library:CreateWindow(config)
                 ValueLabel.BackgroundTransparency = 1
                 ValueLabel.Font = Enum.Font.GothamBold
                 ValueLabel.Text = tostring(value)
-                ValueLabel.TextColor3 = Color3.fromRGB(255, 200, 50)
+                ValueLabel.TextColor3 = Color3.fromRGB(255, 255, 255) -- БЕЛЫЙ ЦВЕТ ЧИСЛА
                 ValueLabel.TextSize = 13
                 ValueLabel.TextXAlignment = Enum.TextXAlignment.Right
                 ValueLabel.Parent = Frame
@@ -261,7 +261,7 @@ function Library:CreateWindow(config)
 
                 local Thumb = Instance.new("Frame")
                 Thumb.Size = UDim2.new(0, 14, 0, 14)
-                Thumb.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+                Thumb.BackgroundColor3 = Color3.fromRGB(255, 255, 255) -- БЕЛЫЙ КРУГ
                 Thumb.Position = UDim2.new(0, -7, 0.5, -7)
                 Thumb.ZIndex = 2
                 Thumb.Parent = Track
