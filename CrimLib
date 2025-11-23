@@ -1,5 +1,5 @@
 local Library = {}
--- 14213123
+-- ывф3232323
 local Services = {
     TweenService = game:GetService("TweenService"),
     UserInputService = game:GetService("UserInputService"),
@@ -225,7 +225,7 @@ function Library:CreateWindow(config)
                 Label.Size = UDim2.new(0, 220, 1, 0)
                 Label.Position = UDim2.new(0, 12, 0, 0)
                 Label.BackgroundTransparency = 1
-                Label.Font = Enum.Font.Gotham
+                Label.Font = Enum.Font.GothamBold -- ИСПРАВЛЕНО: GothamBold
                 Label.Text = options.Name or "Toggle"
                 Label.TextColor3 = enabled and Color3.fromRGB(255, 200, 50) or Color3.fromRGB(200, 200, 200)
                 Label.TextSize = 13
@@ -289,7 +289,7 @@ function Library:CreateWindow(config)
                 Label.Size = UDim2.new(1, -70, 0, 15)
                 Label.Position = UDim2.new(0, 12, 0, 5)
                 Label.BackgroundTransparency = 1
-                Label.Font = Enum.Font.Gotham
+                Label.Font = Enum.Font.GothamBold -- ИСПРАВЛЕНО: GothamBold
                 Label.Text = options.Name or "Slider"
                 Label.TextColor3 = Color3.fromRGB(200, 200, 200)
                 Label.TextSize = 13
@@ -300,7 +300,7 @@ function Library:CreateWindow(config)
                 ValueLabel.Size = UDim2.new(0, 50, 0, 15)
                 ValueLabel.Position = UDim2.new(1, -62, 0, 5)
                 ValueLabel.BackgroundTransparency = 1
-                ValueLabel.Font = Enum.Font.Gotham
+                ValueLabel.Font = Enum.Font.GothamBold -- ИСПРАВЛЕНО: GothamBold
                 ValueLabel.Text = tostring(value)
                 ValueLabel.TextColor3 = Color3.fromRGB(255, 200, 50)
                 ValueLabel.TextSize = 13
@@ -374,7 +374,7 @@ function Library:CreateWindow(config)
                 Label.Size = UDim2.new(0, 120, 1, 0)
                 Label.Position = UDim2.new(0, 12, 0, 0)
                 Label.BackgroundTransparency = 1
-                Label.Font = Enum.Font.Gotham
+                Label.Font = Enum.Font.GothamBold -- ИСПРАВЛЕНО: GothamBold
                 Label.Text = options.Name or "Dropdown"
                 Label.TextColor3 = Color3.fromRGB(200, 200, 200)
                 Label.TextSize = 13
@@ -391,7 +391,7 @@ function Library:CreateWindow(config)
                 Button.TextSize = 12
                 Button.TextXAlignment = Enum.TextXAlignment.Left
                 Button.Parent = Frame
-                Button.ZIndex = 2 -- ИСПРАВЛЕНО: ZIndex для текста (кнопки)
+                Button.ZIndex = 2 
                 Instance.new("UICorner", Button).CornerRadius = UDim.new(0, 4)
                 
                 -- Визуальный отклик на нажатие кнопки Dropdown
@@ -412,8 +412,8 @@ function Library:CreateWindow(config)
                 Arrow.BackgroundTransparency = 1
                 Arrow.Text = "▼"  
                 Arrow.TextColor3 = Color3.fromRGB(150, 150, 150)
-                Arrow.Font = Enum.Font.Gotham
-                Arrow.TextSize = 16 -- ИСПРАВЛЕНО: Увеличенный размер текста для стрелки
+                Arrow.Font = Enum.Font.GothamBold -- ИСПРАВЛЕНО: GothamBold
+                Arrow.TextSize = 16 
                 Arrow.Parent = Button
 
                 local DropdownFrame = Instance.new("ScrollingFrame")
@@ -508,7 +508,7 @@ function Library:CreateWindow(config)
                 Label.BackgroundTransparency = 1
                 Label.Text = options.Name or "Keybind"
                 Label.TextColor3 = Color3.fromRGB(200, 200, 200)
-                Label.Font = Enum.Font.Gotham
+                Label.Font = Enum.Font.GothamBold -- ИСПРАВЛЕНО: GothamBold
                 Label.TextSize = 13
                 Label.TextXAlignment = Enum.TextXAlignment.Left
                 Label.Parent = Frame
@@ -520,7 +520,7 @@ function Library:CreateWindow(config)
                 BindBtn.Text = key.Name == "Unknown" and "[...]" or "["..key.Name.."]"
                 BindBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
                 BindBtn.Font = Enum.Font.GothamBold 
-                BindBtn.TextSize = 18 -- ИСПРАВЛЕНО: Увеличенный размер текста до 18
+                BindBtn.TextSize = 18 
                 BindBtn.Parent = Frame
                 Instance.new("UICorner", BindBtn).CornerRadius = UDim.new(0, 4)
                 
@@ -578,7 +578,7 @@ function Library:CreateWindow(config)
                 Label.BackgroundTransparency = 1
                 Label.Text = options.Name or "Input"
                 Label.TextColor3 = Color3.fromRGB(200, 200, 200)
-                Label.Font = Enum.Font.Gotham
+                Label.Font = Enum.Font.GothamBold -- ИСПРАВЛЕНО: GothamBold
                 Label.TextSize = 13
                 Label.Parent = Frame
 
@@ -588,7 +588,7 @@ function Library:CreateWindow(config)
                 Box.BackgroundColor3 = Color3.fromRGB(32, 32, 32)
                 Box.Text = text
                 Box.TextColor3 = Color3.fromRGB(180, 180, 180)
-                Box.Font = Enum.Font.Gotham
+                Box.Font = Enum.Font.GothamBold -- ИСПРАВЛЕНО: GothamBold
                 Box.TextSize = 12
                 Box.Parent = Frame
                 Instance.new("UICorner", Box).CornerRadius = UDim.new(0, 4)
