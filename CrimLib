@@ -525,6 +525,5 @@
             onCloseCallback = callback
         end
         return Window
-    end
     
     return Library
