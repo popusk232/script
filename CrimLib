@@ -1,5 +1,5 @@
 local Library = {}
--- ывфывфывфыв
+-- 14213123
 local Services = {
     TweenService = game:GetService("TweenService"),
     UserInputService = game:GetService("UserInputService"),
@@ -386,11 +386,12 @@ function Library:CreateWindow(config)
                 Button.Size = UDim2.new(0, 180, 0, 24)
                 Button.BackgroundColor3 = Color3.fromRGB(32, 32, 32)
                 Button.Text = "  " .. selected
-                Button.TextColor3 = Color3.fromRGB(200, 200, 200) -- ИСПРАВЛЕНО 3: Светлый текст для видимости
-                Button.Font = Enum.Font.GothamBold -- ИСПРАВЛЕНО 3: Жирный шрифт
+                Button.TextColor3 = Color3.fromRGB(200, 200, 200) 
+                Button.Font = Enum.Font.GothamBold
                 Button.TextSize = 12
                 Button.TextXAlignment = Enum.TextXAlignment.Left
                 Button.Parent = Frame
+                Button.ZIndex = 2 -- ИСПРАВЛЕНО: ZIndex для текста (кнопки)
                 Instance.new("UICorner", Button).CornerRadius = UDim.new(0, 4)
                 
                 -- Визуальный отклик на нажатие кнопки Dropdown
@@ -412,6 +413,7 @@ function Library:CreateWindow(config)
                 Arrow.Text = "▼"  
                 Arrow.TextColor3 = Color3.fromRGB(150, 150, 150)
                 Arrow.Font = Enum.Font.Gotham
+                Arrow.TextSize = 16 -- ИСПРАВЛЕНО: Увеличенный размер текста для стрелки
                 Arrow.Parent = Button
 
                 local DropdownFrame = Instance.new("ScrollingFrame")
@@ -419,7 +421,7 @@ function Library:CreateWindow(config)
                 DropdownFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
                 DropdownFrame.BorderSizePixel = 0
                 DropdownFrame.Visible = false
-                DropdownFrame.ZIndex = 100 -- ИСПРАВЛЕНО 3: Высокий ZIndex для отображения поверх других элементов
+                DropdownFrame.ZIndex = 100 
                 DropdownFrame.ScrollBarThickness = 4
                 DropdownFrame.Parent = ScreenGui
                 Instance.new("UICorner", DropdownFrame).CornerRadius = UDim.new(0, 4)
@@ -450,8 +452,8 @@ function Library:CreateWindow(config)
                     ItemBtn.Size = UDim2.new(1, 0, 0, 24)
                     ItemBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 35) 
                     ItemBtn.Text = "  " .. item
-                    ItemBtn.TextColor3 = Color3.fromRGB(200, 200, 200) -- ИСПРАВЛЕНО 3: Светлый текст для видимости
-                    ItemBtn.Font = Enum.Font.GothamBold -- ИСПРАВЛЕНО 3: Жирный шрифт
+                    ItemBtn.TextColor3 = Color3.fromRGB(200, 200, 200) 
+                    ItemBtn.Font = Enum.Font.GothamBold -- Жирный шрифт
                     ItemBtn.TextSize = 12
                     ItemBtn.TextXAlignment = Enum.TextXAlignment.Left
                     ItemBtn.Parent = DropdownFrame
@@ -517,8 +519,8 @@ function Library:CreateWindow(config)
                 BindBtn.BackgroundColor3 = Color3.fromRGB(32, 32, 32)
                 BindBtn.Text = key.Name == "Unknown" and "[...]" or "["..key.Name.."]"
                 BindBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
-                BindBtn.Font = Enum.Font.GothamBold -- ИСПРАВЛЕНО 2: Жирный шрифт
-                BindBtn.TextSize = 14
+                BindBtn.Font = Enum.Font.GothamBold 
+                BindBtn.TextSize = 18 -- ИСПРАВЛЕНО: Увеличенный размер текста до 18
                 BindBtn.Parent = Frame
                 Instance.new("UICorner", BindBtn).CornerRadius = UDim.new(0, 4)
                 
@@ -582,7 +584,7 @@ function Library:CreateWindow(config)
 
                 local Box = Instance.new("TextBox")
                 Box.Position = UDim2.new(0, 120, 0, 3)
-                Box.Size = UDim2.new(0, 140, 0, 24) -- ИСПРАВЛЕНО 1: Уменьшил ширину с 180 до 140
+                Box.Size = UDim2.new(0, 140, 0, 24) 
                 Box.BackgroundColor3 = Color3.fromRGB(32, 32, 32)
                 Box.Text = text
                 Box.TextColor3 = Color3.fromRGB(180, 180, 180)
