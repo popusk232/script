@@ -2,7 +2,7 @@
 --                         BEGIN SAPPHIRE LIBRARY
 -- This code is merged from sapphire.lua to create a single, stable script.
 -- ====================================================================================================
-
+-- вроде ворк, хз это гпт код
 local Library = {}
 local Services = {
     TweenService = game:GetService("TweenService"),
@@ -584,7 +584,7 @@ function Library:CreateWindow(config)
                     end,
                     SetValue = function(newValue)
                         selectedValue = newValue
-                        ValueButton.Text = "  " .. selectedValue
+                        ValueButton.Text = "  " .. tostring(selectedValue)
                     end,
                     Container = Container
                 }
