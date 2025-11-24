@@ -467,7 +467,146 @@ function Library:CreateWindow(config)
             end
             
             function Elements:Dropdown(options)
-                -- ... (rest of the library functions are the same)
+                local selectedValue = options.Default or options.Options[1]
+                local isOpen = false
+                
+                local Container = Instance.new("Frame")
+                Container.Parent = Scroll
+                Container.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+                Container.BorderSizePixel = 0
+                Container.Size = UDim2.new(1, -30, 0, 30)
+                Container.ClipsDescendants = false
+                Container.ZIndex = 5
+                
+                local Corner = Instance.new("UICorner")
+                Corner.CornerRadius = UDim.new(0, 4)
+                Corner.Parent = Container
+                
+                local NameLabel = createControlLabel(options.Name, Container)
+                NameLabel.Size = UDim2.new(0, 100, 1, 0)
+                NameLabel.ZIndex = 6
+                
+                local ValueButton = Instance.new("TextButton")
+                ValueButton.Parent = Container
+                ValueButton.BackgroundColor3 = Color3.fromRGB(32, 32, 32)
+                ValueButton.BorderSizePixel = 0
+                ValueButton.Position = UDim2.new(0, 120, 0, 3)
+                ValueButton.Size = UDim2.new(1, -135, 0, 24)
+                ValueButton.Font = Enum.Font.Gotham
+                ValueButton.Text = "  " .. selectedValue
+                ValueButton.TextColor3 = Color3.fromRGB(180, 180, 180)
+                ValueButton.TextSize = 12
+                ValueButton.TextXAlignment = Enum.TextXAlignment.Left
+                ValueButton.AutoButtonColor = false
+                ValueButton.ZIndex = 10
+                
+                local ValueCorner = Instance.new("UICorner")
+                ValueCorner.CornerRadius = UDim.new(0, 4)
+                ValueCorner.Parent = ValueButton
+                
+                local ArrowLabel = Instance.new("TextLabel")
+                ArrowLabel.Parent = ValueButton
+                ArrowLabel.BackgroundTransparency = 1
+                ArrowLabel.Position = UDim2.new(1, -20, 0, 0)
+                ArrowLabel.Size = UDim2.new(0, 20, 1, 0)
+                ArrowLabel.Font = Enum.Font.Gotham
+                ArrowLabel.Text = "▼"
+                ArrowLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+                ArrowLabel.TextSize = 10
+                ArrowLabel.ZIndex = 11
+                
+                local OptionsFrame = Instance.new("ScrollingFrame")
+                OptionsFrame.Parent = ScreenGui
+                OptionsFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+                OptionsFrame.BorderSizePixel = 0
+                OptionsFrame.Position = UDim2.new(0, 0, 0, 0)
+                OptionsFrame.Size = UDim2.new(0, 0, 0, 0)
+                OptionsFrame.Visible = false
+                OptionsFrame.ScrollBarThickness = 4
+                OptionsFrame.CanvasSize = UDim2.new(0, 0, 0, #options.Options * 26)
+                OptionsFrame.ZIndex = 100
+                
+                local OptionsCorner = Instance.new("UICorner")
+                OptionsCorner.CornerRadius = UDim.new(0, 4)
+                OptionsCorner.Parent = OptionsFrame
+                
+                local OptionsList = Instance.new("UIListLayout")
+                OptionsList.Parent = OptionsFrame
+                OptionsList.SortOrder = Enum.SortOrder.LayoutOrder
+                OptionsList.Padding = UDim.new(0, 2)
+                
+                for i, optionText in ipairs(options.Options) do
+                    local OptionBtn = Instance.new("TextButton")
+                    OptionBtn.Parent = OptionsFrame
+                    OptionBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+                    OptionBtn.BorderSizePixel = 0
+                    OptionBtn.Size = UDim2.new(1, -4, 0, 24)
+                    OptionBtn.Font = Enum.Font.Gotham
+                    OptionBtn.Text = "  " .. optionText
+                    OptionBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+                    OptionBtn.TextSize = 12
+                    OptionBtn.TextXAlignment = Enum.TextXAlignment.Left
+                    OptionBtn.AutoButtonColor = false
+                    OptionBtn.ZIndex = 101
+                    
+                    OptionBtn.MouseButton1Click:Connect(function()
+                        selectedValue = optionText
+                        ValueButton.Text = "  " .. selectedValue
+                        isOpen = false
+                        OptionsFrame.Visible = false
+                        OptionsFrame.Size = UDim2.new(0, 0, 0, 0)
+                        ArrowLabel.Rotation = 0
+                        if options.Callback then options.Callback(selectedValue) end
+                    end)
+                    
+                    OptionBtn.MouseEnter:Connect(function()
+                        OptionBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+                    end)
+                    
+                    OptionBtn.MouseLeave:Connect(function()
+                        OptionBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+                    end)
+                end
+                
+                ValueButton.MouseButton1Click:Connect(function()
+                    isOpen = not isOpen
+                    OptionsFrame.Visible = isOpen
+                    
+                    if isOpen then
+                        local btnPos = ValueButton.AbsolutePosition
+                        local btnSize = ValueButton.AbsoluteSize
+                        local maxHeight = math.min(#options.Options * 26, 150)
+                        
+                        OptionsFrame.Position = UDim2.new(0, btnPos.X, 0, btnPos.Y + btnSize.Y + 2)
+                        OptionsFrame.Size = UDim2.new(0, btnSize.X, 0, maxHeight)
+                        ArrowLabel.Rotation = 180
+                    else
+                        OptionsFrame.Size = UDim2.new(0, 0, 0, 0)
+                        ArrowLabel.Rotation = 0
+                    end
+                end)
+                
+                MainFrame:GetPropertyChangedSignal("AbsolutePosition"):Connect(function()
+                    if isOpen and OptionsFrame.Visible then
+                        local btnPos = ValueButton.AbsolutePosition
+                        local btnSize = ValueButton.AbsoluteSize
+                        OptionsFrame.Position = UDim2.new(0, btnPos.X, 0, btnPos.Y + btnSize.Y + 2)
+                    end
+                end)
+                
+                ValueButton.MouseEnter:Connect(function()
+                    if not isOpen then
+                        ValueButton.BackgroundColor3 = Color3.fromRGB(38, 38, 38)
+                    end
+                end)
+                
+                ValueButton.MouseLeave:Connect(function()
+                    if not isOpen then
+                        ValueButton.BackgroundColor3 = Color3.fromRGB(32, 32, 32)
+                    end
+                end)
+                
+                return Container
             end
 
             function Elements:Keybind(options)
@@ -492,3 +631,5 @@ function Library:CreateWindow(config)
 
     return Window
 end
+
+return Library
