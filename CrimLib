@@ -286,22 +286,28 @@ function Library:CreateWindow(config)
                         Fill.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
                         Button.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
                     end
-                    callback(state)
                 end
-
-                updateColor(enabled)
 
                 Button.MouseButton1Click:Connect(function()
                     enabled = not enabled
                     updateColor(enabled)
+                    callback(enabled)
                 end)
                 
+                Frame.setState = function(newState)
+                    enabled = newState
+                    updateColor(enabled)
+                    callback(enabled)
+                end
+
                 Frame.MouseEnter:Connect(function()
                     Services.TweenService:Create(Frame, TweenInfo.new(0.1, Enum.EasingStyle.Quad), { BackgroundColor3 = Color3.fromRGB(32, 32, 32) }):Play()
                 end)
                 Frame.MouseLeave:Connect(function()
                     Services.TweenService:Create(Frame, TweenInfo.new(0.1, Enum.EasingStyle.Quad), { BackgroundColor3 = Color3.fromRGB(28, 28, 28) }):Play()
                 end)
+
+                updateColor(enabled)
 
                 return Frame
             end
@@ -535,86 +541,178 @@ function Library:CreateWindow(config)
                 OptionsList.SortOrder = Enum.SortOrder.LayoutOrder
                 OptionsList.Padding = UDim.new(0, 2)
                 
-                for i, optionText in ipairs(options.Options) do
-                    local OptionBtn = Instance.new("TextButton")
-                    OptionBtn.Parent = OptionsFrame
-                    OptionBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
-                    OptionBtn.BorderSizePixel = 0
-                    OptionBtn.Size = UDim2.new(1, -4, 0, 24)
-                    OptionBtn.Font = Enum.Font.Gotham
-                    OptionBtn.Text = "  " .. optionText
-                    OptionBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
-                    OptionBtn.TextSize = 12
-                    OptionBtn.TextXAlignment = Enum.TextXAlignment.Left
-                    OptionBtn.AutoButtonColor = false
-                    OptionBtn.ZIndex = 101
-                    
-                    OptionBtn.MouseButton1Click:Connect(function()
-                        selectedValue = optionText
+                local dropdownObject = {
+                    SetValues = function(newOptions)
+                        for _, child in ipairs(OptionsFrame:GetChildren()) do
+                            if child:IsA("TextButton") then
+                                child:Destroy()
+                            end
+                        end
+                        for _, optionText in ipairs(newOptions) do
+                            local OptionBtn = Instance.new("TextButton")
+                            OptionBtn.Parent = OptionsFrame
+                            OptionBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+                            OptionBtn.BorderSizePixel = 0
+                            OptionBtn.Size = UDim2.new(1, -4, 0, 24)
+                            OptionBtn.Font = Enum.Font.Gotham
+                            OptionBtn.Text = "  " .. optionText
+                            OptionBtn.TextColor3 = Color3.fromRGB(180, 180, 180)
+                            OptionBtn.TextSize = 12
+                            OptionBtn.TextXAlignment = Enum.TextXAlignment.Left
+                            OptionBtn.AutoButtonColor = false
+                            OptionBtn.ZIndex = 101
+                            
+                            OptionBtn.MouseButton1Click:Connect(function()
+                                selectedValue = optionText
+                                ValueButton.Text = "  " .. selectedValue
+                                isOpen = false
+                                OptionsFrame.Visible = false
+                                OptionsFrame.Size = UDim2.new(0, 0, 0, 0)
+                                ArrowLabel.Rotation = 0
+                                if options.Callback then options.Callback(selectedValue) end
+                            end)
+                            
+                            OptionBtn.MouseEnter:Connect(function()
+                                OptionBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+                            end)
+                            
+                            OptionBtn.MouseLeave:Connect(function()
+                                OptionBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+                            end)
+                        end
+                        OptionsFrame.CanvasSize = UDim2.new(0, 0, 0, #newOptions * 26)
+                    end,
+                    SetValue = function(newValue)
+                        selectedValue = newValue
                         ValueButton.Text = "  " .. selectedValue
-                        isOpen = false
-                        OptionsFrame.Visible = false
-                        OptionsFrame.Size = UDim2.new(0, 0, 0, 0)
-                        ArrowLabel.Rotation = 0
-                        if options.Callback then options.Callback(selectedValue) end
-                    end)
-                    
-                    OptionBtn.MouseEnter:Connect(function()
-                        OptionBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-                    end)
-                    
-                    OptionBtn.MouseLeave:Connect(function()
-                        OptionBtn.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
-                    end)
-                end
+                    end,
+                    Container = Container
+                }
                 
-                ValueButton.MouseButton1Click:Connect(function()
-                    isOpen = not isOpen
-                    OptionsFrame.Visible = isOpen
-                    
-                    if isOpen then
-                        local btnPos = ValueButton.AbsolutePosition
-                        local btnSize = ValueButton.AbsoluteSize
-                        local maxHeight = math.min(#options.Options * 26, 150)
-                        
-                        OptionsFrame.Position = UDim2.new(0, btnPos.X, 0, btnPos.Y + btnSize.Y + 2)
-                        OptionsFrame.Size = UDim2.new(0, btnSize.X, 0, maxHeight)
-                        ArrowLabel.Rotation = 180
-                    else
-                        OptionsFrame.Size = UDim2.new(0, 0, 0, 0)
-                        ArrowLabel.Rotation = 0
-                    end
-                end)
-                
-                MainFrame:GetPropertyChangedSignal("AbsolutePosition"):Connect(function()
-                    if isOpen and OptionsFrame.Visible then
-                        local btnPos = ValueButton.AbsolutePosition
-                        local btnSize = ValueButton.AbsoluteSize
-                        OptionsFrame.Position = UDim2.new(0, btnPos.X, 0, btnPos.Y + btnSize.Y + 2)
-                    end
-                end)
-                
-                ValueButton.MouseEnter:Connect(function()
-                    if not isOpen then
-                        ValueButton.BackgroundColor3 = Color3.fromRGB(38, 38, 38)
-                    end
-                end)
-                
-                ValueButton.MouseLeave:Connect(function()
-                    if not isOpen then
-                        ValueButton.BackgroundColor3 = Color3.fromRGB(32, 32, 32)
-                    end
-                end)
-                
-                return Container
+                dropdownObject:SetValues(options.Options)
+                dropdownObject:SetValue(selectedValue)
+
+                return dropdownObject
             end
 
             function Elements:Keybind(options)
-                -- ...
+                local key = options.Default or Enum.KeyCode.None
+                local callback = options.Callback or function() end
+
+                local Frame = Instance.new("Frame")
+                Frame.Size = UDim2.new(1, -30, 0, 30)
+                Frame.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+                Frame.BorderSizePixel = 0
+                Frame.Parent = Scroll
+                Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 4)
+
+                local Label = createControlLabel(options.Name or "Keybind", Frame)
+                Label.Size = UDim2.new(0, 100, 1, 0)
+                
+                local KeyButton = Instance.new("TextButton")
+                KeyButton.Size = UDim2.new(1, -135, 1, -6)
+                KeyButton.Position = UDim2.new(0, 120, 0, 3)
+                KeyButton.BackgroundColor3 = Color3.fromRGB(32, 32, 32)
+                KeyButton.BorderSizePixel = 0
+                KeyButton.Text = tostring(key)
+                KeyButton.TextColor3 = Color3.fromRGB(180, 180, 180)
+                KeyButton.Font = Enum.Font.Gotham
+                KeyButton.TextSize = 13
+                KeyButton.Parent = Frame
+                Instance.new("UICorner", KeyButton).CornerRadius = UDim.new(0, 4)
+
+                local listening = false
+                KeyButton.MouseButton1Click:Connect(function()
+                    listening = true
+                    KeyButton.Text = "Press a key..."
+                    KeyButton.TextColor3 = Color3.fromRGB(255, 200, 50)
+                end)
+
+                Services.UserInputService.InputBegan:Connect(function(input, gameProcessed)
+                    if listening and not gameProcessed and input.UserInputType == Enum.UserInputType.Keyboard then
+                        key = input.KeyCode
+                        KeyButton.Text = tostring(key)
+                        KeyButton.TextColor3 = Color3.fromRGB(180, 180, 180)
+                        listening = false
+                        callback(key)
+                    end
+                end)
+
+                local keybindObject = {
+                    SetKey = function(newKey)
+                        key = newKey
+                        KeyButton.Text = tostring(key)
+                        callback(key)
+                    end,
+                    Container = Frame
+                }
+                return keybindObject
             end
 
             function Elements:Button(options)
                 -- ...
+            end
+
+            function Elements:Label(options)
+                local Frame = Instance.new("Frame")
+                Frame.Size = UDim2.new(1, -30, 0, 30)
+                Frame.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+                Frame.BorderSizePixel = 0
+                Frame.Parent = Scroll
+                Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 4)
+
+                local Label = createControlLabel(options.Name or "Label", Frame)
+                Label.Size = UDim2.new(1, -24, 1, 0)
+                Label.Text = options.Text or options.Name or "Label"
+                Label.TextXAlignment = Enum.TextXAlignment.Left
+
+                local labelObject = {
+                    SetText = function(newText)
+                        Label.Text = newText
+                    end,
+                    Container = Frame
+                }
+                return labelObject
+            end
+
+            function Elements:Textbox(options)
+                local Frame = Instance.new("Frame")
+                Frame.Size = UDim2.new(1, -30, 0, 30)
+                Frame.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+                Frame.BorderSizePixel = 0
+                Frame.Parent = Scroll
+                Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 4)
+
+                local Label = createControlLabel(options.Name or "Textbox", Frame)
+                Label.Size = UDim2.new(0, 100, 1, 0)
+                
+                local Box = Instance.new("TextBox")
+                Box.Size = UDim2.new(1, -112, 1, -6)
+                Box.Position = UDim2.new(0, 100, 0, 3)
+                Box.BackgroundColor3 = Color3.fromRGB(32, 32, 32)
+                Box.BorderSizePixel = 0
+                Box.Text = options.Default or ""
+                Box.TextColor3 = Color3.fromRGB(200, 200, 200)
+                Box.Font = Enum.Font.Gotham
+                Box.TextSize = 13
+                Box.Parent = Frame
+                Instance.new("UICorner", Box).CornerRadius = UDim.new(0, 4)
+
+                Box.FocusLost:Connect(function(enterPressed)
+                    if enterPressed then
+                        if options.Callback then
+                            options.Callback(Box.Text)
+                        end
+                    end
+                end)
+                
+                local textboxObject = {
+                    SetText = function(newText)
+                        Box.Text = newText
+                    end,
+                    Container = Frame
+                }
+                return textboxObject
             end
 
             return Elements, Frame -- Return both elements and the section frame
