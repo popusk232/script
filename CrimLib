@@ -1,3 +1,4 @@
+-- Services and global dependencies
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local CoreGui = game:GetService("CoreGui")
@@ -6,8 +7,10 @@ local LocalPlayer = Players.LocalPlayer
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Camera = workspace.CurrentCamera
+local Lighting = game:GetService("Lighting") -- Added for FullBright
 
-local CrimLib = {}
+-- Global CrimLib table, as requested by the user, mimicking Rayfield structure
+CrimLib = {}
 
 CrimLib.Services = {
     UserInputService = UserInputService,
@@ -17,86 +20,135 @@ CrimLib.Services = {
     LocalPlayer = LocalPlayer,
     RunService = RunService,
     ReplicatedStorage = ReplicatedStorage,
-    Camera = Camera
+    Camera = Camera,
+    Lighting = Lighting,
 }
 
--- Config and Constants will be initialized by the executable
+-- Config and Constants are assumed to be global variables defined in the executable script
+-- CrimLib will store references to them when initialized, but not define them here.
+-- CrimLib.Config.Data and CrimLib.Constants will be set in CrimLib:init
+-- For now, functions will directly reference the global ConfigData and Constants as per user request to mimic Rayfield global style for some data.
 CrimLib.Config = {
     CurrentConfigName = "...",
     ConfigToDeleteName = "...",
-    UI_Elements = {}
+    UI_Elements = {} -- This will store references to created UI elements
 }
-CrimLib.Constants = {}
-
-function CrimLib:init(configData, constants)
-    self.Config.Data = configData
-    self.Constants = constants
-end
-
 
 CrimLib.Features = {
     Connections = {},
     Ragebot_Coroutine = nil,
     Invis_AnimationTrack = nil,
-    Invis_CamoAnim = Instance.new("Animation", getfenv().script),
+    Invis_CamoAnim = Instance.new("Animation"), -- No parent here, set when loaded by humanoids
 }
+CrimLib.Features.Invis_CamoAnim.AnimationId = "rbxassetid://215384594" -- Set animation ID
 
+
+-- JSON utility functions (from original script)
 local function json_encode(data)
-    if type(_G.json_encode) == "function" then
-        return pcall(_G.json_encode, data)
-    elseif type(json) == "table" and type(json.encode) == "function" then
-        return pcall(json.encode, data)
+    local json = _G.json or {}
+    _G.json = json
+    if type(json.encode) ~= "function" then
+        local escape_chars = { ['\'] = '\\', ['"'] = '\"', ['\b'] = '\b', ['\f'] = '\f', ['\n'] = '\n', ['\r'] = '\r', ['\t'] = '\t' }
+        local function escape_string(s)
+            return string.gsub(s, '([\"
+
+	])', escape_chars)
+        end
+        function json.encode(value)
+            local t = type(value)
+            if t == "string" then
+                return '"' .. escape_string(value) .. '"'
+            elseif t == "number" or t == "boolean" then
+                return tostring(value)
+            elseif t == "nil" then
+                return "null"
+            elseif t == "table" then
+                local parts = {}
+                local is_array = true
+                local i = 1
+                for k, v in pairs(value) do
+                    if k == i then
+                        table.insert(parts, json.encode(v))
+                        i = i + 1
+                    else
+                        is_array = false
+                        break
+                    end
+                end
+
+                if is_array then
+                    return "[" .. table.concat(parts, ",") .. "]"
+                else
+                    parts = {}
+                    for k, v in pairs(value) do
+                        if type(k) == "string" then
+                            table.insert(parts, '"' .. escape_string(k) .. '":' .. json.encode(v))
+                        end
+                    end
+                    return "{" .. table.concat(parts, ",") .. "}"
+                end
+            end
+            return "null"
+        end
     end
-    return false, "{}"
+    local success, result = pcall(json.encode, data)
+    return success, result
 end
 
 local function json_decode(data)
-    if type(_G.json_decode) == "function" then
-        return pcall(_G.json_decode, data)
-    elseif type(json) == "table" and type(json.decode) == "function" then
-        return pcall(json.decode, data)
+    local json = _G.json or {}
+    _G.json = json
+    if type(json.decode) ~= "function" then
+        -- Simple placeholder, assumes native/environment decode is missing
+        function json.decode(s)
+             return nil, "JSON decode function missing. Config loading may fail."
+        end
     end
-    return false, {}
+    local success, result = pcall(json.decode, data)
+    return success, result
 end
 
+
+-- File I/O utility (from original script)
 local function has_file_io()
     return type(readfile) == "function" and type(writefile) == "function"
 end
 
 local function ensureConfigFolder()
     if has_file_io() and type(makefolder) == "function" then
-        if type(isfolder) == "function" and not isfolder(CrimLib.Constants.CONFIG_FOLDER) then
-            pcall(makefolder, CrimLib.Constants.CONFIG_FOLDER)
+        if type(isfolder) == "function" and not isfolder(Constants.CONFIG_FOLDER) then
+            pcall(makefolder, Constants.CONFIG_FOLDER)
         elseif type(isfolder) ~= "function" then
-             pcall(makefolder, CrimLib.Constants.CONFIG_FOLDER)
+             pcall(makefolder, Constants.CONFIG_FOLDER)
         end
     end
 end
 
+-- Config methods (from original script, adjusted to use global ConfigData and Constants)
 function CrimLib.Config:GetFileName(inputName)
-    local C = CrimLib.Constants
+    local C = Constants
     if not inputName or inputName == "" or inputName == "..." then
         return C.CONFIG_FOLDER .. C.DEFAULT_CONFIG_NAME .. C.CONFIG_EXTENSION
     end
-    local name = string.gsub(inputName, C.CONFIG_EXTENSION .. "$", "")
+    local nameWithoutExt = string.gsub(inputName, Constants.CONFIG_EXTENSION .. "$", "")
     local fullPathPrefix = C.CONFIG_FOLDER
-    name = string.gsub(name, "^" .. fullPathPrefix, "")
-    name = string.gsub(name, "^%./" .. fullPathPrefix, "")
-    name = string.gsub(name, "^%./", "")
-    return C.CONFIG_FOLDER .. name .. C.CONFIG_EXTENSION
+    nameWithoutExt = string.gsub(nameWithoutExt, '^' .. fullPathPrefix, "")
+    nameWithoutExt = string.gsub(nameWithoutExt, '^%./' .. fullPathPrefix, "")
+    nameWithoutExt = string.gsub(nameWithoutExt, '^%./', "")
+    return C.CONFIG_FOLDER .. nameWithoutExt .. C.CONFIG_EXTENSION
 end
 
 function CrimLib.Config:ListConfigFiles()
     local files = {}
-    local C = CrimLib.Constants
+    local C = Constants
     local fullPathPrefix = C.CONFIG_FOLDER
     if not has_file_io() then return files end
     if type(isfolder) == "function" and not isfolder(fullPathPrefix) then
         return files
     end
     local function cleanFileName(fileName)
-        fileName = string.gsub(fileName, "^%./", "")
-        fileName = string.gsub(fileName, "^" .. fullPathPrefix, "")
+        fileName = string.gsub(fileName, '^%./', "")
+        fileName = string.gsub(fileName, '^' .. fullPathPrefix, "")
         if string.sub(fileName, -string.len(C.CONFIG_EXTENSION)) == C.CONFIG_EXTENSION then
             fileName = string.sub(fileName, 1, -string.len(C.CONFIG_EXTENSION) - 1)
         end
@@ -151,19 +203,19 @@ end
 
 function CrimLib.Config:Save(fileName)
     if not has_file_io() then
-        warn("[CrimLib Config] Save failed. Requires file I/O.")
-        self:UpdateStatus("Ошибка сохранения: отсутствует доступ к файловой системе.", Color3.fromRGB(200, 70, 70))
+        warn("Save failed. Requires file I/O.")
+        CrimLib.Config:UpdateStatus("Ошибка сохранения: отсутствует доступ к файловой системе.", Color3.fromRGB(200, 70, 70))
         return
     end
     ensureConfigFolder()
-    local nameWithoutExt = string.gsub(fileName, CrimLib.Constants.CONFIG_EXTENSION .. "$", "")
-    local finalFileName = self:GetFileName(nameWithoutExt)
-    local encode_success, jsonString = json_encode(self.Data)
+    local nameWithoutExt = string.gsub(fileName, Constants.CONFIG_EXTENSION .. "$", "")
+    local finalFileName = CrimLib.Config:GetFileName(nameWithoutExt)
+    local encode_success, jsonString = json_encode(ConfigData)
     local success = false
     if encode_success and type(jsonString) == "string" then
         success = pcall(writefile, finalFileName, jsonString)
     else
-        warn("[CrimLib Config] Save failed: JSON Encoding failed: " .. tostring(jsonString or "unknown error"))
+        warn("Save failed: JSON Encoding failed: " .. tostring(jsonString or "unknown error"))
     end
     
     local SaveButton = CrimLib.Config.UI_Elements.SaveButton
@@ -172,7 +224,7 @@ function CrimLib.Config:Save(fileName)
     local statusText = success and ("Конфиг '" .. nameWithoutExt .. "' сохранен.") or "Ошибка сохранения: JSON / Запись файла."
     local statusColor = success and Color3.fromRGB(70, 200, 70) or Color3.fromRGB(200, 70, 70)
 
-    self:UpdateStatus(statusText, statusColor)
+    CrimLib.Config:UpdateStatus(statusText, statusColor)
 
     if SaveButton then
         SaveButton.Text = success and "СОХРАНЕНО!" or "ОШИБКА!"
@@ -187,20 +239,20 @@ function CrimLib.Config:Save(fileName)
     end
 
     if success and nameWithoutExt ~= "" and nameWithoutExt ~= "..." then
-        self.CurrentConfigName = nameWithoutExt
+        CrimLib.Config.CurrentConfigName = nameWithoutExt
         if CrimLib.Config.UI_Elements.ConfigDisplayButton then
-             CrimLib.Config.UI_Elements.ConfigDisplayButton.Text = "Current Config: " .. self.CurrentConfigName
+             CrimLib.Config.UI_Elements.ConfigDisplayButton.Text = "Current Config: " .. CrimLib.Config.CurrentConfigName
         end
     end
 end
 
 function CrimLib.Config:Load(configName)
     if not has_file_io() then
-        warn("[CrimLib Config] Load failed. Requires file I/O.")
-        self:UpdateStatus("Ошибка загрузки: отсутствует доступ к файловой системе.", Color3.fromRGB(200, 70, 70))
+        warn("Load failed. Requires file I/O.")
+        CrimLib.Config:UpdateStatus("Ошибка загрузки: отсутствует доступ к файловой системе.", Color3.fromRGB(200, 70, 70))
         return
     end
-    local finalFileName = self:GetFileName(configName)
+    local finalFileName = CrimLib.Config:GetFileName(configName)
     local loadedData
     local read_success, jsonString = false, nil
     if isfile(finalFileName) then
@@ -218,19 +270,19 @@ function CrimLib.Config:Load(configName)
     if decode_success and type(loadedData) == "table" then
         apply_success, _ = pcall(function()
             for k, v in pairs(loadedData) do
-                self.Data[k] = v
+                ConfigData[k] = v
             end
         end)
     end
     
     if apply_success then
-        CrimLib.UI:ApplyConfigToUI()
-        self.CurrentConfigName = configName
+        CrimLib.UI:ApplyConfigToUI() -- Apply initial config values
+        CrimLib.Config.CurrentConfigName = configName
         if CrimLib.Config.UI_Elements.ConfigDisplayButton then
             CrimLib.Config.UI_Elements.ConfigDisplayButton.Text = "Current Config: " .. configName
         end
         
-        self:UpdateStatus("Конфиг '" .. configName .. "' загружен.", Color3.fromRGB(70, 200, 70))
+        CrimLib.Config:UpdateStatus("Конфиг '" .. configName .. "' загружен.", Color3.fromRGB(70, 200, 70))
 
         if LoadButton then
             LoadButton.Text = "ЗАГРУЖЕНО!"
@@ -242,7 +294,7 @@ function CrimLib.Config:Load(configName)
     else
         local errorText = "Ошибка загрузки: "
         local errorColor = Color3.fromRGB(200, 70, 70)
-        if not read_success or not isfile(finalFileName) then
+        if not read_success or (type(isfile) == "function" and not isfile(finalFileName)) then
             errorText = "Файл конфига '" .. configName .. "' не найден."
             errorColor = Color3.fromRGB(200, 150, 70)
         elseif not decode_success then
@@ -251,9 +303,9 @@ function CrimLib.Config:Load(configName)
             errorText = "Поврежденные данные."
         end
         
-        self:UpdateStatus(errorText, errorColor)
+        CrimLib.Config:UpdateStatus(errorText, errorColor)
 
-        self.CurrentConfigName = "..."
+        CrimLib.Config.CurrentConfigName = "..."
         if CrimLib.Config.UI_Elements.ConfigDisplayButton then
             CrimLib.Config.UI_Elements.ConfigDisplayButton.Text = "Current Config: ..."
         end
@@ -270,17 +322,17 @@ end
 
 function CrimLib.Config:Delete(configName)
     if not has_file_io() or type(delfile) ~= "function" then
-        warn("[CrimLib Config] Delete failed. Requires file I/O and delfile function.")
-        self:UpdateStatus("Ошибка удаления: отсутствует доступ к файловой системе.", Color3.fromRGB(200, 70, 70))
+        warn("Delete failed. Requires file I/O and delfile function.")
+        CrimLib.Config:UpdateStatus("Ошибка удаления: отсутствует доступ к файловой системе.", Color3.fromRGB(200, 70, 70))
         return false
     end
-    local finalFileName = self:GetFileName(configName)
+    local finalFileName = CrimLib.Config:GetFileName(configName)
     local DeleteButton = CrimLib.Config.UI_Elements.DeleteButton
     
     if type(isfile) == "function" and not isfile(finalFileName) then
-        self:UpdateStatus("Ошибка: Файл конфига '" .. configName .. "' не найден.", Color3.fromRGB(200, 150, 70))
+        CrimLib.Config:UpdateStatus("Ошибка: Файл конфига '" .. configName .. "' не найден.", Color3.fromRGB(200, 150, 70))
+        local originalColor = DeleteButton and DeleteButton.BackgroundColor3
         if DeleteButton then
-            local originalColor = DeleteButton.BackgroundColor3
             DeleteButton.Text = "НЕ НАЙДЕНО"
             DeleteButton.BackgroundColor3 = Color3.fromRGB(200, 150, 70)
             task.wait(1.5)
@@ -289,7 +341,7 @@ function CrimLib.Config:Delete(configName)
         end
         CrimLib.UI:PopulateConfigList(true)
         CrimLib.UI:PopulateDeleteConfigList(true)
-        self.ConfigToDeleteName = "..."
+        CrimLib.Config.ConfigToDeleteName = "..."
         if CrimLib.Config.UI_Elements.DeleteConfigDisplayButton then
              CrimLib.Config.UI_Elements.DeleteConfigDisplayButton.Text = "Config to Delete: ..."
         end
@@ -297,16 +349,17 @@ function CrimLib.Config:Delete(configName)
     end
     
     local success, err = pcall(delfile, finalFileName)
+    local originalColor = DeleteButton and DeleteButton.BackgroundColor3
     
     if DeleteButton then
-        local originalColor = DeleteButton.BackgroundColor3
-        local statusText, statusColor
+        local statusText
+        local statusColor
         if success then
             statusText = "Конфиг '" .. configName .. "' удален."
             statusColor = Color3.fromRGB(255, 60, 60)
             
-            if self.CurrentConfigName == configName then
-                self.CurrentConfigName = "..."
+            if CrimLib.Config.CurrentConfigName == configName then
+                CrimLib.Config.CurrentConfigName = "..."
                 if CrimLib.Config.UI_Elements.ConfigDisplayButton then
                     CrimLib.Config.UI_Elements.ConfigDisplayButton.Text = "Current Config: ..."
                     if CrimLib.Config.UI_Elements.ConfigArrow then CrimLib.Config.UI_Elements.ConfigArrow.Text = "►" end
@@ -314,17 +367,16 @@ function CrimLib.Config:Delete(configName)
             end
             CrimLib.UI:PopulateConfigList(true)
             CrimLib.UI:PopulateDeleteConfigList(true)
-            self.ConfigToDeleteName = "..."
+            CrimLib.Config.ConfigToDeleteName = "..."
             if CrimLib.Config.UI_Elements.DeleteConfigDisplayButton then
                  CrimLib.Config.UI_Elements.DeleteConfigDisplayButton.Text = "Config to Delete: ..."
-                 if CrimLib.Config.UI_Elements.DeleteArrow then CrimLib.Config.UI_Elements.DeleteArrow.Text = "►" end
             end
         else
             statusText = "Ошибка удаления конфига '" .. configName .. "': " .. tostring(err)
             statusColor = Color3.fromRGB(200, 70, 70)
         end
         
-        self:UpdateStatus(statusText, statusColor)
+        CrimLib.Config:UpdateStatus(statusText, statusColor)
 
         DeleteButton.Text = success and "УДАЛЕНО!" or "ОШИБКА!"
         DeleteButton.BackgroundColor3 = statusColor
@@ -337,16 +389,16 @@ function CrimLib.Config:Delete(configName)
 end
 
 
--- Features
+-- Features (from original script, adjusted to use global ConfigData and Services)
 function CrimLib.Features:Attack(target)
     if not target or not target:FindFirstChild("Head") then return end
-    local character = LocalPlayer.Character
+    local character = Services.LocalPlayer.Character
     local tool = character and character:FindFirstChildOfClass("Tool")
     local humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart")
     if not tool or not humanoidRootPart then return end
     
-    local remoteFunction = ReplicatedStorage:FindFirstChild("Events", true) and ReplicatedStorage.Events:FindFirstChild("XMHH.2")
-    local remoteEvent = ReplicatedStorage:FindFirstChild("Events", true) and ReplicatedStorage.Events:FindFirstChild("XMHH2.2")
+    local remoteFunction = Services.ReplicatedStorage:FindFirstChild("Events", true) and Services.ReplicatedStorage.Events:FindFirstChild("XMHH.2")
+    local remoteEvent = Services.ReplicatedStorage:FindFirstChild("Events", true) and Services.ReplicatedStorage.Events:FindFirstChild("XMHH2.2")
     if not remoteFunction or not remoteEvent then return end
 
     local args1 = { "🍞", tick(), tool, "43TRFWX", "Normal", tick(), true }
@@ -362,26 +414,25 @@ function CrimLib.Features:Attack(target)
 end
 
 function CrimLib.Features:MeleeAuraEnable()
-    local Config = CrimLib.Config
-    if Config.Data.MeleeAura_Enabled then return end
-    Config.Data.MeleeAura_Enabled = true
+    if ConfigData.MeleeAura_Enabled then return end
+    ConfigData.MeleeAura_Enabled = true
     if self.Connections.MeleeAura then self.Connections.MeleeAura:Disconnect() end
     
-    self.Connections.MeleeAura = RunService.RenderStepped:Connect(function()
-        if not Config.Data.MeleeAura_Enabled then return end
-        local character = LocalPlayer.Character
+    self.Connections.MeleeAura = Services.RunService.RenderStepped:Connect(function()
+        if not ConfigData.MeleeAura_Enabled then return end
+        local character = Services.LocalPlayer.Character
         local humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart")
         if not humanoidRootPart then return end
         
-        for _, otherPlayer in ipairs(Players:GetPlayers()) do
-            if otherPlayer ~= LocalPlayer then
+        for _, otherPlayer in ipairs(Services.Players:GetPlayers()) do
+            if otherPlayer ~= Services.LocalPlayer then
                 local otherCharacter = otherPlayer.Character
                 local otherHRP = otherCharacter and otherCharacter:FindFirstChild("HumanoidRootPart")
                 local otherHumanoid = otherCharacter and otherCharacter:FindFirstChildOfClass("Humanoid")
                 if otherHRP and otherHumanoid then
                     local distance = (humanoidRootPart.Position - otherHRP.Position).Magnitude
-                    if distance < Config.Data.MeleeAura_Distance and otherHumanoid.Health > 15 and not otherCharacter:FindFirstChildOfClass("ForceField") then
-                        self:Attack(otherCharacter)
+                    if distance < ConfigData.MeleeAura_Distance and otherHumanoid.Health > 15 and not otherCharacter:FindFirstChildOfClass("ForceField") then
+                        CrimLib.Features:Attack(otherCharacter)
                     end
                 end
             end
@@ -390,9 +441,8 @@ function CrimLib.Features:MeleeAuraEnable()
 end
 
 function CrimLib.Features:MeleeAuraDisable()
-    local Config = CrimLib.Config
-    if not Config.Data.MeleeAura_Enabled then return end
-    Config.Data.MeleeAura_Enabled = false
+    if not ConfigData.MeleeAura_Enabled then return end
+    ConfigData.MeleeAura_Enabled = false
     if self.Connections.MeleeAura then
         self.Connections.MeleeAura:Disconnect()
         self.Connections.MeleeAura = nil
@@ -400,42 +450,41 @@ function CrimLib.Features:MeleeAuraDisable()
 end
 
 function CrimLib.Features:FovEnable()
-    CrimLib.Config.Data.Fov_Enabled = true
+    ConfigData.Fov_Enabled = true
     if self.Connections.Fov then self.Connections.Fov:Disconnect() end
-    self.Connections.Fov = RunService.RenderStepped:Connect(function()
-        if CrimLib.Config.Data.Fov_Enabled then
-            Camera.FieldOfView = CrimLib.Config.Data.Fov_Value
+    self.Connections.Fov = Services.RunService.RenderStepped:Connect(function()
+        if ConfigData.Fov_Enabled then
+            Services.Camera.FieldOfView = ConfigData.Fov_Value
         end
     end)
 end
 
 function CrimLib.Features:FovDisable()
-    CrimLib.Config.Data.Fov_Enabled = false
+    ConfigData.Fov_Enabled = false
     if self.Connections.Fov then
         self.Connections.Fov:Disconnect()
         self.Connections.Fov = nil
     end
-    pcall(function() Camera.FieldOfView = workspace.CurrentCamera.FieldOfView end)
+    pcall(function() Services.Camera.FieldOfView = workspace.CurrentCamera.FieldOfView end)
 end
 
 function CrimLib.Features:GetClosestEnemy()
-    local myCharacter = LocalPlayer.Character
-    local myHRP = myCharacter and myCharacter:FindFirstChild("HumanoidRootPart")
-    if not myHRP then return nil end
+    local character = Services.LocalPlayer.Character
+    local humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return end
 
     local closestEnemy = nil
-    local shortestDistance = CrimLib.Config.Data.Ragebot_MaxDistance
-    local Config = CrimLib.Config.Data
+    local shortestDistance = ConfigData.Ragebot_MaxDistance
 
-    if Config.Ragebot_TargetMode == "Distance" then
-        for _, otherPlayer in ipairs(Players:GetPlayers()) do
-            if otherPlayer ~= LocalPlayer then
-                if (not Config.Ragebot_UseNameTarget or otherPlayer.Name == Config.Ragebot_TargetName) then
-                    local enemyCharacter = otherPlayer.Character
-                    local enemyHRP = enemyCharacter and enemyCharacter:FindFirstChild("HumanoidRootPart")
-                    local enemyHumanoid = enemyCharacter and enemyCharacter:FindFirstChildOfClass("Humanoid")
-                    if enemyHRP and enemyHumanoid and enemyHumanoid.Health > Config.Ragebot_MinHealth and not enemyCharacter:FindFirstChildOfClass("ForceField") then
-                        local distance = (myHRP.Position - enemyHRP.Position).Magnitude
+    if ConfigData.Ragebot_TargetMode == "Distance" then
+        for _, otherPlayer in ipairs(Services.Players:GetPlayers()) do
+            if otherPlayer ~= Services.LocalPlayer then
+                if (not ConfigData.Ragebot_UseNameTarget or otherPlayer.Name == ConfigData.Ragebot_TargetName) then
+                    local otherCharacter = otherPlayer.Character
+                    local otherHRP = otherCharacter and otherCharacter:FindFirstChild("HumanoidRootPart")
+                    local otherHumanoid = otherCharacter and otherCharacter:FindFirstChildOfClass("Humanoid")
+                    if otherHRP and otherHumanoid and otherHumanoid.Health > ConfigData.Ragebot_MinHealth and not otherCharacter:FindFirstChildOfClass("ForceField") then
+                        local distance = (humanoidRootPart.Position - otherHRP.Position).Magnitude
                         if distance < shortestDistance then
                             shortestDistance = distance
                             closestEnemy = otherPlayer
@@ -444,19 +493,19 @@ function CrimLib.Features:GetClosestEnemy()
                 end
             end
         end
-    elseif Config.Ragebot_TargetMode == "Crosshair" then
+    elseif ConfigData.Ragebot_TargetMode == "Crosshair" then
         local minCrosshairDist = math.huge
-        local viewportCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-        for _, otherPlayer in ipairs(Players:GetPlayers()) do
-            if otherPlayer ~= LocalPlayer then
-                if (not Config.Ragebot_UseNameTarget or otherPlayer.Name == Config.Ragebot_TargetName) then
-                    local enemyCharacter = otherPlayer.Character
-                    local enemyHRP = enemyCharacter and enemyCharacter:FindFirstChild("HumanoidRootPart")
-                    local enemyHumanoid = enemyCharacter and enemyCharacter:FindFirstChildOfClass("Humanoid")
-                    if enemyHRP and enemyHumanoid and enemyHumanoid.Health > Config.Ragebot_MinHealth and not enemyCharacter:FindFirstChildOfClass("ForceField") then
-                        local distance3D = (myHRP.Position - enemyHRP.Position).Magnitude
+        local viewportCenter = Vector2.new(Services.Camera.ViewportSize.X / 2, Services.Camera.ViewportSize.Y / 2)
+        for _, otherPlayer in ipairs(Services.Players:GetPlayers()) do
+            if otherPlayer ~= Services.LocalPlayer then
+                if (not ConfigData.Ragebot_UseNameTarget or otherPlayer.Name == ConfigData.Ragebot_TargetName) then
+                    local otherCharacter = otherPlayer.Character
+                    local otherHRP = otherCharacter and otherCharacter:FindFirstChild("HumanoidRootPart")
+                    local otherHumanoid = otherCharacter and otherCharacter:FindFirstChildOfClass("Humanoid")
+                    if otherHRP and otherHumanoid and otherHumanoid.Health > ConfigData.Ragebot_MinHealth and not otherCharacter:FindFirstChildOfClass("ForceField") then
+                        local distance3D = (humanoidRootPart.Position - otherHRP.Position).Magnitude
                         if distance3D < shortestDistance then
-                            local screenPos, onScreen = Camera:WorldToScreenPoint(enemyHRP.Position)
+                            local screenPos, onScreen = Services.Camera:WorldToScreenPoint(otherHRP.Position)
                             if onScreen then
                                 local crosshairDist = (Vector2.new(screenPos.X, screenPos.Y) - viewportCenter).Magnitude
                                 if crosshairDist < minCrosshairDist then
@@ -477,18 +526,18 @@ function CrimLib.Features:Shoot(targetPlayer)
     if not targetPlayer or not targetPlayer.Character then return end
     local targetPart = targetPlayer.Character:FindFirstChild("Head") or targetPlayer.Character:FindFirstChild("HumanoidRootPart")
     if not targetPart then return end
-    local myCharacter = LocalPlayer.Character
+    local myCharacter = Services.LocalPlayer.Character
     local tool = myCharacter and myCharacter:FindFirstChildOfClass("Tool")
     if not tool then return end
 
-    local remote1_Rage = ReplicatedStorage:FindFirstChild("Events", true) and ReplicatedStorage.Events:FindFirstChild("GNX_S")
-    local remote2_Rage = ReplicatedStorage:FindFirstChild("Events", true) and ReplicatedStorage.Events:FindFirstChild("ZFKLF__H")
+    local remote1_Rage = Services.ReplicatedStorage:FindFirstChild("Events", true) and Services.ReplicatedStorage.Events:FindFirstChild("GNX_S")
+    local remote2_Rage = Services.ReplicatedStorage:FindFirstChild("Events", true) and Services.ReplicatedStorage.Events:FindFirstChild("ZFKLF__H")
     if not remote1_Rage or not remote2_Rage then return end
 
     local randomKey = string.rep(string.char(math.random(97, 122)), 30) .. "0"
-    local hitDirection = (targetPart.Position - Camera.CFrame.Position).Unit
+    local hitDirection = (targetPart.Position - Services.Camera.CFrame.Position).Unit
 
-    pcall(function() remote1_Rage:FireServer(tick(), randomKey, tool, "FDS9I83", Camera.CFrame.Position, {hitDirection}, false) end)
+    pcall(function() remote1_Rage:FireServer(tick(), randomKey, tool, "FDS9I83", Services.Camera.CFrame.Position, {hitDirection}, false) end)
     pcall(function() remote2_Rage:FireServer("🧈", tool, randomKey, 1, targetPart, targetPart.Position, hitDirection, nil, nil) end)
 end
 
@@ -503,7 +552,7 @@ function CrimLib.Features:UpdateTargetInfoWindow(targetPlayer)
 
     TargetInfoWindow.Visible = true
     local humanoid = targetPlayer.Character:FindFirstChildOfClass("Humanoid")
-    local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    local myHRP = Services.LocalPlayer.Character and Services.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
 
     local healthPercent = humanoid.Health / humanoid.MaxHealth
@@ -516,43 +565,42 @@ function CrimLib.Features:UpdateTargetInfoWindow(targetPlayer)
 end
 
 function CrimLib.Features:RagebotLoop()
-    while CrimLib.Config.Data.Ragebot_Enabled do
-        local target = self:GetClosestEnemy()
-        self:UpdateTargetInfoWindow(target)
+    while ConfigData.Ragebot_Enabled do
+        local target = CrimLib.Features:GetClosestEnemy()
+        CrimLib.Features:UpdateTargetInfoWindow(target)
         if target then
-            self:Shoot(target)
+            CrimLib.Features:Shoot(target)
             task.wait(0.05)
         else
             task.wait(0.1)
         end
     end
     self.Ragebot_Coroutine = nil
-    self:UpdateTargetInfoWindow(nil)
+    CrimLib.Features:UpdateTargetInfoWindow(nil)
 end
 
 function CrimLib.Features:RagebotEnable()
-    if CrimLib.Config.Data.Ragebot_Enabled then return end
-    CrimLib.Config.Data.Ragebot_Enabled = true
+    if ConfigData.Ragebot_Enabled then return end
+    ConfigData.Ragebot_Enabled = true
     if not self.Ragebot_Coroutine then
-        self.Ragebot_Coroutine = coroutine.create(function() self:RagebotLoop() end)
+        self.Ragebot_Coroutine = coroutine.create(function() CrimLib.Features:RagebotLoop() end)
         coroutine.resume(self.Ragebot_Coroutine)
     end
 end
 
 function CrimLib.Features:RagebotDisable()
-    if not CrimLib.Config.Data.Ragebot_Enabled then return end
-    CrimLib.Config.Data.Ragebot_Enabled = false
-    self:UpdateTargetInfoWindow(nil)
+    if not ConfigData.Ragebot_Enabled then return end
+    ConfigData.Ragebot_Enabled = false
+    CrimLib.Features:UpdateTargetInfoWindow(nil)
 end
 
 function CrimLib.Features:InfiniteStaminaEnable()
-    local Config = CrimLib.Config
-    if Config.Data.InfiniteStamina_Enabled then return end
-    Config.Data.InfiniteStamina_Enabled = true
+    if ConfigData.InfiniteStamina_Enabled then return end
+    ConfigData.InfiniteStamina_Enabled = true
     if self.Connections.InfiniteStamina then self.Connections.InfiniteStamina:Disconnect() end
-    self.Connections.InfiniteStamina = RunService.RenderStepped:Connect(function()
-        if not Config.Data.InfiniteStamina_Enabled then return end
-        local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+    self.Connections.InfiniteStamina = Services.RunService.RenderStepped:Connect(function()
+        if not ConfigData.InfiniteStamina_Enabled then return end
+        local humanoid = Services.LocalPlayer.Character and Services.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
         if humanoid and not humanoid:GetAttribute("ZSPRN_M") then
             humanoid:SetAttribute("ZSPRN_M", true)
         end
@@ -560,40 +608,59 @@ function CrimLib.Features:InfiniteStaminaEnable()
 end
 
 function CrimLib.Features:InfiniteStaminaDisable()
-    local Config = CrimLib.Config
-    if not Config.Data.InfiniteStamina_Enabled then return end
-    Config.Data.InfiniteStamina_Enabled = false
+    if not ConfigData.InfiniteStamina_Enabled then return end
+    ConfigData.InfiniteStamina_Enabled = false
     if self.Connections.InfiniteStamina then
         self.Connections.InfiniteStamina:Disconnect()
         self.Connections.InfiniteStamina = nil
     end
-    local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+    local humanoid = Services.LocalPlayer.Character and Services.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
     if humanoid and humanoid:GetAttribute("ZSPRN_M") then
         humanoid:SetAttribute("ZSPRN_M", nil)
     end
 end
 
+function CrimLib.Features:Invis_CheckR6()
+    local char = Services.LocalPlayer.Character
+    return char and char:FindFirstChild("Torso") ~= nil
+end
+
+function CrimLib.Features:Invis_IsGrounded()
+    local char = Services.LocalPlayer.Character
+    local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+    return humanoid and humanoid:IsDescendantOf(workspace) and humanoid.FloorMaterial ~= Enum.Material.Air
+end
+
+function CrimLib.Features:LoadAnimationTrack()
+    if self.Invis_AnimationTrack then pcall(function() self.Invis_AnimationTrack:Stop() end) self.Invis_AnimationTrack = nil end
+    local humanoid = Services.LocalPlayer.Character and Services.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        local success, result = pcall(function() return humanoid:LoadAnimation(self.Invis_CamoAnim) end)
+        if success then self.Invis_AnimationTrack = result self.Invis_AnimationTrack.Priority = Enum.AnimationPriority.Action4 end
+    end
+end
+
 function CrimLib.Features:InvisibilityStep(deltaTime)
-    local Config = CrimLib.Config
-    if not Config.Data.Invisibility_Enabled then return end
+    if not ConfigData.Invisibility_Enabled then return end
     
-    local char = LocalPlayer.Character
+    local char = Services.LocalPlayer.Character
     local humanoid = char and char:FindFirstChildOfClass("Humanoid")
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if not char or not humanoid or not hrp then return end
 
     local Invis_WarningLabel = CrimLib.Config.UI_Elements.Invis_WarningLabel
     if Invis_WarningLabel then
-        Invis_WarningLabel.Visible = humanoid.FloorMaterial == Enum.Material.Air
+        Invis_WarningLabel.Visible = not CrimLib.Features:Invis_IsGrounded()
     end
 
+    local walkSpeed = 12
     if humanoid.MoveDirection.Magnitude > 0 then
-        hrp.CFrame = hrp.CFrame + humanoid.MoveDirection * 12 * deltaTime
+        hrp.CFrame = hrp.CFrame + humanoid.MoveDirection * walkSpeed * deltaTime
     end
 
     local originalCFrame = hrp.CFrame
     local originalCameraOffset = humanoid.CameraOffset
-    local _, yawAngle = Camera.CFrame:ToOrientation()
+    local _, yawAngle = Services.Camera.CFrame:ToOrientation()
     hrp.CFrame = CFrame.new(hrp.CFrame.Position) * CFrame.fromOrientation(0, yawAngle, 0) * CFrame.Angles(math.rad(90), 0, 0)
     humanoid.CameraOffset = Vector3.new(0, 1.44, 0)
 
@@ -603,17 +670,17 @@ function CrimLib.Features:InvisibilityStep(deltaTime)
             self.Invis_AnimationTrack:AdjustSpeed(0)
             self.Invis_AnimationTrack.TimePosition = 0.3
         end)
-        if not success then self:LoadAnimationTrack() end
+        if not success then CrimLib.Features:LoadAnimationTrack() end
     end
 
-    RunService.RenderStepped:Wait()
+    Services.RunService.RenderStepped:Wait()
 
     if humanoid and humanoid:IsDescendantOf(workspace) then humanoid.CameraOffset = originalCameraOffset end
     if hrp and hrp:IsDescendantOf(workspace) then hrp.CFrame = originalCFrame end
     if self.Invis_AnimationTrack then pcall(function() self.Invis_AnimationTrack:Stop() end) end
 
     if hrp and hrp:IsDescendantOf(workspace) then
-        local flatLook = Vector3.new(Camera.CFrame.LookVector.X, 0, Camera.CFrame.LookVector.Z).Unit
+        local flatLook = Vector3.new(Services.Camera.CFrame.LookVector.X, 0, Services.Camera.CFrame.LookVector.Z).Unit
         if flatLook.Magnitude > 0.1 then
             hrp.CFrame = CFrame.new(hrp.Position, hrp.Position + flatLook)
         end
@@ -624,44 +691,33 @@ function CrimLib.Features:InvisibilityStep(deltaTime)
     end
 end
 
-function CrimLib.Features:LoadAnimationTrack()
-    if self.Invis_AnimationTrack then pcall(function() self.Invis_AnimationTrack:Stop() end) self.Invis_AnimationTrack = nil end
-    local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-    if humanoid then
-        local success, result = pcall(function() return humanoid:LoadAnimation(self.Invis_CamoAnim) end)
-        if success then self.Invis_AnimationTrack = result self.Invis_AnimationTrack.Priority = Enum.AnimationPriority.Action4 end
-    end
-end
-
 function CrimLib.Features:InvisibilityEnable()
-    local Config = CrimLib.Config
-    if Config.Data.Invisibility_Enabled then return end
-    local char = LocalPlayer.Character
-    if not (char and char:FindFirstChild("Torso")) then warn("Invisibility requires R6!") return end
+    if ConfigData.Invisibility_Enabled then return end
+    if not CrimLib.Features:Invis_CheckR6() then warn("Invisibility requires R6 character!") return end
 
+    local char = Services.LocalPlayer.Character
     local humanoid = char and char:FindFirstChildOfClass("Humanoid")
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if not humanoid or not hrp then return end
     
-    Config.Data.Invisibility_Enabled = true
-    Camera.CameraSubject = hrp
-    self:LoadAnimationTrack()
+    ConfigData.Invisibility_Enabled = true
+    Services.Camera.CameraSubject = hrp
+    CrimLib.Features:LoadAnimationTrack()
 
     if self.Connections.InvisHeartbeat then self.Connections.InvisHeartbeat:Disconnect() end
-    self.Connections.InvisHeartbeat = RunService.Heartbeat:Connect(function(dt) self:InvisibilityStep(dt) end)
+    self.Connections.InvisHeartbeat = Services.RunService.Heartbeat:Connect(function(dt) CrimLib.Features:InvisibilityStep(dt) end)
 end
 
 function CrimLib.Features:InvisibilityDisable()
-    local Config = CrimLib.Config
-    if not Config.Data.Invisibility_Enabled then return end
-    Config.Data.Invisibility_Enabled = false
+    if not ConfigData.Invisibility_Enabled then return end
+    ConfigData.Invisibility_Enabled = false
 
     if self.Connections.InvisHeartbeat then self.Connections.InvisHeartbeat:Disconnect() self.Connections.InvisHeartbeat = nil end
     if self.Invis_AnimationTrack then pcall(function() self.Invis_AnimationTrack:Stop() end) end
 
-    local char = LocalPlayer.Character
+    local char = Services.LocalPlayer.Character
     local humanoid = char and char:FindFirstChildOfClass("Humanoid")
-    if humanoid then Camera.CameraSubject = humanoid end
+    if humanoid then Services.Camera.CameraSubject = humanoid end
 
     if char then
         for _, part in pairs(char:GetDescendants()) do
@@ -672,30 +728,40 @@ function CrimLib.Features:InvisibilityDisable()
 end
 
 function CrimLib.Features:InitInvisibility()
-    self.Invis_CamoAnim.AnimationId = "rbxassetid://215384594"
-    self.Connections.InvisCharAdded = LocalPlayer.CharacterAdded:Connect(function(newCharacter)
-        self:InvisibilityDisable()
+    self.Connections.InvisCharAdded = Services.LocalPlayer.CharacterAdded:Connect(function(newCharacter)
+        CrimLib.Features:InvisibilityDisable()
         if self.Invis_AnimationTrack then pcall(function() self.Invis_AnimationTrack:Stop() end) self.Invis_AnimationTrack = nil end
         task.wait(0.5)
-        if CrimLib.Config.Data.Invisibility_Enabled then self:InvisibilityEnable() end
+        if ConfigData.Invisibility_Enabled then CrimLib.Features:InvisibilityEnable() end
     end)
 
-    self.Connections.InvisCharRemoving = LocalPlayer.CharacterRemoving:Connect(function()
+    self.Connections.InvisCharRemoving = Services.LocalPlayer.CharacterRemoving:Connect(function()
         if self.Invis_AnimationTrack then pcall(function() self.Invis_AnimationTrack:Stop() end) self.Invis_AnimationTrack = nil end
         if CrimLib.Config.UI_Elements.Invis_WarningLabel then CrimLib.Config.UI_Elements.Invis_WarningLabel.Visible = false end
     end)
 end
 
+
 CrimLib.UI = {}
 
+local function storeOriginalTransparencies(instance)
+    if instance:IsA("GuiObject") then
+        local success, bgTrans = pcall(function() return instance.BackgroundTransparency end)
+        if success then
+            CrimLib.Config.UI_Elements[instance] = bgTrans
+        end
+    end
+    for _, child in ipairs(instance:GetChildren()) do
+        storeOriginalTransparencies(child)
+    end
+end
+
 function CrimLib.UI:Create()
-    local Config = CrimLib.Config
-    local Features = CrimLib.Features
-    local Constants = CrimLib.Constants
     local Services = CrimLib.Services
     local TweenService = Services.TweenService
     local CoreGui = Services.CoreGui
 
+    -- Main UI elements (copied from original crim.lua.bak)
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "RagebotUI"
     ScreenGui.Parent = CoreGui
@@ -709,7 +775,7 @@ function CrimLib.UI:Create()
     MainFrame.BorderSizePixel = 0
     MainFrame.Position = UDim2.new(0.5, -421.5, 0.5, -287.5)
     MainFrame.Size = UDim2.new(0, 843, 0, 575)
-    MainFrame.Visible = false
+    MainFrame.Visible = false -- Will be controlled by ConfigData.IsGuiVisible
     MainFrame.Active = true
     Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
 
@@ -818,7 +884,7 @@ function CrimLib.UI:Create()
         {icon = "rbxassetid://98370306170658", y = 15, name = "Combat", size = {16.9, 16.9}},
         {icon = "rbxassetid://127827492424396", y = 85, name = "Visuals", size = {28, 26}},
         {icon = "rbxassetid://100545076798978", y = 155, name = "World", size = {32, 32}},
-        {icon = "rbxassetid://100545076798978", y = 225, name = "Scripts", size = {32, 32}}, 
+        {icon = "rbxassetid://100545076798978", y = 225, name = "Scripts", size = {32, 32}}, -- Changed from SkinChanger to Scripts
         {icon = "rbxassetid://107710676270056", y = 295, name = "Misc", size = {37, 35}},
         {icon = "rbxassetid://97047003599965", y = 365, name = "Config", size = {20, 20}}
     }
@@ -835,13 +901,13 @@ function CrimLib.UI:Create()
     local CombatContent = createTabContent("Combat", 1)
     local VisualsContent = createTabContent("Visuals", 2)
     local WorldContent = createTabContent("World", 3)
-    local ScriptsContent = createTabContent("Scripts", 4)
+    local ScriptsContent = createTabContent("Scripts", 4) -- Changed from SkinChangerContent
     local MiscContent = createTabContent("Misc", 5)
     local ConfigContent = createTabContent("Config", 6)
     tabs[1] = {name = "Combat", content = CombatContent}
     tabs[2] = {name = "Visuals", content = VisualsContent}
     tabs[3] = {name = "World", content = WorldContent}
-    tabs[4] = {name = "Scripts", content = ScriptsContent}
+    tabs[4] = {name = "Scripts", content = ScriptsContent} -- Changed from SkinChangerContent
     tabs[5] = {name = "Misc", content = MiscContent}
     tabs[6] = {name = "Config", content = ConfigContent}
     local function switchTab(index, iconData)
@@ -852,8 +918,8 @@ function CrimLib.UI:Create()
                 local isActive = i == index
                 local targetColor = isActive and Color3.fromRGB(25, 25, 25) or Color3.fromRGB(18, 18, 18)
                 local targetIndicatorSize = isActive and UDim2.new(0, 4, 1, 0) or UDim2.new(0, 0, 1, 0)
-                TweenService:Create(frame, TweenInfo.new(0.2), {BackgroundColor3 = targetColor}):Play()
-                TweenService:Create(indicator, TweenInfo.new(0.2), {Size = targetIndicatorSize}):Play()
+                Services.TweenService:Create(frame, TweenInfo.new(0.2), {BackgroundColor3 = targetColor}):Play()
+                Services.TweenService:Create(indicator, TweenInfo.new(0.2), {Size = targetIndicatorSize}):Play()
             end
             if tab.content then
                 tab.content.Visible = false
@@ -899,82 +965,176 @@ function CrimLib.UI:Create()
         end)
         TabButton.MouseEnter:Connect(function()
             if currentTab ~= index then
-                TweenService:Create(IconFrame, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(22, 22, 22)}):Play()
+                Services.TweenService:Create(IconFrame, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(22, 22, 22)}):Play()
             end
         end)
         TabButton.MouseLeave:Connect(function()
             if currentTab ~= index then
-                TweenService:Create(IconFrame, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(18, 18, 18)}):Play()
+                Services.TweenService:Create(IconFrame, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(18, 18, 18)}):Play()
             end
         end)
     end
     
     -- Assign to UI_Elements table for later access
-    Config.UI_Elements.ScreenGui = ScreenGui
-    Config.UI_Elements.MainFrame = MainFrame
-    Config.UI_Elements.Title = Title
-    Config.UI_Elements.TargetInfoWindow = TargetInfoWindow
-    Config.UI_Elements.TargetNameLabel = TargetNameLabel
-    Config.UI_Elements.TargetDistanceLabel = TargetDistanceLabel
-    Config.UI_Elements.HealthBarFill = HealthBarFill
-    Config.UI_Elements.HealthTextLabel = HealthTextLabel
-    Config.UI_Elements.CombatContent = CombatContent
-    Config.UI_Elements.VisualsContent = VisualsContent
-    Config.UI_Elements.WorldContent = WorldContent
-    Config.UI_Elements.SkinChangerContent = SkinChangerContent
-    Config.UI_Elements.MiscContent = MiscContent
-    Config.UI_Elements.ConfigContent = ConfigContent
+    CrimLib.Config.UI_Elements.ScreenGui = ScreenGui
+    CrimLib.Config.UI_Elements.MainFrame = MainFrame
+    CrimLib.Config.UI_Elements.Title = Title
+    CrimLib.Config.UI_Elements.TargetInfoWindow = TargetInfoWindow
+    CrimLib.Config.UI_Elements.TargetNameLabel = TargetNameLabel
+    CrimLib.Config.UI_Elements.TargetDistanceLabel = TargetDistanceLabel
+    CrimLib.Config.UI_Elements.HealthBarBackground = HealthBarBackground
+    CrimLib.Config.UI_Elements.HealthBarFill = HealthBarFill
+    CrimLib.Config.UI_Elements.HealthTextLabel = HealthTextLabel
+    CrimLib.Config.UI_Elements.CombatContent = CombatContent
+    CrimLib.Config.UI_Elements.VisualsContent = VisualsContent
+    CrimLib.Config.UI_Elements.WorldContent = WorldContent
+    CrimLib.Config.UI_Elements.ScriptsContent = ScriptsContent -- New ScriptsContent
+    CrimLib.Config.UI_Elements.MiscContent = MiscContent
+    CrimLib.Config.UI_Elements.ConfigContent = ConfigContent
 
-    self:ApplyConfigToUI() -- Apply initial config values
+    -- Additional UI elements that need to be stored
+    CrimLib.Config.UI_Elements.MeleeAuraToggle = MeleeAuraToggle
+    CrimLib.Config.UI_Elements.MeleeAuraStatus = MeleeAuraStatus
+    CrimLib.Config.UI_Elements.MeleeAuraDistanceSlider = MeleeAuraDistanceSlider
+    CrimLib.Config.UI_Elements.MeleeAuraSliderLabel = MeleeAuraSliderLabel
+    CrimLib.Config.UI_Elements.MeleeAuraSliderBar = MeleeAuraSliderBar
+    CrimLib.Config.UI_Elements.MeleeAuraSliderFill = MeleeAuraSliderFill
+    CrimLib.Config.UI_Elements.MeleeAuraSliderButton = MeleeAuraSliderButton
+
+    CrimLib.Config.UI_Elements.RagebotToggle = RagebotToggle
+    CrimLib.Config.UI_Elements.RagebotStatus = RagebotStatus
+    CrimLib.Config.UI_Elements.RagebotDistanceSlider = RagebotDistanceSlider
+    CrimLib.Config.UI_Elements.RagebotDistanceSliderLabel = RagebotDistanceSliderLabel
+    CrimLib.Config.UI_Elements.RagebotDistanceSliderBar = RagebotDistanceSliderBar
+    CrimLib.Config.UI_Elements.RagebotDistanceSliderFill = RagebotDistanceSliderFill
+    CrimLib.Config.UI_Elements.RagebotDistanceSliderButton = RagebotDistanceSliderButton
+    CrimLib.Config.UI_Elements.RagebotHealthSlider = RagebotHealthSlider
+    CrimLib.Config.UI_Elements.RagebotHealthSliderLabel = RagebotHealthSliderLabel
+    CrimLib.Config.UI_Elements.RagebotHealthSliderBar = RagebotHealthSliderBar
+    CrimLib.Config.UI_Elements.RagebotHealthSliderFill = RagebotHealthSliderFill
+    CrimLib.Config.UI_Elements.RagebotHealthSliderButton = RagebotHealthSliderButton
+    CrimLib.Config.UI_Elements.RagebotNameToggle = RagebotNameToggle
+    CrimLib.Config.UI_Elements.RagebotNameStatus = RagebotNameStatus
+    CrimLib.Config.UI_Elements.RagebotNameInput = RagebotNameInput
+    CrimLib.Config.UI_Elements.RagebotTargetModeToggle = RagebotTargetModeToggle
+
+    CrimLib.Config.UI_Elements.FovToggle = FovToggle
+    CrimLib.Config.UI_Elements.FovStatus = FovStatus
+    CrimLib.Config.UI_Elements.FovSlider = FovSlider
+    CrimLib.Config.UI_Elements.FovSliderLabel = FovSliderLabel
+    CrimLib.Config.UI_Elements.FovSliderBar = FovSliderBar
+    CrimLib.Config.UI_Elements.FovSliderFill = FovSliderFill
+    CrimLib.Config.UI_Elements.FovSliderButton = FovSliderButton
+
+    CrimLib.Config.UI_Elements.InfiniteStaminaToggle = InfiniteStaminaToggle
+    CrimLib.Config.UI_Elements.InfiniteStaminaStatus = InfiniteStaminaStatus
+
+    CrimLib.Config.UI_Elements.InvisibilityToggle = InvisibilityToggle
+    CrimLib.Config.UI_Elements.InvisibilityStatus = InvisibilityStatus
+    CrimLib.Config.UI_Elements.InvisKeybindButton = InvisKeybindButton
+    CrimLib.Config.UI_Elements.Invis_WarningLabel = Invis_WarningLabel
+
+    CrimLib.Config.UI_Elements.KeybindLabel = KeybindLabel
+    CrimLib.Config.UI_Elements.KeyCaptureButton = KeyCaptureButton
+    CrimLib.Config.UI_Elements.ConfigDisplayButton = ConfigDisplayButton
+    CrimLib.Config.UI_Elements.ConfigArrow = ConfigArrow
+    CrimLib.Config.UI_Elements.ConfigListContainer = ConfigListContainer
+    CrimLib.Config.UI_Elements.SaveAsInput = SaveAsInput
+    CrimLib.Config.UI_Elements.SaveButton = SaveButton
+    CrimLib.Config.UI_Elements.LoadButton = LoadButton
+    CrimLib.Config.UI_Elements.DeleteConfigDisplayButton = DeleteConfigDisplayButton
+    CrimLib.Config.UI_Elements.DeleteArrow = DeleteArrow
+    CrimLib.Config.UI_Elements.DeleteConfigListContainer = DeleteConfigListContainer
+    CrimLib.Config.UI_Elements.DeleteButton = DeleteButton
+    CrimLib.Config.UI_Elements.ConfigDebugLabel = ConfigDebugLabel
+    CrimLib.Config.UI_Elements.OpacitySlider = OpacitySlider
+    CrimLib.Config.UI_Elements.OpacitySliderLabel = OpacitySliderLabel
+    CrimLib.Config.UI_Elements.OpacitySliderBar = OpacitySliderBar
+    CrimLib.Config.UI_Elements.OpacitySliderFill = OpacitySliderFill
+    CrimLib.Config.UI_Elements.OpacitySliderButton = OpacitySliderButton
+    
+    CrimLib.UI:ApplyConfigToUI() -- Apply initial config values
     
     return ScreenGui
 end
 
 function CrimLib.UI:ApplyConfigToUI()
-    local ConfigData = CrimLib.Config.Data
     local UIElements = CrimLib.Config.UI_Elements
 
     -- Melee Aura
     if UIElements.MeleeAuraToggle then
         UIElements.MeleeAuraToggle.BackgroundColor3 = ConfigData.MeleeAura_Enabled and Color3.fromRGB(70, 200, 70) or Color3.fromRGB(35, 35, 35)
         UIElements.MeleeAuraToggle.Text = "Melee Aura (Distance: " .. string.format("%.1f", ConfigData.MeleeAura_Distance) .. ")"
-        UIElements.MeleeAuraToggle.Status.Text = ConfigData.MeleeAura_Enabled and "ON" or "OFF"
+        UIElements.MeleeAuraStatus.Text = ConfigData.MeleeAura_Enabled and "ON" or "OFF"
     end
     if UIElements.MeleeAuraDistanceSlider then
-        -- update slider position
+        local normalized = (ConfigData.MeleeAura_Distance - Constants.MIN_DISTANCE) / (Constants.MAX_DISTANCE - Constants.MIN_DISTANCE)
+        local buttonCenterOffset = 9
+        UIElements.MeleeAuraSliderFill.Size = UDim2.new(normalized, 0, 1, 0)
+        UIElements.MeleeAuraSliderButton.Position = UDim2.new(normalized, -buttonCenterOffset, 0.5, -buttonCenterOffset)
+        UIElements.MeleeAuraSliderLabel.Text = "Distance: " .. string.format("%.1f", ConfigData.MeleeAura_Distance)
     end
 
     -- FOV
     if UIElements.FovToggle then
         UIElements.FovToggle.BackgroundColor3 = ConfigData.Fov_Enabled and Color3.fromRGB(70, 200, 70) or Color3.fromRGB(35, 35, 35)
-        UIElements.FovToggle.Status.Text = ConfigData.Fov_Enabled and "ON" or "OFF"
+        UIElements.FovStatus.Text = ConfigData.Fov_Enabled and "ON" or "OFF"
     end
     if UIElements.FovSlider then
-        -- update slider position
+        local normalized = (ConfigData.Fov_Value - Constants.MIN_FOV) / (Constants.MAX_FOV - Constants.MIN_FOV)
+        local buttonCenterOffset = 9
+        UIElements.FovSliderFill.Size = UDim2.new(normalized, 0, 1, 0)
+        UIElements.FovSliderButton.Position = UDim2.new(normalized, -buttonCenterOffset, 0.5, -buttonCenterOffset)
+        UIElements.FovSliderLabel.Text = "FOV Value: " .. math.floor(ConfigData.Fov_Value)
     end
 
     -- Ragebot
     if UIElements.RagebotToggle then
         UIElements.RagebotToggle.BackgroundColor3 = ConfigData.Ragebot_Enabled and Color3.fromRGB(70, 200, 70) or Color3.fromRGB(35, 35, 35)
-        UIElements.RagebotToggle.Status.Text = ConfigData.Ragebot_Enabled and "ON" or "OFF"
+        UIElements.RagebotStatus.Text = ConfigData.Ragebot_Enabled and "ON" or "OFF"
+    end
+    if UIElements.RagebotDistanceSlider then
+        local normalized = (ConfigData.Ragebot_MaxDistance - Constants.MIN_DISTANCE_RAGE) / (Constants.MAX_DISTANCE_RAGE - Constants.MIN_DISTANCE_RAGE)
+        local buttonCenterOffset = 9
+        UIElements.RagebotDistanceSliderFill.Size = UDim2.new(normalized, 0, 1, 0)
+        UIElements.RagebotDistanceSliderButton.Position = UDim2.new(normalized, -buttonCenterOffset, 0.5, -buttonCenterOffset)
+        UIElements.RagebotDistanceSliderLabel.Text = "Max Distance: " .. math.floor(ConfigData.Ragebot_MaxDistance)
+        UIElements.RagebotToggle.Text = "Ragebot (Max Dist: " .. math.floor(ConfigData.Ragebot_MaxDistance) .. ")"
+    end
+    if UIElements.RagebotHealthSlider then
+        local normalized = (ConfigData.Ragebot_MinHealth - Constants.MIN_HEALTH_RAGE) / (Constants.MAX_HEALTH_RAGE - Constants.MIN_HEALTH_RAGE)
+        local buttonCenterOffset = 9
+        UIElements.RagebotHealthSliderFill.Size = UDim2.new(normalized, 0, 1, 0)
+        UIElements.RagebotHealthSliderButton.Position = UDim2.new(normalized, -buttonCenterOffset, 0.5, -buttonCenterOffset)
+        UIElements.RagebotHealthSliderLabel.Text = "Min Health: " .. math.floor(ConfigData.Ragebot_MinHealth)
+    end
+    if UIElements.RagebotNameToggle then
+        UIElements.RagebotNameToggle.BackgroundColor3 = ConfigData.Ragebot_UseNameTarget and Color3.fromRGB(70, 200, 70) or Color3.fromRGB(35, 35, 35)
+        UIElements.RagebotNameStatus.Text = ConfigData.Ragebot_UseNameTarget and "ON" or "OFF"
     end
     if UIElements.RagebotNameInput then
         UIElements.RagebotNameInput.Text = ConfigData.Ragebot_TargetName
+    end
+    if UIElements.RagebotTargetModeToggle then
+        UIElements.RagebotTargetModeToggle.Text = "Target Mode: " .. ConfigData.Ragebot_TargetMode
     end
 
     -- Infinite Stamina
     if UIElements.InfiniteStaminaToggle then
         UIElements.InfiniteStaminaToggle.BackgroundColor3 = ConfigData.InfiniteStamina_Enabled and Color3.fromRGB(70, 200, 70) or Color3.fromRGB(35, 35, 35)
-        UIElements.InfiniteStaminaToggle.Status.Text = ConfigData.InfiniteStamina_Enabled and "ON" or "OFF"
+        UIElements.InfiniteStaminaStatus.Text = ConfigData.InfiniteStamina_Enabled and "ON" or "OFF"
     end
 
     -- Invisibility
     if UIElements.InvisibilityToggle then
         UIElements.InvisibilityToggle.BackgroundColor3 = ConfigData.Invisibility_Enabled and Color3.fromRGB(70, 200, 70) or Color3.fromRGB(35, 35, 35)
-        UIElements.InvisibilityToggle.Status.Text = ConfigData.Invisibility_Enabled and "ON" or "OFF"
+        UIElements.InvisibilityStatus.Text = ConfigData.Invisibility_Enabled and "ON" or "OFF"
     end
     if UIElements.InvisKeybindButton then
         UIElements.InvisKeybindButton.Text = ConfigData.Invisibility_Keybind
+    end
+    if UIElements.Invis_WarningLabel then
+        UIElements.Invis_WarningLabel.Visible = false
     end
     
     -- Keybind
@@ -982,7 +1142,37 @@ function CrimLib.UI:ApplyConfigToUI()
         UIElements.KeyCaptureButton.Text = ConfigData.ToggleKey
         UIElements.KeybindLabel.Text = "Toggle Key (Current: " .. ConfigData.ToggleKey .. "):"
     end
+
+    -- GUI Opacity
+    if UIElements.OpacitySlider then
+        local normalized = (ConfigData.GUI_Opacity - Constants.MIN_OPACITY) / (Constants.MAX_OPACITY - Constants.MIN_OPACITY)
+        local buttonCenterOffset = 9
+        UIElements.OpacitySliderFill.Size = UDim2.new(normalized, 0, 1, 0)
+        UIElements.OpacitySliderButton.Position = UDim2.new(normalized, -buttonCenterOffset, 0.5, -buttonCenterOffset)
+        UIElements.OpacitySliderLabel.Text = "Прозрачность: " .. string.format("%.0f%%", (1 - ConfigData.GUI_Opacity) * 100)
+    end
+    
+    -- Scripts Content toggles (set initial colors)
+    if UIElements.ScriptsContent then
+        local scriptsToggles = {
+            ATMFarm_Enabled = "ATM Farm",
+            EventFinder_Enabled = "Event Finder",
+            Fly_Enabled = "Fly",
+            MoneyTracker_Enabled = "Money Tracker",
+            AutoPickupMoney_Enabled = "Auto Pickup Money",
+            FullBright_Enabled = "Full Bright",
+            NoFailLockpick_Enabled = "No Fail Lockpick",
+            AdminChecker_Enabled = "Admin Checker",
+        }
+        for configKey, toggleName in pairs(scriptsToggles) do
+            local toggleButton = UIElements.ScriptsContent:FindFirstChild(toggleName .. "Toggle")
+            if toggleButton then
+                toggleButton.BackgroundColor3 = ConfigData[configKey] and Color3.fromRGB(70, 200, 70) or Color3.fromRGB(35, 35, 35)
+            end
+        end
+    end
 end
+
 
 function CrimLib.UI:PopulateConfigList(forceClose)
     local Config = CrimLib.Config
@@ -997,7 +1187,7 @@ function CrimLib.UI:PopulateConfigList(forceClose)
             ConfigListContainer.Visible = false
             ConfigArrow.Text = "►"
         else
-            self:PopulateConfigList()
+            CrimLib.UI:PopulateConfigList() -- Call without forceClose to refresh
             ConfigArrow.Text = "▼"
         end
     end
@@ -1010,7 +1200,7 @@ function CrimLib.UI:PopulateConfigList(forceClose)
         end
     end
 
-    local configNames = Config:ListConfigFiles()
+    local configNames = CrimLib.Config:ListConfigFiles()
     if #configNames == 0 then
         local NoFileLabel = Instance.new("TextLabel")
         NoFileLabel.Name = "NoFileLabel"
@@ -1045,6 +1235,12 @@ function CrimLib.UI:PopulateConfigList(forceClose)
                 UIElements.ConfigDisplayButton.Text = "Current Config: " .. name
                 toggleConfigList(true)
             end)
+            ConfigButton.MouseEnter:Connect(function()
+                Services.TweenService:Create(ConfigButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(60, 160, 255)}):Play()
+            end)
+            ConfigButton.MouseLeave:Connect(function()
+                Services.TweenService:Create(ConfigButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(35, 35, 35)}):Play()
+            end)
         end
     end
     ConfigListContainer.Visible = true
@@ -1063,7 +1259,7 @@ function CrimLib.UI:PopulateDeleteConfigList(forceClose)
             DeleteConfigListContainer.Visible = false
             DeleteArrow.Text = "►"
         else
-            self:PopulateDeleteConfigList()
+            CrimLib.UI:PopulateDeleteConfigList() -- Call without forceClose to refresh
             DeleteArrow.Text = "▼"
         end
     end
@@ -1071,12 +1267,12 @@ function CrimLib.UI:PopulateDeleteConfigList(forceClose)
     if forceClose then toggleDeleteConfigList(true) return end
 
     for _, child in ipairs(DeleteConfigListContainer:GetChildren()) do
-        if child.Name == "ConfigButton" or child.Name == "NoFileLabel" then
+        if child.Name == "DeleteConfigButton" or child.Name == "NoFileLabel" then
             child:Destroy()
         end
     end
 
-    local configNames = Config:ListConfigFiles()
+    local configNames = CrimLib.Config:ListConfigFiles()
     if #configNames == 0 then
         local NoFileLabel = Instance.new("TextLabel")
         NoFileLabel.Name = "NoFileLabel"
@@ -1084,7 +1280,7 @@ function CrimLib.UI:PopulateDeleteConfigList(forceClose)
         NoFileLabel.BackgroundTransparency = 1
         NoFileLabel.Size = UDim2.new(1, 0, 0, 28)
         NoFileLabel.Font = Enum.Font.Gotham
-        NoFileLabel.Text = "   NO CONFIGS FOUND"
+        NoFileLabel.Text = "   NO CONFIGS TO DELETE"
         NoFileLabel.TextColor3 = Color3.fromRGB(200, 70, 70)
         NoFileLabel.TextSize = 14
         NoFileLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -1095,25 +1291,181 @@ function CrimLib.UI:PopulateDeleteConfigList(forceClose)
         local totalHeight = #configNames * buttonHeight + (#configNames - 1) * padding
         DeleteConfigListContainer.CanvasSize = UDim2.new(0, 0, 0, totalHeight)
         for _, name in ipairs(configNames) do
-            local ConfigButton = Instance.new("TextButton")
-            ConfigButton.Name = "ConfigButton"
-            ConfigButton.Parent = DeleteConfigListContainer
-            ConfigButton.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-            ConfigButton.Size = UDim2.new(1, 0, 0, buttonHeight)
-            ConfigButton.Font = Enum.Font.Gotham
-            ConfigButton.Text = "   " .. name
-            ConfigButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-            ConfigButton.TextSize = 14
-            ConfigButton.TextXAlignment = Enum.TextXAlignment.Left
-            Instance.new("UICorner", ConfigButton).CornerRadius = UDim.new(0, 4)
-            ConfigButton.MouseButton1Click:Connect(function()
+            local DeleteConfigButton = Instance.new("TextButton")
+            DeleteConfigButton.Name = "DeleteConfigButton"
+            DeleteConfigButton.Parent = DeleteConfigListContainer
+            DeleteConfigButton.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+            DeleteConfigButton.Size = UDim2.new(1, 0, 0, buttonHeight)
+            DeleteConfigButton.Font = Enum.Font.Gotham
+            DeleteConfigButton.Text = "   " .. name
+            DeleteConfigButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+            DeleteConfigButton.TextSize = 14
+            DeleteConfigButton.TextXAlignment = Enum.TextXAlignment.Left
+            Instance.new("UICorner", DeleteConfigButton).CornerRadius = UDim.new(0, 4)
+            DeleteConfigButton.MouseButton1Click:Connect(function()
                 Config.ConfigToDeleteName = name
                 UIElements.DeleteConfigDisplayButton.Text = "Config to Delete: " .. name
                 toggleDeleteConfigList(true)
+            end)
+            DeleteConfigButton.MouseEnter:Connect(function()
+                Services.TweenService:Create(DeleteConfigButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(255, 60, 60)}):Play()
+            end)
+            DeleteConfigButton.MouseLeave:Connect(function()
+                Services.TweenService:Create(DeleteConfigButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(35, 35, 35)}):Play()
             end)
         end
     end
     DeleteConfigListContainer.Visible = true
 end
 
-return CrimLib
+-- UI Helper functions (from original script)
+local function updateMeleeAuraSlider(value)
+    local UIElements = CrimLib.Config.UI_Elements
+    value = math.floor(value * 10 + 0.5) / 10
+    ConfigData.MeleeAura_Distance = math.max(Constants.MIN_DISTANCE, math.min(Constants.MAX_DISTANCE, value))
+    local normalized = (ConfigData.MeleeAura_Distance - Constants.MIN_DISTANCE) / (Constants.MAX_DISTANCE - Constants.MIN_DISTANCE)
+    
+    local buttonCenterOffset = 9
+    
+    UIElements.MeleeAuraSliderFill.Size = UDim2.new(normalized, 0, 1, 0)
+    UIElements.MeleeAuraSliderButton.Position = UDim2.new(normalized, -buttonCenterOffset, 0.5, -buttonCenterOffset)
+    
+    UIElements.MeleeAuraSliderLabel.Text = "Distance: " .. string.format("%.1f", ConfigData.MeleeAura_Distance)
+    UIElements.MeleeAuraToggle.Text = "Melee Aura (Distance: " .. string.format("%.1f", ConfigData.MeleeAura_Distance) .. ")"
+end
+
+local function updateFovSlider(value)
+    local UIElements = CrimLib.Config.UI_Elements
+    ConfigData.Fov_Value = math.max(Constants.MIN_FOV, math.min(Constants.MAX_FOV, value))
+    local normalized = (ConfigData.Fov_Value - Constants.MIN_FOV) / (Constants.MAX_FOV - Constants.MIN_FOV)
+    
+    local buttonCenterOffset = 9
+    
+    UIElements.FovSliderFill.Size = UDim2.new(normalized, 0, 1, 0)
+    UIElements.FovSliderButton.Position = UDim2.new(normalized, -buttonCenterOffset, 0.5, -buttonCenterOffset)
+    
+    UIElements.FovSliderLabel.Text = "FOV Value: " .. math.floor(ConfigData.Fov_Value)
+    if ConfigData.Fov_Enabled then
+        Services.Camera.FieldOfView = ConfigData.Fov_Value
+    end
+end
+
+local function updateRagebotDistanceSlider(value)
+    local UIElements = CrimLib.Config.UI_Elements
+    value = math.floor(value / 10 + 0.5) * 10 
+    
+    ConfigData.Ragebot_MaxDistance = math.max(Constants.MIN_DISTANCE_RAGE, math.min(Constants.MAX_DISTANCE_RAGE, value))
+    
+    local normalized = (ConfigData.Ragebot_MaxDistance - Constants.MIN_DISTANCE_RAGE) / (Constants.MAX_DISTANCE_RAGE - Constants.MIN_DISTANCE_RAGE)
+    
+    local buttonCenterOffset = 9
+    
+    UIElements.RagebotDistanceSliderFill.Size = UDim2.new(normalized, 0, 1, 0)
+    UIElements.RagebotDistanceSliderButton.Position = UDim2.new(normalized, -buttonCenterOffset, 0.5, -buttonCenterOffset)
+    
+    UIElements.RagebotDistanceSliderLabel.Text = "Max Distance: " .. math.floor(ConfigData.Ragebot_MaxDistance)
+    UIElements.RagebotToggle.Text = "Ragebot (Max Dist: " .. math.floor(ConfigData.Ragebot_MaxDistance) .. ")"
+end
+
+local function updateRagebotHealthSlider(value)
+    local UIElements = CrimLib.Config.UI_Elements
+    value = math.floor(value + 0.5) 
+    ConfigData.Ragebot_MinHealth = math.max(Constants.MIN_HEALTH_RAGE, math.min(Constants.MAX_HEALTH_RAGE, value))
+    local normalized = (ConfigData.Ragebot_MinHealth - Constants.MIN_HEALTH_RAGE) / (Constants.MAX_HEALTH_RAGE - Constants.MIN_HEALTH_RAGE)
+    
+    local buttonCenterOffset = 9
+    
+    UIElements.RagebotHealthSliderFill.Size = UDim2.new(normalized, 0, 1, 0)
+    UIElements.RagebotHealthSliderButton.Position = UDim2.new(normalized, -buttonCenterOffset, 0.5, -buttonCenterOffset)
+    
+    UIElements.RagebotHealthSliderLabel.Text = "Min Health: " .. math.floor(ConfigData.Ragebot_MinHealth)
+end
+
+local function updateGuiOpacity(value)
+    local UIElements = CrimLib.Config.UI_Elements
+    ConfigData.GUI_Opacity = math.max(Constants.MIN_OPACITY, math.min(Constants.MAX_OPACITY, value))
+    local normalized = (ConfigData.GUI_Opacity - Constants.MIN_OPACITY) / (Constants.MAX_OPACITY - Constants.MIN_OPACITY)
+    
+    local buttonCenterOffset = 9
+    
+    UIElements.OpacitySliderFill.Size = UDim2.new(normalized, 0, 1, 0)
+    UIElements.OpacitySliderButton.Position = UDim2.new(normalized, -buttonCenterOffset, 0.5, -buttonCenterOffset)
+    
+    UIElements.OpacitySliderLabel.Text = "Прозрачность: " .. string.format("%.0f%%", (1 - ConfigData.GUI_Opacity) * 100)
+    
+    local transparency = ConfigData.GUI_Opacity
+    
+    -- Iterate through originalBgTransparencies stored in UI_Elements
+    for instance, originalTransparency in pairs(CrimLib.Config.UI_Elements.OriginalBgTransparencies) do
+        if pcall(function() instance.BackgroundTransparency = math.max(originalTransparency, transparency) end) then
+            -- success
+        end
+    end
+end
+
+-- Initialize Invis_WarningGUI (from original script)
+local Invis_WarningGUI = Instance.new("ScreenGui")
+Invis_WarningGUI.Name = "InvisibilityWarning"
+Invis_WarningGUI.Parent = CoreGui
+Invis_WarningGUI.ResetOnSpawn = false
+Invis_WarningGUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+local Invis_WarningLabel = Instance.new("TextLabel")
+Invis_WarningLabel.Text = "⚠️ You are visible ⚠️"
+Invis_WarningLabel.Visible = false
+Invis_WarningLabel.Size = UDim2.new(0, 200, 0, 30)
+Invis_WarningLabel.Position = UDim2.new(0.5, -100, 0.85, 0)
+Invis_WarningLabel.BackgroundTransparency = 1
+Invis_WarningLabel.Font = Enum.Font.GothamSemibold
+Invis_WarningLabel.TextSize = 24
+Invis_WarningLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+Invis_WarningLabel.TextStrokeTransparency = 0.5
+Invis_WarningLabel.ZIndex = 10
+Invis_WarningLabel.Parent = Invis_WarningGUI
+CrimLib.Config.UI_Elements.Invis_WarningLabel = Invis_WarningLabel -- Store it
+
+-- Assign local helper functions to CrimLib.UI for easy access
+CrimLib.UI.updateMeleeAuraSlider = updateMeleeAuraSlider
+CrimLib.UI.updateFovSlider = updateFovSlider
+CrimLib.UI.updateRagebotDistanceSlider = updateRagebotDistanceSlider
+CrimLib.UI.updateRagebotHealthSlider = updateRagebotHealthSlider
+CrimLib.UI.updateGuiOpacity = updateGuiOpacity
+
+-- Function to disable all cheats (from original script)
+function CrimLib.Features:DisableAllCheats()
+    CrimLib.Features:MeleeAuraDisable()
+    CrimLib.Features:FovDisable()
+    CrimLib.Features:RagebotDisable() 
+    CrimLib.Features:InfiniteStaminaDisable()
+    CrimLib.Features:InvisibilityDisable()
+    
+    -- Resetting UI elements
+    local UIElements = CrimLib.Config.UI_Elements
+    if UIElements.MeleeAuraToggle then
+        UIElements.MeleeAuraToggle.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+        UIElements.MeleeAuraStatus.Text = "OFF"
+    end
+    if UIElements.FovToggle then 
+        UIElements.FovToggle.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+        UIElements.FovStatus.Text = "OFF"
+    end
+    if UIElements.RagebotToggle then 
+        UIElements.RagebotToggle.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+        UIElements.RagebotStatus.Text = "OFF"
+    end
+    if UIElements.RagebotNameToggle then 
+        UIElements.RagebotNameToggle.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+        UIElements.RagebotNameStatus.Text = "OFF"
+    end
+    if UIElements.InfiniteStaminaToggle then
+        UIElements.InfiniteStaminaToggle.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+        UIElements.InfiniteStaminaStatus.Text = "OFF"
+    end
+    if UIElements.InvisibilityToggle then
+        UIElements.InvisibilityToggle.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+        UIElements.InvisibilityStatus.Text = "OFF"
+    end
+end
+
+-- This script does not return CrimLib. It modifies the global CrimLib table.
+-- This matches the user's request to make it modular like Rayfield.lua
