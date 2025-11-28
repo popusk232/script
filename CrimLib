@@ -1,772 +1,23 @@
--- Services and global dependencies
-local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
-local CoreGui = game:GetService("CoreGui")
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local RunService = game:GetService("RunService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Camera = workspace.CurrentCamera
-local Lighting = game:GetService("Lighting") -- Added for FullBright
+CrimsonLibrary = {}
 
--- Global CrimLib table, as requested by the user, mimicking Rayfield structure
-CrimLib = {}
-
-CrimLib.Services = {
-    UserInputService = UserInputService,
-    TweenService = TweenService,
-    CoreGui = CoreGui,
-    Players = Players,
-    LocalPlayer = LocalPlayer,
-    RunService = RunService,
-    ReplicatedStorage = ReplicatedStorage,
-    Camera = Camera,
-    Lighting = Lighting,
-}
-
--- Config and Constants are assumed to be global variables defined in the executable script
--- CrimLib will store references to them when initialized, but not define them here.
--- CrimLib.Config.Data and CrimLib.Constants will be set in CrimLib:init
--- For now, functions will directly reference the global ConfigData and Constants as per user request to mimic Rayfield global style for some data.
-CrimLib.Config = {
-    CurrentConfigName = "...",
-    ConfigToDeleteName = "...",
-    UI_Elements = {} -- This will store references to created UI elements
-}
-
-CrimLib.Features = {
-    Connections = {},
-    Ragebot_Coroutine = nil,
-    Invis_AnimationTrack = nil,
-    Invis_CamoAnim = Instance.new("Animation"), -- No parent here, set when loaded by humanoids
-}
-CrimLib.Features.Invis_CamoAnim.AnimationId = "rbxassetid://215384594" -- Set animation ID
-
-
--- JSON utility functions (from original script)
-local function json_encode(data)
-    local json = _G.json or {}
-    _G.json = json
-    if type(json.encode) ~= "function" then
-        local escape_chars = { ['\'] = '\\', ['"'] = '\"', ['\b'] = '\b', ['\f'] = '\f', ['\n'] = '\n', ['\r'] = '\r', ['\t'] = '\t' }
-        local function escape_string(s)
-            return string.gsub(s, '([\"
-
-	])', escape_chars)
-        end
-        function json.encode(value)
-            local t = type(value)
-            if t == "string" then
-                return '"' .. escape_string(value) .. '"'
-            elseif t == "number" or t == "boolean" then
-                return tostring(value)
-            elseif t == "nil" then
-                return "null"
-            elseif t == "table" then
-                local parts = {}
-                local is_array = true
-                local i = 1
-                for k, v in pairs(value) do
-                    if k == i then
-                        table.insert(parts, json.encode(v))
-                        i = i + 1
-                    else
-                        is_array = false
-                        break
-                    end
-                end
-
-                if is_array then
-                    return "[" .. table.concat(parts, ",") .. "]"
-                else
-                    parts = {}
-                    for k, v in pairs(value) do
-                        if type(k) == "string" then
-                            table.insert(parts, '"' .. escape_string(k) .. '":' .. json.encode(v))
-                        end
-                    end
-                    return "{" .. table.concat(parts, ",") .. "}"
-                end
-            end
-            return "null"
-        end
-    end
-    local success, result = pcall(json.encode, data)
-    return success, result
-end
-
-local function json_decode(data)
-    local json = _G.json or {}
-    _G.json = json
-    if type(json.decode) ~= "function" then
-        -- Simple placeholder, assumes native/environment decode is missing
-        function json.decode(s)
-             return nil, "JSON decode function missing. Config loading may fail."
-        end
-    end
-    local success, result = pcall(json.decode, data)
-    return success, result
-end
-
-
--- File I/O utility (from original script)
-local function has_file_io()
-    return type(readfile) == "function" and type(writefile) == "function"
-end
-
-local function ensureConfigFolder()
-    if has_file_io() and type(makefolder) == "function" then
-        if type(isfolder) == "function" and not isfolder(Constants.CONFIG_FOLDER) then
-            pcall(makefolder, Constants.CONFIG_FOLDER)
-        elseif type(isfolder) ~= "function" then
-             pcall(makefolder, Constants.CONFIG_FOLDER)
-        end
-    end
-end
-
--- Config methods (from original script, adjusted to use global ConfigData and Constants)
-function CrimLib.Config:GetFileName(inputName)
-    local C = Constants
-    if not inputName or inputName == "" or inputName == "..." then
-        return C.CONFIG_FOLDER .. C.DEFAULT_CONFIG_NAME .. C.CONFIG_EXTENSION
-    end
-    local nameWithoutExt = string.gsub(inputName, Constants.CONFIG_EXTENSION .. "$", "")
-    local fullPathPrefix = C.CONFIG_FOLDER
-    nameWithoutExt = string.gsub(nameWithoutExt, '^' .. fullPathPrefix, "")
-    nameWithoutExt = string.gsub(nameWithoutExt, '^%./' .. fullPathPrefix, "")
-    nameWithoutExt = string.gsub(nameWithoutExt, '^%./', "")
-    return C.CONFIG_FOLDER .. nameWithoutExt .. C.CONFIG_EXTENSION
-end
-
-function CrimLib.Config:ListConfigFiles()
-    local files = {}
-    local C = Constants
-    local fullPathPrefix = C.CONFIG_FOLDER
-    if not has_file_io() then return files end
-    if type(isfolder) == "function" and not isfolder(fullPathPrefix) then
-        return files
-    end
-    local function cleanFileName(fileName)
-        fileName = string.gsub(fileName, '^%./', "")
-        fileName = string.gsub(fileName, '^' .. fullPathPrefix, "")
-        if string.sub(fileName, -string.len(C.CONFIG_EXTENSION)) == C.CONFIG_EXTENSION then
-            fileName = string.sub(fileName, 1, -string.len(C.CONFIG_EXTENSION) - 1)
-        end
-        return fileName
-    end
-    if type(listfiles) == "function" then
-        local success, folderFiles = pcall(listfiles, fullPathPrefix)
-        if success and folderFiles then
-            for _, filenameWithExt in ipairs(folderFiles) do
-                if string.sub(filenameWithExt, -string.len(C.CONFIG_EXTENSION)) == C.CONFIG_EXTENSION then
-                    local configName = cleanFileName(filenameWithExt)
-                    if configName ~= "" then table.insert(files, configName) end
-                end
-            end
-        end
-    end
-    if #files == 0 and type(getregfiles) == "function" then
-        local success, allFiles = pcall(getregfiles)
-        if success and allFiles then
-            for _, fullFileName in ipairs(allFiles) do
-                if string.sub(fullFileName, -string.len(C.CONFIG_EXTENSION)) == C.CONFIG_EXTENSION then
-                    local configName = cleanFileName(fullFileName)
-                    if configName ~= "" then table.insert(files, configName) end
-                end
-            end
-        end
-    end
-    local uniqueFiles = {}
-    for _, name in ipairs(files) do
-        uniqueFiles[name] = true
-    end
-    files = {}
-    for name in pairs(uniqueFiles) do
-        table.insert(files, name)
-    end
-    table.sort(files)
-    return files
-end
-
-function CrimLib.Config:UpdateStatus(message, color)
-    local label = CrimLib.Config.UI_Elements.ConfigDebugLabel
-    if label then
-        label.Text = message
-        label.TextColor3 = color or Color3.fromRGB(200, 200, 200)
-        task.delay(5, function()
-            if label and label.Text == message then
-                label.Text = ""
-            end
-        end)
-    end
-end
-
-function CrimLib.Config:Save(fileName)
-    if not has_file_io() then
-        warn("Save failed. Requires file I/O.")
-        CrimLib.Config:UpdateStatus("Ошибка сохранения: отсутствует доступ к файловой системе.", Color3.fromRGB(200, 70, 70))
-        return
-    end
-    ensureConfigFolder()
-    local nameWithoutExt = string.gsub(fileName, Constants.CONFIG_EXTENSION .. "$", "")
-    local finalFileName = CrimLib.Config:GetFileName(nameWithoutExt)
-    local encode_success, jsonString = json_encode(ConfigData)
-    local success = false
-    if encode_success and type(jsonString) == "string" then
-        success = pcall(writefile, finalFileName, jsonString)
-    else
-        warn("Save failed: JSON Encoding failed: " .. tostring(jsonString or "unknown error"))
-    end
+function CrimsonLibrary.CreateGUI(ConfigData)
+    local UserInputService = game:GetService("UserInputService")
+    local TweenService = game:GetService("TweenService")
+    local CoreGui = game:GetService("CoreGui")
+    local Players = game:GetService("Players")
+    local LocalPlayer = Players.LocalPlayer
+    local RunService = game:GetService("RunService")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local Camera = workspace.CurrentCamera
     
-    local SaveButton = CrimLib.Config.UI_Elements.SaveButton
-    
-    local originalColor = SaveButton and SaveButton.BackgroundColor3
-    local statusText = success and ("Конфиг '" .. nameWithoutExt .. "' сохранен.") or "Ошибка сохранения: JSON / Запись файла."
-    local statusColor = success and Color3.fromRGB(70, 200, 70) or Color3.fromRGB(200, 70, 70)
+    local UIElements = {}
 
-    CrimLib.Config:UpdateStatus(statusText, statusColor)
-
-    if SaveButton then
-        SaveButton.Text = success and "СОХРАНЕНО!" or "ОШИБКА!"
-        SaveButton.BackgroundColor3 = statusColor
-        if success then
-             CrimLib.UI:PopulateConfigList(true)
-             CrimLib.UI:PopulateDeleteConfigList(true)
-        end
-        task.wait(1)
-        SaveButton.Text = "SAVE Config"
-        SaveButton.BackgroundColor3 = originalColor
-    end
-
-    if success and nameWithoutExt ~= "" and nameWithoutExt ~= "..." then
-        CrimLib.Config.CurrentConfigName = nameWithoutExt
-        if CrimLib.Config.UI_Elements.ConfigDisplayButton then
-             CrimLib.Config.UI_Elements.ConfigDisplayButton.Text = "Current Config: " .. CrimLib.Config.CurrentConfigName
-        end
-    end
-end
-
-function CrimLib.Config:Load(configName)
-    if not has_file_io() then
-        warn("Load failed. Requires file I/O.")
-        CrimLib.Config:UpdateStatus("Ошибка загрузки: отсутствует доступ к файловой системе.", Color3.fromRGB(200, 70, 70))
-        return
-    end
-    local finalFileName = CrimLib.Config:GetFileName(configName)
-    local loadedData
-    local read_success, jsonString = false, nil
-    if isfile(finalFileName) then
-        read_success, jsonString = pcall(readfile, finalFileName)
-    end
-    local decode_success = false
-    if read_success and type(jsonString) == "string" and jsonString ~= "" then
-        decode_success, loadedData = json_decode(jsonString)
-    end
-    
-    local LoadButton = CrimLib.Config.UI_Elements.LoadButton
-    local originalColor = LoadButton and LoadButton.BackgroundColor3
-    
-    local apply_success = false
-    if decode_success and type(loadedData) == "table" then
-        apply_success, _ = pcall(function()
-            for k, v in pairs(loadedData) do
-                ConfigData[k] = v
-            end
-        end)
-    end
-    
-    if apply_success then
-        CrimLib.UI:ApplyConfigToUI() -- Apply initial config values
-        CrimLib.Config.CurrentConfigName = configName
-        if CrimLib.Config.UI_Elements.ConfigDisplayButton then
-            CrimLib.Config.UI_Elements.ConfigDisplayButton.Text = "Current Config: " .. configName
-        end
-        
-        CrimLib.Config:UpdateStatus("Конфиг '" .. configName .. "' загружен.", Color3.fromRGB(70, 200, 70))
-
-        if LoadButton then
-            LoadButton.Text = "ЗАГРУЖЕНО!"
-            LoadButton.BackgroundColor3 = Color3.fromRGB(70, 200, 70)
-            task.wait(1)
-            LoadButton.Text = "LOAD Config"
-            LoadButton.BackgroundColor3 = originalColor
-        end
-    else
-        local errorText = "Ошибка загрузки: "
-        local errorColor = Color3.fromRGB(200, 70, 70)
-        if not read_success or (type(isfile) == "function" and not isfile(finalFileName)) then
-            errorText = "Файл конфига '" .. configName .. "' не найден."
-            errorColor = Color3.fromRGB(200, 150, 70)
-        elseif not decode_success then
-            errorText = "Ошибка декодирования JSON."
-        else
-            errorText = "Поврежденные данные."
-        end
-        
-        CrimLib.Config:UpdateStatus(errorText, errorColor)
-
-        CrimLib.Config.CurrentConfigName = "..."
-        if CrimLib.Config.UI_Elements.ConfigDisplayButton then
-            CrimLib.Config.UI_Elements.ConfigDisplayButton.Text = "Current Config: ..."
-        end
-
-        if LoadButton then
-            LoadButton.Text = "ОШИБКА!"
-            LoadButton.BackgroundColor3 = errorColor
-            task.wait(1)
-            LoadButton.Text = "LOAD Config"
-            LoadButton.BackgroundColor3 = originalColor
-        end
-    end
-end
-
-function CrimLib.Config:Delete(configName)
-    if not has_file_io() or type(delfile) ~= "function" then
-        warn("Delete failed. Requires file I/O and delfile function.")
-        CrimLib.Config:UpdateStatus("Ошибка удаления: отсутствует доступ к файловой системе.", Color3.fromRGB(200, 70, 70))
-        return false
-    end
-    local finalFileName = CrimLib.Config:GetFileName(configName)
-    local DeleteButton = CrimLib.Config.UI_Elements.DeleteButton
-    
-    if type(isfile) == "function" and not isfile(finalFileName) then
-        CrimLib.Config:UpdateStatus("Ошибка: Файл конфига '" .. configName .. "' не найден.", Color3.fromRGB(200, 150, 70))
-        local originalColor = DeleteButton and DeleteButton.BackgroundColor3
-        if DeleteButton then
-            DeleteButton.Text = "НЕ НАЙДЕНО"
-            DeleteButton.BackgroundColor3 = Color3.fromRGB(200, 150, 70)
-            task.wait(1.5)
-            DeleteButton.Text = "DELETE Config"
-            DeleteButton.BackgroundColor3 = originalColor
-        end
-        CrimLib.UI:PopulateConfigList(true)
-        CrimLib.UI:PopulateDeleteConfigList(true)
-        CrimLib.Config.ConfigToDeleteName = "..."
-        if CrimLib.Config.UI_Elements.DeleteConfigDisplayButton then
-             CrimLib.Config.UI_Elements.DeleteConfigDisplayButton.Text = "Config to Delete: ..."
-        end
-        return false
-    end
-    
-    local success, err = pcall(delfile, finalFileName)
-    local originalColor = DeleteButton and DeleteButton.BackgroundColor3
-    
-    if DeleteButton then
-        local statusText
-        local statusColor
-        if success then
-            statusText = "Конфиг '" .. configName .. "' удален."
-            statusColor = Color3.fromRGB(255, 60, 60)
-            
-            if CrimLib.Config.CurrentConfigName == configName then
-                CrimLib.Config.CurrentConfigName = "..."
-                if CrimLib.Config.UI_Elements.ConfigDisplayButton then
-                    CrimLib.Config.UI_Elements.ConfigDisplayButton.Text = "Current Config: ..."
-                    if CrimLib.Config.UI_Elements.ConfigArrow then CrimLib.Config.UI_Elements.ConfigArrow.Text = "►" end
-                end
-            end
-            CrimLib.UI:PopulateConfigList(true)
-            CrimLib.UI:PopulateDeleteConfigList(true)
-            CrimLib.Config.ConfigToDeleteName = "..."
-            if CrimLib.Config.UI_Elements.DeleteConfigDisplayButton then
-                 CrimLib.Config.UI_Elements.DeleteConfigDisplayButton.Text = "Config to Delete: ..."
-            end
-        else
-            statusText = "Ошибка удаления конфига '" .. configName .. "': " .. tostring(err)
-            statusColor = Color3.fromRGB(200, 70, 70)
-        end
-        
-        CrimLib.Config:UpdateStatus(statusText, statusColor)
-
-        DeleteButton.Text = success and "УДАЛЕНО!" or "ОШИБКА!"
-        DeleteButton.BackgroundColor3 = statusColor
-        task.wait(1.5)
-        DeleteButton.Text = "DELETE Config"
-        DeleteButton.BackgroundColor3 = originalColor
-        return success
-    end
-    return success
-end
-
-
--- Features (from original script, adjusted to use global ConfigData and Services)
-function CrimLib.Features:Attack(target)
-    if not target or not target:FindFirstChild("Head") then return end
-    local character = Services.LocalPlayer.Character
-    local tool = character and character:FindFirstChildOfClass("Tool")
-    local humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart")
-    if not tool or not humanoidRootPart then return end
-    
-    local remoteFunction = Services.ReplicatedStorage:FindFirstChild("Events", true) and Services.ReplicatedStorage.Events:FindFirstChild("XMHH.2")
-    local remoteEvent = Services.ReplicatedStorage:FindFirstChild("Events", true) and Services.ReplicatedStorage.Events:FindFirstChild("XMHH2.2")
-    if not remoteFunction or not remoteEvent then return end
-
-    local args1 = { "🍞", tick(), tool, "43TRFWX", "Normal", tick(), true }
-    local success1, result = pcall(function() return remoteFunction:InvokeServer(unpack(args1)) end)
-    if not success1 then return end
-    task.wait(0.1)
-    local handle = tool:FindFirstChild("WeaponHandle") or tool:FindFirstChild("Handle") or (character and character:FindFirstChild("Right Arm"))
-    local head = target:FindFirstChild("Head")
-    if handle and head then
-        local args2 = { "🍞", tick(), tool, "2389ZFX34", result, false, handle, head, target, humanoidRootPart.Position, head.Position }
-        pcall(function() remoteEvent:FireServer(unpack(args2)) end)
-    end
-end
-
-function CrimLib.Features:MeleeAuraEnable()
-    if ConfigData.MeleeAura_Enabled then return end
-    ConfigData.MeleeAura_Enabled = true
-    if self.Connections.MeleeAura then self.Connections.MeleeAura:Disconnect() end
-    
-    self.Connections.MeleeAura = Services.RunService.RenderStepped:Connect(function()
-        if not ConfigData.MeleeAura_Enabled then return end
-        local character = Services.LocalPlayer.Character
-        local humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart")
-        if not humanoidRootPart then return end
-        
-        for _, otherPlayer in ipairs(Services.Players:GetPlayers()) do
-            if otherPlayer ~= Services.LocalPlayer then
-                local otherCharacter = otherPlayer.Character
-                local otherHRP = otherCharacter and otherCharacter:FindFirstChild("HumanoidRootPart")
-                local otherHumanoid = otherCharacter and otherCharacter:FindFirstChildOfClass("Humanoid")
-                if otherHRP and otherHumanoid then
-                    local distance = (humanoidRootPart.Position - otherHRP.Position).Magnitude
-                    if distance < ConfigData.MeleeAura_Distance and otherHumanoid.Health > 15 and not otherCharacter:FindFirstChildOfClass("ForceField") then
-                        CrimLib.Features:Attack(otherCharacter)
-                    end
-                end
-            end
-        end
-    end)
-end
-
-function CrimLib.Features:MeleeAuraDisable()
-    if not ConfigData.MeleeAura_Enabled then return end
-    ConfigData.MeleeAura_Enabled = false
-    if self.Connections.MeleeAura then
-        self.Connections.MeleeAura:Disconnect()
-        self.Connections.MeleeAura = nil
-    end
-end
-
-function CrimLib.Features:FovEnable()
-    ConfigData.Fov_Enabled = true
-    if self.Connections.Fov then self.Connections.Fov:Disconnect() end
-    self.Connections.Fov = Services.RunService.RenderStepped:Connect(function()
-        if ConfigData.Fov_Enabled then
-            Services.Camera.FieldOfView = ConfigData.Fov_Value
-        end
-    end)
-end
-
-function CrimLib.Features:FovDisable()
-    ConfigData.Fov_Enabled = false
-    if self.Connections.Fov then
-        self.Connections.Fov:Disconnect()
-        self.Connections.Fov = nil
-    end
-    pcall(function() Services.Camera.FieldOfView = workspace.CurrentCamera.FieldOfView end)
-end
-
-function CrimLib.Features:GetClosestEnemy()
-    local character = Services.LocalPlayer.Character
-    local humanoidRootPart = character and character:FindFirstChild("HumanoidRootPart")
-    if not humanoidRootPart then return end
-
-    local closestEnemy = nil
-    local shortestDistance = ConfigData.Ragebot_MaxDistance
-
-    if ConfigData.Ragebot_TargetMode == "Distance" then
-        for _, otherPlayer in ipairs(Services.Players:GetPlayers()) do
-            if otherPlayer ~= Services.LocalPlayer then
-                if (not ConfigData.Ragebot_UseNameTarget or otherPlayer.Name == ConfigData.Ragebot_TargetName) then
-                    local otherCharacter = otherPlayer.Character
-                    local otherHRP = otherCharacter and otherCharacter:FindFirstChild("HumanoidRootPart")
-                    local otherHumanoid = otherCharacter and otherCharacter:FindFirstChildOfClass("Humanoid")
-                    if otherHRP and otherHumanoid and otherHumanoid.Health > ConfigData.Ragebot_MinHealth and not otherCharacter:FindFirstChildOfClass("ForceField") then
-                        local distance = (humanoidRootPart.Position - otherHRP.Position).Magnitude
-                        if distance < shortestDistance then
-                            shortestDistance = distance
-                            closestEnemy = otherPlayer
-                        end
-                    end
-                end
-            end
-        end
-    elseif ConfigData.Ragebot_TargetMode == "Crosshair" then
-        local minCrosshairDist = math.huge
-        local viewportCenter = Vector2.new(Services.Camera.ViewportSize.X / 2, Services.Camera.ViewportSize.Y / 2)
-        for _, otherPlayer in ipairs(Services.Players:GetPlayers()) do
-            if otherPlayer ~= Services.LocalPlayer then
-                if (not ConfigData.Ragebot_UseNameTarget or otherPlayer.Name == ConfigData.Ragebot_TargetName) then
-                    local otherCharacter = otherPlayer.Character
-                    local otherHRP = otherCharacter and otherCharacter:FindFirstChild("HumanoidRootPart")
-                    local otherHumanoid = otherCharacter and otherCharacter:FindFirstChildOfClass("Humanoid")
-                    if otherHRP and otherHumanoid and otherHumanoid.Health > ConfigData.Ragebot_MinHealth and not otherCharacter:FindFirstChildOfClass("ForceField") then
-                        local distance3D = (humanoidRootPart.Position - otherHRP.Position).Magnitude
-                        if distance3D < shortestDistance then
-                            local screenPos, onScreen = Services.Camera:WorldToScreenPoint(otherHRP.Position)
-                            if onScreen then
-                                local crosshairDist = (Vector2.new(screenPos.X, screenPos.Y) - viewportCenter).Magnitude
-                                if crosshairDist < minCrosshairDist then
-                                    minCrosshairDist = crosshairDist
-                                    closestEnemy = otherPlayer
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end
-    return closestEnemy
-end
-
-function CrimLib.Features:Shoot(targetPlayer)
-    if not targetPlayer or not targetPlayer.Character then return end
-    local targetPart = targetPlayer.Character:FindFirstChild("Head") or targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not targetPart then return end
-    local myCharacter = Services.LocalPlayer.Character
-    local tool = myCharacter and myCharacter:FindFirstChildOfClass("Tool")
-    if not tool then return end
-
-    local remote1_Rage = Services.ReplicatedStorage:FindFirstChild("Events", true) and Services.ReplicatedStorage.Events:FindFirstChild("GNX_S")
-    local remote2_Rage = Services.ReplicatedStorage:FindFirstChild("Events", true) and Services.ReplicatedStorage.Events:FindFirstChild("ZFKLF__H")
-    if not remote1_Rage or not remote2_Rage then return end
-
-    local randomKey = string.rep(string.char(math.random(97, 122)), 30) .. "0"
-    local hitDirection = (targetPart.Position - Services.Camera.CFrame.Position).Unit
-
-    pcall(function() remote1_Rage:FireServer(tick(), randomKey, tool, "FDS9I83", Services.Camera.CFrame.Position, {hitDirection}, false) end)
-    pcall(function() remote2_Rage:FireServer("🧈", tool, randomKey, 1, targetPart, targetPart.Position, hitDirection, nil, nil) end)
-end
-
-function CrimLib.Features:UpdateTargetInfoWindow(targetPlayer)
-    local TargetInfoWindow = CrimLib.Config.UI_Elements.TargetInfoWindow
-    if not TargetInfoWindow then return end
-
-    if not targetPlayer or not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") or not targetPlayer.Character:FindFirstChildOfClass("Humanoid") then
-        TargetInfoWindow.Visible = false
-        return
-    end
-
-    TargetInfoWindow.Visible = true
-    local humanoid = targetPlayer.Character:FindFirstChildOfClass("Humanoid")
-    local myHRP = Services.LocalPlayer.Character and Services.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-
-    local healthPercent = humanoid.Health / humanoid.MaxHealth
-    local distance = myHRP and (myHRP.Position - targetHRP.Position).Magnitude or 0
-
-    TargetInfoWindow.TargetNameLabel.Text = targetPlayer.Name
-    TargetInfoWindow.TargetDistanceLabel.Text = string.format("Dist: %.1fm", distance)
-    TargetInfoWindow.HealthBarBackground.HealthTextLabel.Text = string.format("%.0f%%", healthPercent * 100)
-    TargetInfoWindow.HealthBarBackground.HealthBarFill.Size = UDim2.new(healthPercent, 0, 1, 0)
-end
-
-function CrimLib.Features:RagebotLoop()
-    while ConfigData.Ragebot_Enabled do
-        local target = CrimLib.Features:GetClosestEnemy()
-        CrimLib.Features:UpdateTargetInfoWindow(target)
-        if target then
-            CrimLib.Features:Shoot(target)
-            task.wait(0.05)
-        else
-            task.wait(0.1)
-        end
-    end
-    self.Ragebot_Coroutine = nil
-    CrimLib.Features:UpdateTargetInfoWindow(nil)
-end
-
-function CrimLib.Features:RagebotEnable()
-    if ConfigData.Ragebot_Enabled then return end
-    ConfigData.Ragebot_Enabled = true
-    if not self.Ragebot_Coroutine then
-        self.Ragebot_Coroutine = coroutine.create(function() CrimLib.Features:RagebotLoop() end)
-        coroutine.resume(self.Ragebot_Coroutine)
-    end
-end
-
-function CrimLib.Features:RagebotDisable()
-    if not ConfigData.Ragebot_Enabled then return end
-    ConfigData.Ragebot_Enabled = false
-    CrimLib.Features:UpdateTargetInfoWindow(nil)
-end
-
-function CrimLib.Features:InfiniteStaminaEnable()
-    if ConfigData.InfiniteStamina_Enabled then return end
-    ConfigData.InfiniteStamina_Enabled = true
-    if self.Connections.InfiniteStamina then self.Connections.InfiniteStamina:Disconnect() end
-    self.Connections.InfiniteStamina = Services.RunService.RenderStepped:Connect(function()
-        if not ConfigData.InfiniteStamina_Enabled then return end
-        local humanoid = Services.LocalPlayer.Character and Services.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid and not humanoid:GetAttribute("ZSPRN_M") then
-            humanoid:SetAttribute("ZSPRN_M", true)
-        end
-    end)
-end
-
-function CrimLib.Features:InfiniteStaminaDisable()
-    if not ConfigData.InfiniteStamina_Enabled then return end
-    ConfigData.InfiniteStamina_Enabled = false
-    if self.Connections.InfiniteStamina then
-        self.Connections.InfiniteStamina:Disconnect()
-        self.Connections.InfiniteStamina = nil
-    end
-    local humanoid = Services.LocalPlayer.Character and Services.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-    if humanoid and humanoid:GetAttribute("ZSPRN_M") then
-        humanoid:SetAttribute("ZSPRN_M", nil)
-    end
-end
-
-function CrimLib.Features:Invis_CheckR6()
-    local char = Services.LocalPlayer.Character
-    return char and char:FindFirstChild("Torso") ~= nil
-end
-
-function CrimLib.Features:Invis_IsGrounded()
-    local char = Services.LocalPlayer.Character
-    local humanoid = char and char:FindFirstChildOfClass("Humanoid")
-    return humanoid and humanoid:IsDescendantOf(workspace) and humanoid.FloorMaterial ~= Enum.Material.Air
-end
-
-function CrimLib.Features:LoadAnimationTrack()
-    if self.Invis_AnimationTrack then pcall(function() self.Invis_AnimationTrack:Stop() end) self.Invis_AnimationTrack = nil end
-    local humanoid = Services.LocalPlayer.Character and Services.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-    if humanoid then
-        local success, result = pcall(function() return humanoid:LoadAnimation(self.Invis_CamoAnim) end)
-        if success then self.Invis_AnimationTrack = result self.Invis_AnimationTrack.Priority = Enum.AnimationPriority.Action4 end
-    end
-end
-
-function CrimLib.Features:InvisibilityStep(deltaTime)
-    if not ConfigData.Invisibility_Enabled then return end
-    
-    local char = Services.LocalPlayer.Character
-    local humanoid = char and char:FindFirstChildOfClass("Humanoid")
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    if not char or not humanoid or not hrp then return end
-
-    local Invis_WarningLabel = CrimLib.Config.UI_Elements.Invis_WarningLabel
-    if Invis_WarningLabel then
-        Invis_WarningLabel.Visible = not CrimLib.Features:Invis_IsGrounded()
-    end
-
-    local walkSpeed = 12
-    if humanoid.MoveDirection.Magnitude > 0 then
-        hrp.CFrame = hrp.CFrame + humanoid.MoveDirection * walkSpeed * deltaTime
-    end
-
-    local originalCFrame = hrp.CFrame
-    local originalCameraOffset = humanoid.CameraOffset
-    local _, yawAngle = Services.Camera.CFrame:ToOrientation()
-    hrp.CFrame = CFrame.new(hrp.CFrame.Position) * CFrame.fromOrientation(0, yawAngle, 0) * CFrame.Angles(math.rad(90), 0, 0)
-    humanoid.CameraOffset = Vector3.new(0, 1.44, 0)
-
-    if self.Invis_AnimationTrack then
-        local success = pcall(function()
-            if not self.Invis_AnimationTrack.IsPlaying then self.Invis_AnimationTrack:Play() end
-            self.Invis_AnimationTrack:AdjustSpeed(0)
-            self.Invis_AnimationTrack.TimePosition = 0.3
-        end)
-        if not success then CrimLib.Features:LoadAnimationTrack() end
-    end
-
-    Services.RunService.RenderStepped:Wait()
-
-    if humanoid and humanoid:IsDescendantOf(workspace) then humanoid.CameraOffset = originalCameraOffset end
-    if hrp and hrp:IsDescendantOf(workspace) then hrp.CFrame = originalCFrame end
-    if self.Invis_AnimationTrack then pcall(function() self.Invis_AnimationTrack:Stop() end) end
-
-    if hrp and hrp:IsDescendantOf(workspace) then
-        local flatLook = Vector3.new(Services.Camera.CFrame.LookVector.X, 0, Services.Camera.CFrame.LookVector.Z).Unit
-        if flatLook.Magnitude > 0.1 then
-            hrp.CFrame = CFrame.new(hrp.Position, hrp.Position + flatLook)
-        end
-    end
-
-    for _, part in pairs(char:GetDescendants()) do
-        if part:IsA("BasePart") and part.Transparency ~= 1 then part.Transparency = 0.5 end
-    end
-end
-
-function CrimLib.Features:InvisibilityEnable()
-    if ConfigData.Invisibility_Enabled then return end
-    if not CrimLib.Features:Invis_CheckR6() then warn("Invisibility requires R6 character!") return end
-
-    local char = Services.LocalPlayer.Character
-    local humanoid = char and char:FindFirstChildOfClass("Humanoid")
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    if not humanoid or not hrp then return end
-    
-    ConfigData.Invisibility_Enabled = true
-    Services.Camera.CameraSubject = hrp
-    CrimLib.Features:LoadAnimationTrack()
-
-    if self.Connections.InvisHeartbeat then self.Connections.InvisHeartbeat:Disconnect() end
-    self.Connections.InvisHeartbeat = Services.RunService.Heartbeat:Connect(function(dt) CrimLib.Features:InvisibilityStep(dt) end)
-end
-
-function CrimLib.Features:InvisibilityDisable()
-    if not ConfigData.Invisibility_Enabled then return end
-    ConfigData.Invisibility_Enabled = false
-
-    if self.Connections.InvisHeartbeat then self.Connections.InvisHeartbeat:Disconnect() self.Connections.InvisHeartbeat = nil end
-    if self.Invis_AnimationTrack then pcall(function() self.Invis_AnimationTrack:Stop() end) end
-
-    local char = Services.LocalPlayer.Character
-    local humanoid = char and char:FindFirstChildOfClass("Humanoid")
-    if humanoid then Services.Camera.CameraSubject = humanoid end
-
-    if char then
-        for _, part in pairs(char:GetDescendants()) do
-            if part:IsA("BasePart") and part.Transparency == 0.5 then part.Transparency = 0 end
-        end
-    end
-    if CrimLib.Config.UI_Elements.Invis_WarningLabel then CrimLib.Config.UI_Elements.Invis_WarningLabel.Visible = false end
-end
-
-function CrimLib.Features:InitInvisibility()
-    self.Connections.InvisCharAdded = Services.LocalPlayer.CharacterAdded:Connect(function(newCharacter)
-        CrimLib.Features:InvisibilityDisable()
-        if self.Invis_AnimationTrack then pcall(function() self.Invis_AnimationTrack:Stop() end) self.Invis_AnimationTrack = nil end
-        task.wait(0.5)
-        if ConfigData.Invisibility_Enabled then CrimLib.Features:InvisibilityEnable() end
-    end)
-
-    self.Connections.InvisCharRemoving = Services.LocalPlayer.CharacterRemoving:Connect(function()
-        if self.Invis_AnimationTrack then pcall(function() self.Invis_AnimationTrack:Stop() end) self.Invis_AnimationTrack = nil end
-        if CrimLib.Config.UI_Elements.Invis_WarningLabel then CrimLib.Config.UI_Elements.Invis_WarningLabel.Visible = false end
-    end)
-end
-
-
-CrimLib.UI = {}
-
-local function storeOriginalTransparencies(instance)
-    if instance:IsA("GuiObject") then
-        local success, bgTrans = pcall(function() return instance.BackgroundTransparency end)
-        if success then
-            CrimLib.Config.UI_Elements[instance] = bgTrans
-        end
-    end
-    for _, child in ipairs(instance:GetChildren()) do
-        storeOriginalTransparencies(child)
-    end
-end
-
-function CrimLib.UI:Create()
-    local Services = CrimLib.Services
-    local TweenService = Services.TweenService
-    local CoreGui = Services.CoreGui
-
-    -- Main UI elements (copied from original crim.lua.bak)
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "RagebotUI"
     ScreenGui.Parent = CoreGui
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     ScreenGui.ResetOnSpawn = false
+    UIElements.ScreenGui = ScreenGui
 
     local MainFrame = Instance.new("Frame")
     MainFrame.Name = "MainFrame"
@@ -775,9 +26,13 @@ function CrimLib.UI:Create()
     MainFrame.BorderSizePixel = 0
     MainFrame.Position = UDim2.new(0.5, -421.5, 0.5, -287.5)
     MainFrame.Size = UDim2.new(0, 843, 0, 575)
-    MainFrame.Visible = false -- Will be controlled by ConfigData.IsGuiVisible
+    MainFrame.Visible = false
     MainFrame.Active = true
-    Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
+    UIElements.MainFrame = MainFrame
+
+    local MainCorner = Instance.new("UICorner")
+    MainCorner.CornerRadius = UDim.new(0, 8)
+    MainCorner.Parent = MainFrame
 
     local Header = Instance.new("Frame")
     Header.Name = "Header"
@@ -785,15 +40,22 @@ function CrimLib.UI:Create()
     Header.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
     Header.BorderSizePixel = 0
     Header.Size = UDim2.new(1, 0, 0, 60)
-    Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 8)
-    
-    local LogoIcon = Instance.new("ImageLabel", Header)
+
+    local HeaderCorner = Instance.new("UICorner")
+    HeaderCorner.CornerRadius = UDim.new(0, 8)
+    HeaderCorner.Parent = Header
+
+    local LogoIcon = Instance.new("ImageLabel")
+    LogoIcon.Parent = Header
     LogoIcon.BackgroundTransparency = 1
     LogoIcon.Position = UDim2.new(0, 20, 0, 12)
     LogoIcon.Size = UDim2.new(0, 36, 0, 36)
     LogoIcon.Image = "rbxassetid://97446581390925"
+    LogoIcon.ImageColor3 = Color3.fromRGB(255, 255, 255)
+    LogoIcon.ScaleType = Enum.ScaleType.Fit
 
-    local Title = Instance.new("TextLabel", Header)
+    local Title = Instance.new("TextLabel")
+    Title.Parent = Header
     Title.BackgroundTransparency = 1
     Title.Position = UDim2.new(0, 70, 0, 18)
     Title.Size = UDim2.new(0, 200, 0, 24)
@@ -802,19 +64,26 @@ function CrimLib.UI:Create()
     Title.TextColor3 = Color3.fromRGB(255, 255, 255)
     Title.TextSize = 20
     Title.TextXAlignment = Enum.TextXAlignment.Left
+    UIElements.Title = Title
 
-    local Sidebar = Instance.new("Frame", MainFrame)
+    local Sidebar = Instance.new("Frame")
+    Sidebar.Name = "Sidebar"
+    Sidebar.Parent = MainFrame
     Sidebar.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
     Sidebar.BorderSizePixel = 0
     Sidebar.Position = UDim2.new(0, 0, 0, 60)
     Sidebar.Size = UDim2.new(0, 70, 0, 515)
+    UIElements.Sidebar = Sidebar
 
-    local ContentFrame = Instance.new("Frame", MainFrame)
+    local ContentFrame = Instance.new("Frame")
+    ContentFrame.Name = "ContentFrame"
+    ContentFrame.Parent = MainFrame
     ContentFrame.BackgroundTransparency = 1
     ContentFrame.Position = UDim2.new(0, 70, 0, 60)
     ContentFrame.Size = UDim2.new(1, -70, 1, -60)
     ContentFrame.ClipsDescendants = true
-    
+    UIElements.ContentFrame = ContentFrame
+
     local TargetInfoWindow = Instance.new("Frame")
     TargetInfoWindow.Name = "TargetInfoWindow"
     TargetInfoWindow.Parent = MainFrame
@@ -825,6 +94,7 @@ function CrimLib.UI:Create()
     TargetInfoWindow.Size = UDim2.new(0, 300, 0, 70)
     TargetInfoWindow.Visible = false
     Instance.new("UICorner", TargetInfoWindow).CornerRadius = UDim.new(0, 6)
+    UIElements.TargetInfoWindow = TargetInfoWindow
 
     local TargetNameLabel = Instance.new("TextLabel")
     TargetNameLabel.Name = "TargetNameLabel"
@@ -837,6 +107,7 @@ function CrimLib.UI:Create()
     TargetNameLabel.TextSize = 14
     TargetNameLabel.Text = "Target: None"
     TargetNameLabel.TextXAlignment = Enum.TextXAlignment.Left
+    UIElements.TargetNameLabel = TargetNameLabel
 
     local TargetDistanceLabel = Instance.new("TextLabel")
     TargetDistanceLabel.Name = "TargetDistanceLabel"
@@ -849,6 +120,7 @@ function CrimLib.UI:Create()
     TargetDistanceLabel.TextSize = 12
     TargetDistanceLabel.Text = "Dist: 0m"
     TargetDistanceLabel.TextXAlignment = Enum.TextXAlignment.Right
+    UIElements.TargetDistanceLabel = TargetDistanceLabel
 
     local HealthBarBackground = Instance.new("Frame")
     HealthBarBackground.Name = "HealthBarBackground"
@@ -866,6 +138,7 @@ function CrimLib.UI:Create()
     HealthBarFill.BorderSizePixel = 0
     HealthBarFill.Size = UDim2.new(1, 0, 1, 0)
     Instance.new("UICorner", HealthBarFill).CornerRadius = UDim.new(0, 3)
+    UIElements.HealthBarFill = HealthBarFill
 
     local HealthTextLabel = Instance.new("TextLabel")
     HealthTextLabel.Name = "HealthTextLabel"
@@ -876,596 +149,622 @@ function CrimLib.UI:Create()
     HealthTextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     HealthTextLabel.TextSize = 10
     HealthTextLabel.Text = "100%"
-
-    local currentTab = 1
-    local tabs = {}
-    local ContentContainers = {}
-    local sidebarIcons = {
-        {icon = "rbxassetid://98370306170658", y = 15, name = "Combat", size = {16.9, 16.9}},
-        {icon = "rbxassetid://127827492424396", y = 85, name = "Visuals", size = {28, 26}},
-        {icon = "rbxassetid://100545076798978", y = 155, name = "World", size = {32, 32}},
-        {icon = "rbxassetid://100545076798978", y = 225, name = "Scripts", size = {32, 32}}, -- Changed from SkinChanger to Scripts
-        {icon = "rbxassetid://107710676270056", y = 295, name = "Misc", size = {37, 35}},
-        {icon = "rbxassetid://97047003599965", y = 365, name = "Config", size = {20, 20}}
-    }
+    UIElements.HealthTextLabel = HealthTextLabel
+    
+    UIElements.ContentContainers = {}
     local function createTabContent(name, index)
         local TabContainer = Instance.new("Frame")
         TabContainer.Name = name .. "Content"
         TabContainer.Parent = ContentFrame
         TabContainer.BackgroundTransparency = 1
         TabContainer.Size = UDim2.new(1, 0, 1, 0)
-        TabContainer.Visible = index == currentTab
-        ContentContainers[index] = TabContainer
+        TabContainer.Visible = index == 1
+        UIElements.ContentContainers[index] = TabContainer
         return TabContainer
     end
+
     local CombatContent = createTabContent("Combat", 1)
     local VisualsContent = createTabContent("Visuals", 2)
     local WorldContent = createTabContent("World", 3)
-    local ScriptsContent = createTabContent("Scripts", 4) -- Changed from SkinChangerContent
+    local SkinChangerContent = createTabContent("SkinChanger", 4)
     local MiscContent = createTabContent("Misc", 5)
     local ConfigContent = createTabContent("Config", 6)
-    tabs[1] = {name = "Combat", content = CombatContent}
-    tabs[2] = {name = "Visuals", content = VisualsContent}
-    tabs[3] = {name = "World", content = WorldContent}
-    tabs[4] = {name = "Scripts", content = ScriptsContent} -- Changed from SkinChangerContent
-    tabs[5] = {name = "Misc", content = MiscContent}
-    tabs[6] = {name = "Config", content = ConfigContent}
-    local function switchTab(index, iconData)
-        for i, tab in ipairs(tabs) do
-            local frame = Sidebar:FindFirstChild("Tab_" .. i)
-            if frame then
-                local indicator = frame:FindFirstChild("Indicator")
-                local isActive = i == index
-                local targetColor = isActive and Color3.fromRGB(25, 25, 25) or Color3.fromRGB(18, 18, 18)
-                local targetIndicatorSize = isActive and UDim2.new(0, 4, 1, 0) or UDim2.new(0, 0, 1, 0)
-                Services.TweenService:Create(frame, TweenInfo.new(0.2), {BackgroundColor3 = targetColor}):Play()
-                Services.TweenService:Create(indicator, TweenInfo.new(0.2), {Size = targetIndicatorSize}):Play()
-            end
-            if tab.content then
-                tab.content.Visible = false
-            end
-        end
-        currentTab = index
-        Title.Text = iconData.name
-        if ContentContainers[index] then
-            ContentContainers[index].Visible = true
-        end
-    end
-    for index, iconData in ipairs(sidebarIcons) do
-        local IconFrame = Instance.new("Frame")
-        IconFrame.Parent = Sidebar
-        IconFrame.Name = "Tab_" .. index
-        IconFrame.BackgroundColor3 = index == currentTab and Color3.fromRGB(25, 25, 25) or Color3.fromRGB(18, 18, 18)
-        IconFrame.BorderSizePixel = 0
-        IconFrame.Position = UDim2.new(0, 0, 0, iconData.y)
-        IconFrame.Size = UDim2.new(1, 0, 0, 60)
-        local ActiveIndicator = Instance.new("Frame")
-        ActiveIndicator.Parent = IconFrame
-        ActiveIndicator.Name = "Indicator"
-        ActiveIndicator.BackgroundColor3 = Color3.fromRGB(60, 160, 255)
-        ActiveIndicator.BorderSizePixel = 0
-        ActiveIndicator.Position = UDim2.new(0, 0, 0, 0)
-        ActiveIndicator.Size = UDim2.new(0, index == currentTab and 4 or 0, 1, 0)
-        local Icon = Instance.new("ImageLabel")
-        Icon.Parent = IconFrame
-        Icon.BackgroundTransparency = 1
-        Icon.Position = UDim2.new(0.5, -iconData.size[1]/2, 0.5, -iconData.size[2]/2)
-        Icon.Size = UDim2.new(0, iconData.size[1], 0, iconData.size[2])
-        Icon.Image = iconData.icon
-        Icon.ImageColor3 = Color3.fromRGB(200, 200, 200)
-        Icon.ScaleType = Enum.ScaleType.Fit
-        local TabButton = Instance.new("TextButton")
-        TabButton.Parent = IconFrame
-        TabButton.BackgroundTransparency = 1
-        TabButton.Size = UDim2.new(1, 0, 1, 0)
-        TabButton.Text = ""
-        TabButton.ZIndex = 3
-        TabButton.MouseButton1Click:Connect(function()
-            switchTab(index, iconData)
-        end)
-        TabButton.MouseEnter:Connect(function()
-            if currentTab ~= index then
-                Services.TweenService:Create(IconFrame, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(22, 22, 22)}):Play()
-            end
-        end)
-        TabButton.MouseLeave:Connect(function()
-            if currentTab ~= index then
-                Services.TweenService:Create(IconFrame, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(18, 18, 18)}):Play()
-            end
-        end)
-    end
     
-    -- Assign to UI_Elements table for later access
-    CrimLib.Config.UI_Elements.ScreenGui = ScreenGui
-    CrimLib.Config.UI_Elements.MainFrame = MainFrame
-    CrimLib.Config.UI_Elements.Title = Title
-    CrimLib.Config.UI_Elements.TargetInfoWindow = TargetInfoWindow
-    CrimLib.Config.UI_Elements.TargetNameLabel = TargetNameLabel
-    CrimLib.Config.UI_Elements.TargetDistanceLabel = TargetDistanceLabel
-    CrimLib.Config.UI_Elements.HealthBarBackground = HealthBarBackground
-    CrimLib.Config.UI_Elements.HealthBarFill = HealthBarFill
-    CrimLib.Config.UI_Elements.HealthTextLabel = HealthTextLabel
-    CrimLib.Config.UI_Elements.CombatContent = CombatContent
-    CrimLib.Config.UI_Elements.VisualsContent = VisualsContent
-    CrimLib.Config.UI_Elements.WorldContent = WorldContent
-    CrimLib.Config.UI_Elements.ScriptsContent = ScriptsContent -- New ScriptsContent
-    CrimLib.Config.UI_Elements.MiscContent = MiscContent
-    CrimLib.Config.UI_Elements.ConfigContent = ConfigContent
-
-    -- Additional UI elements that need to be stored
-    CrimLib.Config.UI_Elements.MeleeAuraToggle = MeleeAuraToggle
-    CrimLib.Config.UI_Elements.MeleeAuraStatus = MeleeAuraStatus
-    CrimLib.Config.UI_Elements.MeleeAuraDistanceSlider = MeleeAuraDistanceSlider
-    CrimLib.Config.UI_Elements.MeleeAuraSliderLabel = MeleeAuraSliderLabel
-    CrimLib.Config.UI_Elements.MeleeAuraSliderBar = MeleeAuraSliderBar
-    CrimLib.Config.UI_Elements.MeleeAuraSliderFill = MeleeAuraSliderFill
-    CrimLib.Config.UI_Elements.MeleeAuraSliderButton = MeleeAuraSliderButton
-
-    CrimLib.Config.UI_Elements.RagebotToggle = RagebotToggle
-    CrimLib.Config.UI_Elements.RagebotStatus = RagebotStatus
-    CrimLib.Config.UI_Elements.RagebotDistanceSlider = RagebotDistanceSlider
-    CrimLib.Config.UI_Elements.RagebotDistanceSliderLabel = RagebotDistanceSliderLabel
-    CrimLib.Config.UI_Elements.RagebotDistanceSliderBar = RagebotDistanceSliderBar
-    CrimLib.Config.UI_Elements.RagebotDistanceSliderFill = RagebotDistanceSliderFill
-    CrimLib.Config.UI_Elements.RagebotDistanceSliderButton = RagebotDistanceSliderButton
-    CrimLib.Config.UI_Elements.RagebotHealthSlider = RagebotHealthSlider
-    CrimLib.Config.UI_Elements.RagebotHealthSliderLabel = RagebotHealthSliderLabel
-    CrimLib.Config.UI_Elements.RagebotHealthSliderBar = RagebotHealthSliderBar
-    CrimLib.Config.UI_Elements.RagebotHealthSliderFill = RagebotHealthSliderFill
-    CrimLib.Config.UI_Elements.RagebotHealthSliderButton = RagebotHealthSliderButton
-    CrimLib.Config.UI_Elements.RagebotNameToggle = RagebotNameToggle
-    CrimLib.Config.UI_Elements.RagebotNameStatus = RagebotNameStatus
-    CrimLib.Config.UI_Elements.RagebotNameInput = RagebotNameInput
-    CrimLib.Config.UI_Elements.RagebotTargetModeToggle = RagebotTargetModeToggle
-
-    CrimLib.Config.UI_Elements.FovToggle = FovToggle
-    CrimLib.Config.UI_Elements.FovStatus = FovStatus
-    CrimLib.Config.UI_Elements.FovSlider = FovSlider
-    CrimLib.Config.UI_Elements.FovSliderLabel = FovSliderLabel
-    CrimLib.Config.UI_Elements.FovSliderBar = FovSliderBar
-    CrimLib.Config.UI_Elements.FovSliderFill = FovSliderFill
-    CrimLib.Config.UI_Elements.FovSliderButton = FovSliderButton
-
-    CrimLib.Config.UI_Elements.InfiniteStaminaToggle = InfiniteStaminaToggle
-    CrimLib.Config.UI_Elements.InfiniteStaminaStatus = InfiniteStaminaStatus
-
-    CrimLib.Config.UI_Elements.InvisibilityToggle = InvisibilityToggle
-    CrimLib.Config.UI_Elements.InvisibilityStatus = InvisibilityStatus
-    CrimLib.Config.UI_Elements.InvisKeybindButton = InvisKeybindButton
-    CrimLib.Config.UI_Elements.Invis_WarningLabel = Invis_WarningLabel
-
-    CrimLib.Config.UI_Elements.KeybindLabel = KeybindLabel
-    CrimLib.Config.UI_Elements.KeyCaptureButton = KeyCaptureButton
-    CrimLib.Config.UI_Elements.ConfigDisplayButton = ConfigDisplayButton
-    CrimLib.Config.UI_Elements.ConfigArrow = ConfigArrow
-    CrimLib.Config.UI_Elements.ConfigListContainer = ConfigListContainer
-    CrimLib.Config.UI_Elements.SaveAsInput = SaveAsInput
-    CrimLib.Config.UI_Elements.SaveButton = SaveButton
-    CrimLib.Config.UI_Elements.LoadButton = LoadButton
-    CrimLib.Config.UI_Elements.DeleteConfigDisplayButton = DeleteConfigDisplayButton
-    CrimLib.Config.UI_Elements.DeleteArrow = DeleteArrow
-    CrimLib.Config.UI_Elements.DeleteConfigListContainer = DeleteConfigListContainer
-    CrimLib.Config.UI_Elements.DeleteButton = DeleteButton
-    CrimLib.Config.UI_Elements.ConfigDebugLabel = ConfigDebugLabel
-    CrimLib.Config.UI_Elements.OpacitySlider = OpacitySlider
-    CrimLib.Config.UI_Elements.OpacitySliderLabel = OpacitySliderLabel
-    CrimLib.Config.UI_Elements.OpacitySliderBar = OpacitySliderBar
-    CrimLib.Config.UI_Elements.OpacitySliderFill = OpacitySliderFill
-    CrimLib.Config.UI_Elements.OpacitySliderButton = OpacitySliderButton
+    UIElements.tabs = {
+        {name = "Combat", content = CombatContent},
+        {name = "Visuals", content = VisualsContent},
+        {name = "World", content = WorldContent},
+        {name = "SkinChanger", content = SkinChangerContent},
+        {name = "Misc", content = MiscContent},
+        {name = "Config", content = ConfigContent}
+    }
     
-    CrimLib.UI:ApplyConfigToUI() -- Apply initial config values
+    local MeleeAuraToggle = Instance.new("TextButton")
+    MeleeAuraToggle.Name = "MeleeAuraToggle"
+    MeleeAuraToggle.Parent = CombatContent
+    MeleeAuraToggle.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    MeleeAuraToggle.Position = UDim2.new(0, 20, 0, 20)
+    MeleeAuraToggle.Size = UDim2.new(0, 300, 0, 30)
+    MeleeAuraToggle.Font = Enum.Font.Gotham
+    MeleeAuraToggle.Text = "Melee Aura (Distance: " .. string.format("%.1f", ConfigData.MeleeAura_Distance) .. ")"
+    MeleeAuraToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    MeleeAuraToggle.TextSize = 14
+    MeleeAuraToggle.TextXAlignment = Enum.TextXAlignment.Left
+    Instance.new("UICorner").Parent = MeleeAuraToggle
+    UIElements.MeleeAuraToggle = MeleeAuraToggle
+
+    local MeleeAuraStatus = Instance.new("TextLabel")
+    MeleeAuraStatus.Name = "Status"
+    MeleeAuraStatus.Parent = MeleeAuraToggle
+    MeleeAuraStatus.BackgroundTransparency = 1
+    MeleeAuraStatus.Position = UDim2.new(1, -60, 0, 0)
+    MeleeAuraStatus.Size = UDim2.new(0, 60, 1, 0)
+    MeleeAuraStatus.Font = Enum.Font.GothamBold
+    MeleeAuraStatus.Text = "OFF"
+    MeleeAuraStatus.TextColor3 = Color3.fromRGB(255, 255, 255)
+    MeleeAuraStatus.TextSize = 14
+    MeleeAuraStatus.TextXAlignment = Enum.TextXAlignment.Right
+    UIElements.MeleeAuraStatus = MeleeAuraStatus
+
+    local MeleeAuraDistanceSlider = Instance.new("Frame")
+    MeleeAuraDistanceSlider.Name = "MeleeAuraDistanceSlider"
+    MeleeAuraDistanceSlider.Parent = CombatContent
+    MeleeAuraDistanceSlider.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    MeleeAuraDistanceSlider.Position = UDim2.new(0, 20, 0, 60)
+    MeleeAuraDistanceSlider.Size = UDim2.new(0, 300, 0, 30)
+    Instance.new("UICorner").Parent = MeleeAuraDistanceSlider
     
-    return ScreenGui
+    local MeleeAuraSliderLabel = Instance.new("TextLabel")
+    MeleeAuraSliderLabel.Name = "Label"
+    MeleeAuraSliderLabel.Parent = MeleeAuraDistanceSlider
+    MeleeAuraSliderLabel.BackgroundTransparency = 1
+    MeleeAuraSliderLabel.Position = UDim2.new(0, 5, 0, 0)
+    MeleeAuraSliderLabel.Size = UDim2.new(0.5, 0, 1, 0)
+    MeleeAuraSliderLabel.Font = Enum.Font.Gotham
+    MeleeAuraSliderLabel.Text = "Distance: " .. string.format("%.1f", ConfigData.MeleeAura_Distance)
+    MeleeAuraSliderLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    MeleeAuraSliderLabel.TextSize = 14
+    MeleeAuraSliderLabel.TextXAlignment = Enum.TextXAlignment.Left
+    UIElements.MeleeAuraSliderLabel = MeleeAuraSliderLabel
+
+    local MeleeAuraSliderBar = Instance.new("Frame")
+    MeleeAuraSliderBar.Name = "Track"
+    MeleeAuraSliderBar.Parent = MeleeAuraDistanceSlider
+    MeleeAuraSliderBar.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    MeleeAuraSliderBar.Position = UDim2.new(0.5, 0, 0.5, -5)
+    MeleeAuraSliderBar.Size = UDim2.new(0.45, 0, 0, 10)
+    Instance.new("UICorner").Parent = MeleeAuraSliderBar
+    UIElements.MeleeAuraSliderBar = MeleeAuraSliderBar
+
+    local MeleeAuraSliderFill = Instance.new("Frame")
+    MeleeAuraSliderFill.Name = "Fill"
+    MeleeAuraSliderFill.Parent = MeleeAuraSliderBar
+    MeleeAuraSliderFill.BackgroundColor3 = Color3.fromRGB(60, 160, 255)
+    MeleeAuraSliderFill.Position = UDim2.new(0, 0, 0, 0)
+    MeleeAuraSliderFill.Size = UDim2.new(0, 0, 1, 0)
+    Instance.new("UICorner").Parent = MeleeAuraSliderFill
+    UIElements.MeleeAuraSliderFill = MeleeAuraSliderFill
+
+    local MeleeAuraSliderButton = Instance.new("TextButton")
+    MeleeAuraSliderButton.Name = "Button"
+    MeleeAuraSliderButton.Parent = MeleeAuraSliderBar
+    MeleeAuraSliderButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    MeleeAuraSliderButton.Size = UDim2.new(0, 18, 0, 18)
+    MeleeAuraSliderButton.Text = ""
+    UIElements.MeleeAuraSliderButton = MeleeAuraSliderButton
+    
+    Instance.new("UICorner", MeleeAuraSliderButton).CornerRadius = UDim.new(0.5, 0)
+    Instance.new("UIAspectRatioConstraint", MeleeAuraSliderButton).AspectRatio = 1
+    
+    local RagebotToggle = Instance.new("TextButton")
+    RagebotToggle.Name = "RagebotToggle"
+    RagebotToggle.Parent = CombatContent
+    RagebotToggle.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    RagebotToggle.Position = UDim2.new(0, 340, 0, 20)
+    RagebotToggle.Size = UDim2.new(0, 300, 0, 30)
+    RagebotToggle.Font = Enum.Font.Gotham
+    RagebotToggle.Text = "Ragebot (Max Dist: " .. math.floor(ConfigData.Ragebot_MaxDistance) .. ")"
+    RagebotToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    RagebotToggle.TextSize = 14
+    RagebotToggle.TextXAlignment = Enum.TextXAlignment.Left
+    Instance.new("UICorner").Parent = RagebotToggle
+    UIElements.RagebotToggle = RagebotToggle
+
+    local RagebotStatus = Instance.new("TextLabel")
+    RagebotStatus.Name = "Status"
+    RagebotStatus.Parent = RagebotToggle
+    RagebotStatus.BackgroundTransparency = 1
+    RagebotStatus.Position = UDim2.new(1, -60, 0, 0)
+    RagebotStatus.Size = UDim2.new(0, 60, 1, 0)
+    RagebotStatus.Font = Enum.Font.GothamBold
+    RagebotStatus.Text = "OFF"
+    RagebotStatus.TextColor3 = Color3.fromRGB(255, 255, 255)
+    RagebotStatus.TextSize = 14
+    RagebotStatus.TextXAlignment = Enum.TextXAlignment.Right
+    UIElements.RagebotStatus = RagebotStatus
+
+    local RagebotDistanceSlider = Instance.new("Frame")
+    RagebotDistanceSlider.Name = "RagebotDistanceSlider"
+    RagebotDistanceSlider.Parent = CombatContent
+    RagebotDistanceSlider.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    RagebotDistanceSlider.Position = UDim2.new(0, 340, 0, 60)
+    RagebotDistanceSlider.Size = UDim2.new(0, 300, 0, 30)
+    Instance.new("UICorner").Parent = RagebotDistanceSlider
+
+    local RagebotDistanceSliderLabel = Instance.new("TextLabel")
+    RagebotDistanceSliderLabel.Name = "Label"
+    RagebotDistanceSliderLabel.Parent = RagebotDistanceSlider
+    RagebotDistanceSliderLabel.BackgroundTransparency = 1
+    RagebotDistanceSliderLabel.Position = UDim2.new(0, 5, 0, 0)
+    RagebotDistanceSliderLabel.Size = UDim2.new(0.5, 0, 1, 0)
+    RagebotDistanceSliderLabel.Font = Enum.Font.Gotham
+    RagebotDistanceSliderLabel.Text = "Max Distance: " .. math.floor(ConfigData.Ragebot_MaxDistance)
+    RagebotDistanceSliderLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    RagebotDistanceSliderLabel.TextSize = 14
+    RagebotDistanceSliderLabel.TextXAlignment = Enum.TextXAlignment.Left
+    UIElements.RagebotDistanceSliderLabel = RagebotDistanceSliderLabel
+
+    local RagebotDistanceSliderBar = Instance.new("Frame")
+    RagebotDistanceSliderBar.Name = "Track"
+    RagebotDistanceSliderBar.Parent = RagebotDistanceSlider
+    RagebotDistanceSliderBar.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    RagebotDistanceSliderBar.Position = UDim2.new(0.5, 0, 0.5, -5)
+    RagebotDistanceSliderBar.Size = UDim2.new(0.45, 0, 0, 10)
+    Instance.new("UICorner").Parent = RagebotDistanceSliderBar
+    UIElements.RagebotDistanceSliderBar = RagebotDistanceSliderBar
+
+    local RagebotDistanceSliderFill = Instance.new("Frame")
+    RagebotDistanceSliderFill.Name = "Fill"
+    RagebotDistanceSliderFill.Parent = RagebotDistanceSliderBar
+    RagebotDistanceSliderFill.BackgroundColor3 = Color3.fromRGB(60, 160, 255)
+    RagebotDistanceSliderFill.Position = UDim2.new(0, 0, 0, 0)
+    RagebotDistanceSliderFill.Size = UDim2.new(0, 0, 1, 0)
+    Instance.new("UICorner").Parent = RagebotDistanceSliderFill
+    UIElements.RagebotDistanceSliderFill = RagebotDistanceSliderFill
+
+    local RagebotDistanceSliderButton = Instance.new("TextButton")
+    RagebotDistanceSliderButton.Name = "Button"
+    RagebotDistanceSliderButton.Parent = RagebotDistanceSliderBar
+    RagebotDistanceSliderButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    RagebotDistanceSliderButton.Size = UDim2.new(0, 18, 0, 18)
+    RagebotDistanceSliderButton.Text = ""
+    UIElements.RagebotDistanceSliderButton = RagebotDistanceSliderButton
+
+    Instance.new("UICorner", RagebotDistanceSliderButton).CornerRadius = UDim.new(0.5, 0)
+    Instance.new("UIAspectRatioConstraint", RagebotDistanceSliderButton).AspectRatio = 1
+    
+    local RagebotHealthSlider = Instance.new("Frame")
+    RagebotHealthSlider.Name = "RagebotHealthSlider"
+    RagebotHealthSlider.Parent = CombatContent
+    RagebotHealthSlider.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    RagebotHealthSlider.Position = UDim2.new(0, 340, 0, 100)
+    RagebotHealthSlider.Size = UDim2.new(0, 300, 0, 30)
+    Instance.new("UICorner").Parent = RagebotHealthSlider
+
+    local RagebotHealthSliderLabel = Instance.new("TextLabel")
+    RagebotHealthSliderLabel.Name = "Label"
+    RagebotHealthSliderLabel.Parent = RagebotHealthSlider
+    RagebotHealthSliderLabel.BackgroundTransparency = 1
+    RagebotHealthSliderLabel.Position = UDim2.new(0, 5, 0, 0)
+    RagebotHealthSliderLabel.Size = UDim2.new(0.5, 0, 1, 0)
+    RagebotHealthSliderLabel.Font = Enum.Font.Gotham
+    RagebotHealthSliderLabel.Text = "Min Health: " .. math.floor(ConfigData.Ragebot_MinHealth)
+    RagebotHealthSliderLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    RagebotHealthSliderLabel.TextSize = 14
+    RagebotHealthSliderLabel.TextXAlignment = Enum.TextXAlignment.Left
+    UIElements.RagebotHealthSliderLabel = RagebotHealthSliderLabel
+
+    local RagebotHealthSliderBar = Instance.new("Frame")
+    RagebotHealthSliderBar.Name = "Track"
+    RagebotHealthSliderBar.Parent = RagebotHealthSlider
+    RagebotHealthSliderBar.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    RagebotHealthSliderBar.Position = UDim2.new(0.5, 0, 0.5, -5)
+    RagebotHealthSliderBar.Size = UDim2.new(0.45, 0, 0, 10)
+    Instance.new("UICorner").Parent = RagebotHealthSliderBar
+    UIElements.RagebotHealthSliderBar = RagebotHealthSliderBar
+
+    local RagebotHealthSliderFill = Instance.new("Frame")
+    RagebotHealthSliderFill.Name = "Fill"
+    RagebotHealthSliderFill.Parent = RagebotHealthSliderBar
+    RagebotHealthSliderFill.BackgroundColor3 = Color3.fromRGB(60, 160, 255)
+    RagebotHealthSliderFill.Position = UDim2.new(0, 0, 0, 0)
+    RagebotHealthSliderFill.Size = UDim2.new(0, 0, 1, 0)
+    Instance.new("UICorner").Parent = RagebotHealthSliderFill
+    UIElements.RagebotHealthSliderFill = RagebotHealthSliderFill
+
+    local RagebotHealthSliderButton = Instance.new("TextButton")
+    RagebotHealthSliderButton.Name = "Button"
+    RagebotHealthSliderButton.Parent = RagebotHealthSliderBar
+    RagebotHealthSliderButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    RagebotHealthSliderButton.Size = UDim2.new(0, 18, 0, 18)
+    RagebotHealthSliderButton.Text = ""
+    UIElements.RagebotHealthSliderButton = RagebotHealthSliderButton
+    
+    Instance.new("UICorner", RagebotHealthSliderButton).CornerRadius = UDim.new(0.5, 0)
+    Instance.new("UIAspectRatioConstraint", RagebotHealthSliderButton).AspectRatio = 1
+
+    local RagebotNameToggle = Instance.new("TextButton")
+    RagebotNameToggle.Name = "RagebotNameToggle"
+    RagebotNameToggle.Parent = CombatContent
+    RagebotNameToggle.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    RagebotNameToggle.Position = UDim2.new(0, 340, 0, 140)
+    RagebotNameToggle.Size = UDim2.new(0, 300, 0, 30)
+    RagebotNameToggle.Font = Enum.Font.Gotham
+    RagebotNameToggle.Text = "Target by Name"
+    RagebotNameToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    RagebotNameToggle.TextSize = 14
+    RagebotNameToggle.TextXAlignment = Enum.TextXAlignment.Left
+    Instance.new("UICorner").Parent = RagebotNameToggle
+    UIElements.RagebotNameToggle = RagebotNameToggle
+
+    local RagebotNameStatus = Instance.new("TextLabel")
+    RagebotNameStatus.Name = "Status"
+    RagebotNameStatus.Parent = RagebotNameToggle
+    RagebotNameStatus.BackgroundTransparency = 1
+    RagebotNameStatus.Position = UDim2.new(1, -60, 0, 0)
+    RagebotNameStatus.Size = UDim2.new(0, 60, 1, 0)
+    RagebotNameStatus.Font = Enum.Font.GothamBold
+    RagebotNameStatus.Text = "OFF"
+    RagebotNameStatus.TextColor3 = Color3.fromRGB(255, 255, 255)
+    RagebotNameStatus.TextSize = 14
+    RagebotNameStatus.TextXAlignment = Enum.TextXAlignment.Right
+    UIElements.RagebotNameStatus = RagebotNameStatus
+
+    local RagebotNameInput = Instance.new("TextBox")
+    RagebotNameInput.Name = "RagebotNameInput"
+    RagebotNameInput.Parent = CombatContent
+    RagebotNameInput.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    RagebotNameInput.Position = UDim2.new(0, 340, 0, 180)
+    RagebotNameInput.Size = UDim2.new(0, 300, 0, 30)
+    RagebotNameInput.Font = Enum.Font.Gotham
+    RagebotNameInput.PlaceholderText = "Target Player Name..."
+    RagebotNameInput.Text = ConfigData.Ragebot_TargetName
+    RagebotNameInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+    RagebotNameInput.TextSize = 14
+    RagebotNameInput.TextXAlignment = Enum.TextXAlignment.Left
+    RagebotNameInput.TextYAlignment = Enum.TextYAlignment.Center
+    Instance.new("UICorner").Parent = RagebotNameInput
+    UIElements.RagebotNameInput = RagebotNameInput
+
+    local RagebotTargetModeToggle = Instance.new("TextButton")
+    RagebotTargetModeToggle.Name = "RagebotTargetModeToggle"
+    RagebotTargetModeToggle.Parent = CombatContent
+    RagebotTargetModeToggle.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    RagebotTargetModeToggle.Position = UDim2.new(0, 340, 0, 220)
+    RagebotTargetModeToggle.Size = UDim2.new(0, 300, 0, 30)
+    RagebotTargetModeToggle.Font = Enum.Font.Gotham
+    RagebotTargetModeToggle.Text = "Target Mode: " .. ConfigData.Ragebot_TargetMode
+    RagebotTargetModeToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    RagebotTargetModeToggle.TextSize = 14
+    RagebotTargetModeToggle.TextXAlignment = Enum.TextXAlignment.Left
+    Instance.new("UICorner").Parent = RagebotTargetModeToggle
+    UIElements.RagebotTargetModeToggle = RagebotTargetModeToggle
+    
+    local FovToggle = Instance.new("TextButton")
+    FovToggle.Name = "FovToggle"
+    FovToggle.Parent = WorldContent
+    FovToggle.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    FovToggle.Position = UDim2.new(0, 20, 0, 20)
+    FovToggle.Size = UDim2.new(0, 300, 0, 30)
+    FovToggle.Font = Enum.Font.Gotham
+    FovToggle.Text = "FOV Changer"
+    FovToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    FovToggle.TextSize = 14
+    FovToggle.TextXAlignment = Enum.TextXAlignment.Left
+    Instance.new("UICorner").Parent = FovToggle
+    UIElements.FovToggle = FovToggle
+
+    local FovStatus = Instance.new("TextLabel")
+    FovStatus.Name = "Status"
+    FovStatus.Parent = FovToggle
+    FovStatus.BackgroundTransparency = 1
+    FovStatus.Position = UDim2.new(1, -60, 0, 0)
+    FovStatus.Size = UDim2.new(0, 60, 1, 0)
+    FovStatus.Font = Enum.Font.GothamBold
+    FovStatus.Text = "OFF"
+    FovStatus.TextColor3 = Color3.fromRGB(255, 255, 255)
+    FovStatus.TextSize = 14
+    FovStatus.TextXAlignment = Enum.TextXAlignment.Right
+    UIElements.FovStatus = FovStatus
+
+    local FovSlider = Instance.new("Frame")
+    FovSlider.Name = "FovSlider"
+    FovSlider.Parent = WorldContent
+    FovSlider.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    FovSlider.Position = UDim2.new(0, 20, 0, 60)
+    FovSlider.Size = UDim2.new(0, 300, 0, 30)
+    Instance.new("UICorner").Parent = FovSlider
+
+    local FovSliderLabel = Instance.new("TextLabel")
+    FovSliderLabel.Name = "Label"
+    FovSliderLabel.Parent = FovSlider
+    FovSliderLabel.BackgroundTransparency = 1
+    FovSliderLabel.Position = UDim2.new(0, 5, 0, 0)
+    FovSliderLabel.Size = UDim2.new(0.5, 0, 1, 0)
+    FovSliderLabel.Font = Enum.Font.Gotham
+    FovSliderLabel.Text = "FOV Value: " .. math.floor(ConfigData.Fov_Value)
+    FovSliderLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    FovSliderLabel.TextSize = 14
+    FovSliderLabel.TextXAlignment = Enum.TextXAlignment.Left
+    UIElements.FovSliderLabel = FovSliderLabel
+
+    local FovSliderBar = Instance.new("Frame")
+    FovSliderBar.Name = "Track"
+    FovSliderBar.Parent = FovSlider
+    FovSliderBar.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    FovSliderBar.Position = UDim2.new(0.5, 0, 0.5, -5)
+    FovSliderBar.Size = UDim2.new(0.45, 0, 0, 10)
+    Instance.new("UICorner").Parent = FovSliderBar
+    UIElements.FovSliderBar = FovSliderBar
+
+    local FovSliderFill = Instance.new("Frame")
+    FovSliderFill.Name = "Fill"
+    FovSliderFill.Parent = FovSliderBar
+    FovSliderFill.BackgroundColor3 = Color3.fromRGB(60, 160, 255)
+    FovSliderFill.Position = UDim2.new(0, 0, 0, 0)
+    FovSliderFill.Size = UDim2.new(0, 0, 1, 0)
+    Instance.new("UICorner").Parent = FovSliderFill
+    UIElements.FovSliderFill = FovSliderFill
+
+    local FovSliderButton = Instance.new("TextButton")
+    FovSliderButton.Name = "Button"
+    FovSliderButton.Parent = FovSliderBar
+    FovSliderButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    FovSliderButton.Size = UDim2.new(0, 18, 0, 18)
+    FovSliderButton.Text = ""
+    UIElements.FovSliderButton = FovSliderButton
+    
+    Instance.new("UICorner", FovSliderButton).CornerRadius = UDim.new(0.5, 0)
+    Instance.new("UIAspectRatioConstraint", FovSliderButton).AspectRatio = 1
+    
+    local InfiniteStaminaToggle = Instance.new("TextButton")
+    InfiniteStaminaToggle.Name = "InfiniteStaminaToggle"
+    InfiniteStaminaToggle.Parent = MiscContent
+    InfiniteStaminaToggle.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    InfiniteStaminaToggle.Position = UDim2.new(0, 20, 0, 20)
+    InfiniteStaminaToggle.Size = UDim2.new(0, 300, 0, 30)
+    InfiniteStaminaToggle.Font = Enum.Font.Gotham
+    InfiniteStaminaToggle.Text = "Infinite Stamina"
+    InfiniteStaminaToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    InfiniteStaminaToggle.TextSize = 14
+    InfiniteStaminaToggle.TextXAlignment = Enum.TextXAlignment.Left
+    Instance.new("UICorner").Parent = InfiniteStaminaToggle
+    UIElements.InfiniteStaminaToggle = InfiniteStaminaToggle
+
+    local InfiniteStaminaStatus = Instance.new("TextLabel")
+    InfiniteStaminaStatus.Name = "Status"
+    InfiniteStaminaStatus.Parent = InfiniteStaminaToggle
+    InfiniteStaminaStatus.BackgroundTransparency = 1
+    InfiniteStaminaStatus.Position = UDim2.new(1, -60, 0, 0)
+    InfiniteStaminaStatus.Size = UDim2.new(0, 60, 1, 0)
+    InfiniteStaminaStatus.Font = Enum.Font.GothamBold
+    InfiniteStaminaStatus.Text = "OFF"
+    InfiniteStaminaStatus.TextColor3 = Color3.fromRGB(255, 255, 255)
+    InfiniteStaminaStatus.TextSize = 14
+    InfiniteStaminaStatus.TextXAlignment = Enum.TextXAlignment.Right
+    UIElements.InfiniteStaminaStatus = InfiniteStaminaStatus
+
+    local InvisibilityToggle = Instance.new("TextButton")
+    InvisibilityToggle.Name = "InvisibilityToggle"
+    InvisibilityToggle.Parent = MiscContent
+    InvisibilityToggle.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    InvisibilityToggle.Position = UDim2.new(0, 20, 0, 60)
+    InvisibilityToggle.Size = UDim2.new(0, 300, 0, 30)
+    InvisibilityToggle.Font = Enum.Font.Gotham
+    InvisibilityToggle.Text = "Invisibility (R6 Only)"
+    InvisibilityToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    InvisibilityToggle.TextSize = 14
+    InvisibilityToggle.TextXAlignment = Enum.TextXAlignment.Left
+    Instance.new("UICorner").Parent = InvisibilityToggle
+    UIElements.InvisibilityToggle = InvisibilityToggle
+
+    local InvisibilityStatus = Instance.new("TextLabel")
+    InvisibilityStatus.Name = "Status"
+    InvisibilityStatus.Parent = InvisibilityToggle
+    InvisibilityStatus.BackgroundTransparency = 1
+    InvisibilityStatus.Position = UDim2.new(1, -60, 0, 0)
+    InvisibilityStatus.Size = UDim2.new(0, 60, 1, 0)
+    InvisibilityStatus.Font = Enum.Font.GothamBold
+    InvisibilityStatus.Text = "OFF"
+    InvisibilityStatus.TextColor3 = Color3.fromRGB(255, 255, 255)
+    InvisibilityStatus.TextSize = 14
+    InvisibilityStatus.TextXAlignment = Enum.TextXAlignment.Right
+    UIElements.InvisibilityStatus = InvisibilityStatus
+    
+    local InvisKeybindButton = Instance.new("TextButton")
+    InvisKeybindButton.Name = "InvisKeybindButton"
+    InvisKeybindButton.Parent = MiscContent
+    InvisKeybindButton.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    InvisKeybindButton.Position = UDim2.new(0, 340, 0, 60)
+    InvisKeybindButton.Size = UDim2.new(0, 100, 0, 30)
+    InvisKeybindButton.Font = Enum.Font.Gotham
+    InvisKeybindButton.Text = ConfigData.Invisibility_Keybind
+    InvisKeybindButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    InvisKeybindButton.TextSize = 14
+    Instance.new("UICorner").Parent = InvisKeybindButton
+    UIElements.InvisKeybindButton = InvisKeybindButton
+    
+    local KeybindLabel = Instance.new("TextLabel")
+    KeybindLabel.Parent = ConfigContent
+    KeybindLabel.BackgroundTransparency = 1
+    KeybindLabel.Position = UDim2.new(0, 20, 0, 20)
+    KeybindLabel.Size = UDim2.new(0, 200, 0, 30)
+    KeybindLabel.Font = Enum.Font.Gotham
+    KeybindLabel.Text = "Toggle Key (Current: " .. ConfigData.ToggleKey .. "):"
+    KeybindLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    KeybindLabel.TextSize = 13
+    KeybindLabel.TextXAlignment = Enum.TextXAlignment.Left
+    UIElements.KeybindLabel = KeybindLabel
+
+    local KeyCaptureButton = Instance.new("TextButton")
+    KeyCaptureButton.Name = "KeyCaptureButton"
+    KeyCaptureButton.Parent = ConfigContent
+    KeyCaptureButton.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    KeyCaptureButton.Position = UDim2.new(0, 20 + 200, 0, 20)
+    KeyCaptureButton.Size = UDim2.new(0, 100, 0, 30)
+    KeyCaptureButton.Font = Enum.Font.Gotham
+    KeyCaptureButton.Text = ConfigData.ToggleKey
+    KeyCaptureButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    KeyCaptureButton.TextSize = 14
+    Instance.new("UICorner").Parent = KeyCaptureButton
+    UIElements.KeyCaptureButton = KeyCaptureButton
+
+    local ConfigDisplayButton = Instance.new("TextButton")
+    ConfigDisplayButton.Name = "ConfigDisplayButton"
+    ConfigDisplayButton.Parent = ConfigContent
+    ConfigDisplayButton.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    ConfigDisplayButton.Position = UDim2.new(0, 20, 0, 80)
+    ConfigDisplayButton.Size = UDim2.new(0, 300, 0, 30)
+    ConfigDisplayButton.Font = Enum.Font.Gotham
+    ConfigDisplayButton.Text = "Current Config: ..."
+    ConfigDisplayButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ConfigDisplayButton.TextSize = 14
+    ConfigDisplayButton.TextXAlignment = Enum.TextXAlignment.Left
+    Instance.new("UICorner").Parent = ConfigDisplayButton
+    UIElements.ConfigDisplayButton = ConfigDisplayButton
+
+    local ConfigArrow = Instance.new("TextLabel")
+    ConfigArrow.Name = "ConfigArrow"
+    ConfigArrow.Parent = ConfigDisplayButton
+    ConfigArrow.BackgroundTransparency = 1
+    ConfigArrow.Position = UDim2.new(1, -25, 0.5, -7)
+    ConfigArrow.Size = UDim2.new(0, 14, 0, 14)
+    ConfigArrow.Font = Enum.Font.Code
+    ConfigArrow.Text = "►"
+    ConfigArrow.TextColor3 = Color3.fromRGB(200, 200, 200)
+    ConfigArrow.TextSize = 14
+    ConfigArrow.TextXAlignment = Enum.TextXAlignment.Center
+    ConfigArrow.TextYAlignment = Enum.TextYAlignment.Center
+    UIElements.ConfigArrow = ConfigArrow
+
+    local ConfigListContainer = Instance.new("ScrollingFrame")
+    ConfigListContainer.Name = "ConfigListContainer"
+    ConfigListContainer.Parent = ConfigContent
+    ConfigListContainer.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    ConfigListContainer.Position = UDim2.new(0, 20, 0, 110)
+    ConfigListContainer.Size = UDim2.new(0, 300, 0, 150)
+    ConfigListContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
+    ConfigListContainer.ScrollBarThickness = 6
+    ConfigListContainer.Visible = false
+    ConfigListContainer.BorderSizePixel = 0
+    ConfigListContainer.ZIndex = 5
+    Instance.new("UICorner").Parent = ConfigListContainer
+    UIElements.ConfigListContainer = ConfigListContainer
+
+    Instance.new("UIListLayout", ConfigListContainer).SortOrder = Enum.SortOrder.LayoutOrder
+    
+    local SaveAsInput = Instance.new("TextBox")
+    SaveAsInput.Name = "SaveAsInput"
+    SaveAsInput.Parent = ConfigContent
+    SaveAsInput.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    SaveAsInput.Position = UDim2.new(0, 20, 0, 120)
+    SaveAsInput.Size = UDim2.new(0, 300, 0, 30)
+    SaveAsInput.Font = Enum.Font.Gotham
+    SaveAsInput.PlaceholderText = "Type new config name to Save As..."
+    SaveAsInput.Text = ""
+    SaveAsInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+    SaveAsInput.TextSize = 14
+    SaveAsInput.TextXAlignment = Enum.TextXAlignment.Left
+    SaveAsInput.TextYAlignment = Enum.TextYAlignment.Center
+    Instance.new("UICorner").Parent = SaveAsInput
+    UIElements.SaveAsInput = SaveAsInput
+
+    local SaveButton = Instance.new("TextButton")
+    SaveButton.Name = "SaveButton"
+    SaveButton.Parent = ConfigContent
+    SaveButton.BackgroundColor3 = Color3.fromRGB(60, 160, 255)
+    SaveButton.Position = UDim2.new(0, 20, 0, 160)
+    SaveButton.Size = UDim2.new(0, 145, 0, 30)
+    SaveButton.Font = Enum.Font.Gotham
+    SaveButton.Text = "SAVE Config"
+    SaveButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    SaveButton.TextSize = 14
+    Instance.new("UICorner").Parent = SaveButton
+    UIElements.SaveButton = SaveButton
+
+    local LoadButton = Instance.new("TextButton")
+    LoadButton.Name = "LoadButton"
+    LoadButton.Parent = ConfigContent
+    LoadButton.BackgroundColor3 = Color3.fromRGB(60, 160, 255)
+    LoadButton.Position = UDim2.new(0, 20 + 155, 0, 160)
+    LoadButton.Size = UDim2.new(0, 145, 0, 30)
+    LoadButton.Font = Enum.Font.Gotham
+    LoadButton.Text = "LOAD Config"
+    LoadButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    LoadButton.TextSize = 14
+    Instance.new("UICorner").Parent = LoadButton
+    UIElements.LoadButton = LoadButton
+    
+    local DeleteConfigDisplayButton = Instance.new("TextButton")
+    DeleteConfigDisplayButton.Name = "DeleteConfigDisplayButton"
+    DeleteConfigDisplayButton.Parent = ConfigContent
+    DeleteConfigDisplayButton.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    DeleteConfigDisplayButton.Position = UDim2.new(0, 340, 0, 80)
+    DeleteConfigDisplayButton.Size = UDim2.new(0, 300, 0, 30)
+    DeleteConfigDisplayButton.Font = Enum.Font.Gotham
+    DeleteConfigDisplayButton.Text = "Config to Delete: ..."
+    DeleteConfigDisplayButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    DeleteConfigDisplayButton.TextSize = 14
+    DeleteConfigDisplayButton.TextXAlignment = Enum.TextXAlignment.Left
+    Instance.new("UICorner").Parent = DeleteConfigDisplayButton
+    UIElements.DeleteConfigDisplayButton = DeleteConfigDisplayButton
+    
+    local DeleteArrow = Instance.new("TextLabel")
+    DeleteArrow.Name = "DeleteArrow"
+    DeleteArrow.Parent = DeleteConfigDisplayButton
+    DeleteArrow.BackgroundTransparency = 1
+    DeleteArrow.Position = UDim2.new(1, -25, 0.5, -7)
+    DeleteArrow.Size = UDim2.new(0, 14, 0, 14)
+    DeleteArrow.Font = Enum.Font.Code
+    DeleteArrow.Text = "►"
+    DeleteArrow.TextColor3 = Color3.fromRGB(200, 200, 200)
+    DeleteArrow.TextSize = 14
+    DeleteArrow.TextXAlignment = Enum.TextXAlignment.Center
+    DeleteArrow.TextYAlignment = Enum.TextYAlignment.Center
+    UIElements.DeleteArrow = DeleteArrow
+    
+    local DeleteConfigListContainer = Instance.new("ScrollingFrame")
+    DeleteConfigListContainer.Name = "DeleteConfigListContainer"
+    DeleteConfigListContainer.Parent = ConfigContent
+    DeleteConfigListContainer.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    DeleteConfigListContainer.Position = UDim2.new(0, 340, 0, 110)
+    DeleteConfigListContainer.Size = UDim2.new(0, 300, 0, 150)
+    DeleteConfigListContainer.CanvasSize = UDim2.new(0, 0, 0, 0)
+    DeleteConfigListContainer.ScrollBarThickness = 6
+    DeleteConfigListContainer.Visible = false
+    DeleteConfigListContainer.BorderSizePixel = 0
+    DeleteConfigListContainer.ZIndex = 5
+    Instance.new("UICorner").Parent = DeleteConfigListContainer
+    UIElements.DeleteConfigListContainer = DeleteConfigListContainer
+    
+    Instance.new("UIListLayout", DeleteConfigListContainer).SortOrder = Enum.SortOrder.LayoutOrder
+    
+    local DeleteButton = Instance.new("TextButton")
+    DeleteButton.Name = "DeleteButton"
+    DeleteButton.Parent = ConfigContent
+    DeleteButton.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+    DeleteButton.Position = UDim2.new(0, 340, 0, 160)
+    DeleteButton.Size = UDim2.new(0, 300, 0, 30)
+    DeleteButton.Font = Enum.Font.Gotham
+    DeleteButton.Text = "DELETE Config"
+    DeleteButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    DeleteButton.TextSize = 14
+    Instance.new("UICorner").Parent = DeleteButton
+    UIElements.DeleteButton = DeleteButton
+    
+    local ConfigDebugLabel = Instance.new("TextLabel")
+    ConfigDebugLabel.Parent = ConfigContent
+    ConfigDebugLabel.BackgroundTransparency = 1
+    ConfigDebugLabel.Position = UDim2.new(0, 20, 0, 200)
+    ConfigDebugLabel.Size = UDim2.new(0, 620, 0, 30)
+    ConfigDebugLabel.Font = Enum.Font.Gotham
+    ConfigDebugLabel.Text = ""
+    ConfigDebugLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    ConfigDebugLabel.TextSize = 14
+    ConfigDebugLabel.TextXAlignment = Enum.TextXAlignment.Left
+    UIElements.ConfigDebugLabel = ConfigDebugLabel
+    
+    return UIElements
 end
 
-function CrimLib.UI:ApplyConfigToUI()
-    local UIElements = CrimLib.Config.UI_Elements
-
-    -- Melee Aura
-    if UIElements.MeleeAuraToggle then
-        UIElements.MeleeAuraToggle.BackgroundColor3 = ConfigData.MeleeAura_Enabled and Color3.fromRGB(70, 200, 70) or Color3.fromRGB(35, 35, 35)
-        UIElements.MeleeAuraToggle.Text = "Melee Aura (Distance: " .. string.format("%.1f", ConfigData.MeleeAura_Distance) .. ")"
-        UIElements.MeleeAuraStatus.Text = ConfigData.MeleeAura_Enabled and "ON" or "OFF"
-    end
-    if UIElements.MeleeAuraDistanceSlider then
-        local normalized = (ConfigData.MeleeAura_Distance - Constants.MIN_DISTANCE) / (Constants.MAX_DISTANCE - Constants.MIN_DISTANCE)
-        local buttonCenterOffset = 9
-        UIElements.MeleeAuraSliderFill.Size = UDim2.new(normalized, 0, 1, 0)
-        UIElements.MeleeAuraSliderButton.Position = UDim2.new(normalized, -buttonCenterOffset, 0.5, -buttonCenterOffset)
-        UIElements.MeleeAuraSliderLabel.Text = "Distance: " .. string.format("%.1f", ConfigData.MeleeAura_Distance)
-    end
-
-    -- FOV
-    if UIElements.FovToggle then
-        UIElements.FovToggle.BackgroundColor3 = ConfigData.Fov_Enabled and Color3.fromRGB(70, 200, 70) or Color3.fromRGB(35, 35, 35)
-        UIElements.FovStatus.Text = ConfigData.Fov_Enabled and "ON" or "OFF"
-    end
-    if UIElements.FovSlider then
-        local normalized = (ConfigData.Fov_Value - Constants.MIN_FOV) / (Constants.MAX_FOV - Constants.MIN_FOV)
-        local buttonCenterOffset = 9
-        UIElements.FovSliderFill.Size = UDim2.new(normalized, 0, 1, 0)
-        UIElements.FovSliderButton.Position = UDim2.new(normalized, -buttonCenterOffset, 0.5, -buttonCenterOffset)
-        UIElements.FovSliderLabel.Text = "FOV Value: " .. math.floor(ConfigData.Fov_Value)
-    end
-
-    -- Ragebot
-    if UIElements.RagebotToggle then
-        UIElements.RagebotToggle.BackgroundColor3 = ConfigData.Ragebot_Enabled and Color3.fromRGB(70, 200, 70) or Color3.fromRGB(35, 35, 35)
-        UIElements.RagebotStatus.Text = ConfigData.Ragebot_Enabled and "ON" or "OFF"
-    end
-    if UIElements.RagebotDistanceSlider then
-        local normalized = (ConfigData.Ragebot_MaxDistance - Constants.MIN_DISTANCE_RAGE) / (Constants.MAX_DISTANCE_RAGE - Constants.MIN_DISTANCE_RAGE)
-        local buttonCenterOffset = 9
-        UIElements.RagebotDistanceSliderFill.Size = UDim2.new(normalized, 0, 1, 0)
-        UIElements.RagebotDistanceSliderButton.Position = UDim2.new(normalized, -buttonCenterOffset, 0.5, -buttonCenterOffset)
-        UIElements.RagebotDistanceSliderLabel.Text = "Max Distance: " .. math.floor(ConfigData.Ragebot_MaxDistance)
-        UIElements.RagebotToggle.Text = "Ragebot (Max Dist: " .. math.floor(ConfigData.Ragebot_MaxDistance) .. ")"
-    end
-    if UIElements.RagebotHealthSlider then
-        local normalized = (ConfigData.Ragebot_MinHealth - Constants.MIN_HEALTH_RAGE) / (Constants.MAX_HEALTH_RAGE - Constants.MIN_HEALTH_RAGE)
-        local buttonCenterOffset = 9
-        UIElements.RagebotHealthSliderFill.Size = UDim2.new(normalized, 0, 1, 0)
-        UIElements.RagebotHealthSliderButton.Position = UDim2.new(normalized, -buttonCenterOffset, 0.5, -buttonCenterOffset)
-        UIElements.RagebotHealthSliderLabel.Text = "Min Health: " .. math.floor(ConfigData.Ragebot_MinHealth)
-    end
-    if UIElements.RagebotNameToggle then
-        UIElements.RagebotNameToggle.BackgroundColor3 = ConfigData.Ragebot_UseNameTarget and Color3.fromRGB(70, 200, 70) or Color3.fromRGB(35, 35, 35)
-        UIElements.RagebotNameStatus.Text = ConfigData.Ragebot_UseNameTarget and "ON" or "OFF"
-    end
-    if UIElements.RagebotNameInput then
-        UIElements.RagebotNameInput.Text = ConfigData.Ragebot_TargetName
-    end
-    if UIElements.RagebotTargetModeToggle then
-        UIElements.RagebotTargetModeToggle.Text = "Target Mode: " .. ConfigData.Ragebot_TargetMode
-    end
-
-    -- Infinite Stamina
-    if UIElements.InfiniteStaminaToggle then
-        UIElements.InfiniteStaminaToggle.BackgroundColor3 = ConfigData.InfiniteStamina_Enabled and Color3.fromRGB(70, 200, 70) or Color3.fromRGB(35, 35, 35)
-        UIElements.InfiniteStaminaStatus.Text = ConfigData.InfiniteStamina_Enabled and "ON" or "OFF"
-    end
-
-    -- Invisibility
-    if UIElements.InvisibilityToggle then
-        UIElements.InvisibilityToggle.BackgroundColor3 = ConfigData.Invisibility_Enabled and Color3.fromRGB(70, 200, 70) or Color3.fromRGB(35, 35, 35)
-        UIElements.InvisibilityStatus.Text = ConfigData.Invisibility_Enabled and "ON" or "OFF"
-    end
-    if UIElements.InvisKeybindButton then
-        UIElements.InvisKeybindButton.Text = ConfigData.Invisibility_Keybind
-    end
-    if UIElements.Invis_WarningLabel then
-        UIElements.Invis_WarningLabel.Visible = false
-    end
-    
-    -- Keybind
-    if UIElements.KeyCaptureButton then
-        UIElements.KeyCaptureButton.Text = ConfigData.ToggleKey
-        UIElements.KeybindLabel.Text = "Toggle Key (Current: " .. ConfigData.ToggleKey .. "):"
-    end
-
-    -- GUI Opacity
-    if UIElements.OpacitySlider then
-        local normalized = (ConfigData.GUI_Opacity - Constants.MIN_OPACITY) / (Constants.MAX_OPACITY - Constants.MIN_OPACITY)
-        local buttonCenterOffset = 9
-        UIElements.OpacitySliderFill.Size = UDim2.new(normalized, 0, 1, 0)
-        UIElements.OpacitySliderButton.Position = UDim2.new(normalized, -buttonCenterOffset, 0.5, -buttonCenterOffset)
-        UIElements.OpacitySliderLabel.Text = "Прозрачность: " .. string.format("%.0f%%", (1 - ConfigData.GUI_Opacity) * 100)
-    end
-    
-    -- Scripts Content toggles (set initial colors)
-    if UIElements.ScriptsContent then
-        local scriptsToggles = {
-            ATMFarm_Enabled = "ATM Farm",
-            EventFinder_Enabled = "Event Finder",
-            Fly_Enabled = "Fly",
-            MoneyTracker_Enabled = "Money Tracker",
-            AutoPickupMoney_Enabled = "Auto Pickup Money",
-            FullBright_Enabled = "Full Bright",
-            NoFailLockpick_Enabled = "No Fail Lockpick",
-            AdminChecker_Enabled = "Admin Checker",
-        }
-        for configKey, toggleName in pairs(scriptsToggles) do
-            local toggleButton = UIElements.ScriptsContent:FindFirstChild(toggleName .. "Toggle")
-            if toggleButton then
-                toggleButton.BackgroundColor3 = ConfigData[configKey] and Color3.fromRGB(70, 200, 70) or Color3.fromRGB(35, 35, 35)
-            end
-        end
-    end
-end
-
-
-function CrimLib.UI:PopulateConfigList(forceClose)
-    local Config = CrimLib.Config
-    local UIElements = Config.UI_Elements
-    local ConfigListContainer = UIElements.ConfigListContainer
-    local ConfigArrow = UIElements.ConfigArrow
-    
-    local function toggleConfigList(forceClose)
-        local isVisible = ConfigListContainer.Visible
-        if forceClose then isVisible = true end
-        if isVisible then
-            ConfigListContainer.Visible = false
-            ConfigArrow.Text = "►"
-        else
-            CrimLib.UI:PopulateConfigList() -- Call without forceClose to refresh
-            ConfigArrow.Text = "▼"
-        end
-    end
-
-    if forceClose then toggleConfigList(true) return end
-
-    for _, child in ipairs(ConfigListContainer:GetChildren()) do
-        if child.Name == "ConfigButton" or child.Name == "NoFileLabel" then
-            child:Destroy()
-        end
-    end
-
-    local configNames = CrimLib.Config:ListConfigFiles()
-    if #configNames == 0 then
-        local NoFileLabel = Instance.new("TextLabel")
-        NoFileLabel.Name = "NoFileLabel"
-        NoFileLabel.Parent = ConfigListContainer
-        NoFileLabel.BackgroundTransparency = 1
-        NoFileLabel.Size = UDim2.new(1, 0, 0, 28)
-        NoFileLabel.Font = Enum.Font.Gotham
-        NoFileLabel.Text = "   NO CONFIGS FOUND"
-        NoFileLabel.TextColor3 = Color3.fromRGB(200, 70, 70)
-        NoFileLabel.TextSize = 14
-        NoFileLabel.TextXAlignment = Enum.TextXAlignment.Left
-        ConfigListContainer.CanvasSize = UDim2.new(0, 0, 0, 30)
-    else
-        local buttonHeight = 28
-        local padding = 2
-        local totalHeight = #configNames * buttonHeight + (#configNames - 1) * padding
-        ConfigListContainer.CanvasSize = UDim2.new(0, 0, 0, totalHeight)
-        for _, name in ipairs(configNames) do
-            local ConfigButton = Instance.new("TextButton")
-            ConfigButton.Name = "ConfigButton"
-            ConfigButton.Parent = ConfigListContainer
-            ConfigButton.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-            ConfigButton.Size = UDim2.new(1, 0, 0, buttonHeight)
-            ConfigButton.Font = Enum.Font.Gotham
-            ConfigButton.Text = "   " .. name
-            ConfigButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-            ConfigButton.TextSize = 14
-            ConfigButton.TextXAlignment = Enum.TextXAlignment.Left
-            Instance.new("UICorner", ConfigButton).CornerRadius = UDim.new(0, 4)
-            ConfigButton.MouseButton1Click:Connect(function()
-                Config.CurrentConfigName = name
-                UIElements.ConfigDisplayButton.Text = "Current Config: " .. name
-                toggleConfigList(true)
-            end)
-            ConfigButton.MouseEnter:Connect(function()
-                Services.TweenService:Create(ConfigButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(60, 160, 255)}):Play()
-            end)
-            ConfigButton.MouseLeave:Connect(function()
-                Services.TweenService:Create(ConfigButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(35, 35, 35)}):Play()
-            end)
-        end
-    end
-    ConfigListContainer.Visible = true
-end
-
-function CrimLib.UI:PopulateDeleteConfigList(forceClose)
-    local Config = CrimLib.Config
-    local UIElements = Config.UI_Elements
-    local DeleteConfigListContainer = UIElements.DeleteConfigListContainer
-    local DeleteArrow = UIElements.DeleteArrow
-
-    local function toggleDeleteConfigList(forceClose)
-        local isVisible = DeleteConfigListContainer.Visible
-        if forceClose then isVisible = true end
-        if isVisible then
-            DeleteConfigListContainer.Visible = false
-            DeleteArrow.Text = "►"
-        else
-            CrimLib.UI:PopulateDeleteConfigList() -- Call without forceClose to refresh
-            DeleteArrow.Text = "▼"
-        end
-    end
-
-    if forceClose then toggleDeleteConfigList(true) return end
-
-    for _, child in ipairs(DeleteConfigListContainer:GetChildren()) do
-        if child.Name == "DeleteConfigButton" or child.Name == "NoFileLabel" then
-            child:Destroy()
-        end
-    end
-
-    local configNames = CrimLib.Config:ListConfigFiles()
-    if #configNames == 0 then
-        local NoFileLabel = Instance.new("TextLabel")
-        NoFileLabel.Name = "NoFileLabel"
-        NoFileLabel.Parent = DeleteConfigListContainer
-        NoFileLabel.BackgroundTransparency = 1
-        NoFileLabel.Size = UDim2.new(1, 0, 0, 28)
-        NoFileLabel.Font = Enum.Font.Gotham
-        NoFileLabel.Text = "   NO CONFIGS TO DELETE"
-        NoFileLabel.TextColor3 = Color3.fromRGB(200, 70, 70)
-        NoFileLabel.TextSize = 14
-        NoFileLabel.TextXAlignment = Enum.TextXAlignment.Left
-        DeleteConfigListContainer.CanvasSize = UDim2.new(0, 0, 0, 30)
-    else
-        local buttonHeight = 28
-        local padding = 2
-        local totalHeight = #configNames * buttonHeight + (#configNames - 1) * padding
-        DeleteConfigListContainer.CanvasSize = UDim2.new(0, 0, 0, totalHeight)
-        for _, name in ipairs(configNames) do
-            local DeleteConfigButton = Instance.new("TextButton")
-            DeleteConfigButton.Name = "DeleteConfigButton"
-            DeleteConfigButton.Parent = DeleteConfigListContainer
-            DeleteConfigButton.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-            DeleteConfigButton.Size = UDim2.new(1, 0, 0, buttonHeight)
-            DeleteConfigButton.Font = Enum.Font.Gotham
-            DeleteConfigButton.Text = "   " .. name
-            DeleteConfigButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-            DeleteConfigButton.TextSize = 14
-            DeleteConfigButton.TextXAlignment = Enum.TextXAlignment.Left
-            Instance.new("UICorner", DeleteConfigButton).CornerRadius = UDim.new(0, 4)
-            DeleteConfigButton.MouseButton1Click:Connect(function()
-                Config.ConfigToDeleteName = name
-                UIElements.DeleteConfigDisplayButton.Text = "Config to Delete: " .. name
-                toggleDeleteConfigList(true)
-            end)
-            DeleteConfigButton.MouseEnter:Connect(function()
-                Services.TweenService:Create(DeleteConfigButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(255, 60, 60)}):Play()
-            end)
-            DeleteConfigButton.MouseLeave:Connect(function()
-                Services.TweenService:Create(DeleteConfigButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(35, 35, 35)}):Play()
-            end)
-        end
-    end
-    DeleteConfigListContainer.Visible = true
-end
-
--- UI Helper functions (from original script)
-local function updateMeleeAuraSlider(value)
-    local UIElements = CrimLib.Config.UI_Elements
-    value = math.floor(value * 10 + 0.5) / 10
-    ConfigData.MeleeAura_Distance = math.max(Constants.MIN_DISTANCE, math.min(Constants.MAX_DISTANCE, value))
-    local normalized = (ConfigData.MeleeAura_Distance - Constants.MIN_DISTANCE) / (Constants.MAX_DISTANCE - Constants.MIN_DISTANCE)
-    
-    local buttonCenterOffset = 9
-    
-    UIElements.MeleeAuraSliderFill.Size = UDim2.new(normalized, 0, 1, 0)
-    UIElements.MeleeAuraSliderButton.Position = UDim2.new(normalized, -buttonCenterOffset, 0.5, -buttonCenterOffset)
-    
-    UIElements.MeleeAuraSliderLabel.Text = "Distance: " .. string.format("%.1f", ConfigData.MeleeAura_Distance)
-    UIElements.MeleeAuraToggle.Text = "Melee Aura (Distance: " .. string.format("%.1f", ConfigData.MeleeAura_Distance) .. ")"
-end
-
-local function updateFovSlider(value)
-    local UIElements = CrimLib.Config.UI_Elements
-    ConfigData.Fov_Value = math.max(Constants.MIN_FOV, math.min(Constants.MAX_FOV, value))
-    local normalized = (ConfigData.Fov_Value - Constants.MIN_FOV) / (Constants.MAX_FOV - Constants.MIN_FOV)
-    
-    local buttonCenterOffset = 9
-    
-    UIElements.FovSliderFill.Size = UDim2.new(normalized, 0, 1, 0)
-    UIElements.FovSliderButton.Position = UDim2.new(normalized, -buttonCenterOffset, 0.5, -buttonCenterOffset)
-    
-    UIElements.FovSliderLabel.Text = "FOV Value: " .. math.floor(ConfigData.Fov_Value)
-    if ConfigData.Fov_Enabled then
-        Services.Camera.FieldOfView = ConfigData.Fov_Value
-    end
-end
-
-local function updateRagebotDistanceSlider(value)
-    local UIElements = CrimLib.Config.UI_Elements
-    value = math.floor(value / 10 + 0.5) * 10 
-    
-    ConfigData.Ragebot_MaxDistance = math.max(Constants.MIN_DISTANCE_RAGE, math.min(Constants.MAX_DISTANCE_RAGE, value))
-    
-    local normalized = (ConfigData.Ragebot_MaxDistance - Constants.MIN_DISTANCE_RAGE) / (Constants.MAX_DISTANCE_RAGE - Constants.MIN_DISTANCE_RAGE)
-    
-    local buttonCenterOffset = 9
-    
-    UIElements.RagebotDistanceSliderFill.Size = UDim2.new(normalized, 0, 1, 0)
-    UIElements.RagebotDistanceSliderButton.Position = UDim2.new(normalized, -buttonCenterOffset, 0.5, -buttonCenterOffset)
-    
-    UIElements.RagebotDistanceSliderLabel.Text = "Max Distance: " .. math.floor(ConfigData.Ragebot_MaxDistance)
-    UIElements.RagebotToggle.Text = "Ragebot (Max Dist: " .. math.floor(ConfigData.Ragebot_MaxDistance) .. ")"
-end
-
-local function updateRagebotHealthSlider(value)
-    local UIElements = CrimLib.Config.UI_Elements
-    value = math.floor(value + 0.5) 
-    ConfigData.Ragebot_MinHealth = math.max(Constants.MIN_HEALTH_RAGE, math.min(Constants.MAX_HEALTH_RAGE, value))
-    local normalized = (ConfigData.Ragebot_MinHealth - Constants.MIN_HEALTH_RAGE) / (Constants.MAX_HEALTH_RAGE - Constants.MIN_HEALTH_RAGE)
-    
-    local buttonCenterOffset = 9
-    
-    UIElements.RagebotHealthSliderFill.Size = UDim2.new(normalized, 0, 1, 0)
-    UIElements.RagebotHealthSliderButton.Position = UDim2.new(normalized, -buttonCenterOffset, 0.5, -buttonCenterOffset)
-    
-    UIElements.RagebotHealthSliderLabel.Text = "Min Health: " .. math.floor(ConfigData.Ragebot_MinHealth)
-end
-
-local function updateGuiOpacity(value)
-    local UIElements = CrimLib.Config.UI_Elements
-    ConfigData.GUI_Opacity = math.max(Constants.MIN_OPACITY, math.min(Constants.MAX_OPACITY, value))
-    local normalized = (ConfigData.GUI_Opacity - Constants.MIN_OPACITY) / (Constants.MAX_OPACITY - Constants.MIN_OPACITY)
-    
-    local buttonCenterOffset = 9
-    
-    UIElements.OpacitySliderFill.Size = UDim2.new(normalized, 0, 1, 0)
-    UIElements.OpacitySliderButton.Position = UDim2.new(normalized, -buttonCenterOffset, 0.5, -buttonCenterOffset)
-    
-    UIElements.OpacitySliderLabel.Text = "Прозрачность: " .. string.format("%.0f%%", (1 - ConfigData.GUI_Opacity) * 100)
-    
-    local transparency = ConfigData.GUI_Opacity
-    
-    -- Iterate through originalBgTransparencies stored in UI_Elements
-    for instance, originalTransparency in pairs(CrimLib.Config.UI_Elements.OriginalBgTransparencies) do
-        if pcall(function() instance.BackgroundTransparency = math.max(originalTransparency, transparency) end) then
-            -- success
-        end
-    end
-end
-
--- Initialize Invis_WarningGUI (from original script)
-local Invis_WarningGUI = Instance.new("ScreenGui")
-Invis_WarningGUI.Name = "InvisibilityWarning"
-Invis_WarningGUI.Parent = CoreGui
-Invis_WarningGUI.ResetOnSpawn = false
-Invis_WarningGUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-
-local Invis_WarningLabel = Instance.new("TextLabel")
-Invis_WarningLabel.Text = "⚠️ You are visible ⚠️"
-Invis_WarningLabel.Visible = false
-Invis_WarningLabel.Size = UDim2.new(0, 200, 0, 30)
-Invis_WarningLabel.Position = UDim2.new(0.5, -100, 0.85, 0)
-Invis_WarningLabel.BackgroundTransparency = 1
-Invis_WarningLabel.Font = Enum.Font.GothamSemibold
-Invis_WarningLabel.TextSize = 24
-Invis_WarningLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
-Invis_WarningLabel.TextStrokeTransparency = 0.5
-Invis_WarningLabel.ZIndex = 10
-Invis_WarningLabel.Parent = Invis_WarningGUI
-CrimLib.Config.UI_Elements.Invis_WarningLabel = Invis_WarningLabel -- Store it
-
--- Assign local helper functions to CrimLib.UI for easy access
-CrimLib.UI.updateMeleeAuraSlider = updateMeleeAuraSlider
-CrimLib.UI.updateFovSlider = updateFovSlider
-CrimLib.UI.updateRagebotDistanceSlider = updateRagebotDistanceSlider
-CrimLib.UI.updateRagebotHealthSlider = updateRagebotHealthSlider
-CrimLib.UI.updateGuiOpacity = updateGuiOpacity
-
--- Function to disable all cheats (from original script)
-function CrimLib.Features:DisableAllCheats()
-    CrimLib.Features:MeleeAuraDisable()
-    CrimLib.Features:FovDisable()
-    CrimLib.Features:RagebotDisable() 
-    CrimLib.Features:InfiniteStaminaDisable()
-    CrimLib.Features:InvisibilityDisable()
-    
-    -- Resetting UI elements
-    local UIElements = CrimLib.Config.UI_Elements
-    if UIElements.MeleeAuraToggle then
-        UIElements.MeleeAuraToggle.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-        UIElements.MeleeAuraStatus.Text = "OFF"
-    end
-    if UIElements.FovToggle then 
-        UIElements.FovToggle.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-        UIElements.FovStatus.Text = "OFF"
-    end
-    if UIElements.RagebotToggle then 
-        UIElements.RagebotToggle.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-        UIElements.RagebotStatus.Text = "OFF"
-    end
-    if UIElements.RagebotNameToggle then 
-        UIElements.RagebotNameToggle.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-        UIElements.RagebotNameStatus.Text = "OFF"
-    end
-    if UIElements.InfiniteStaminaToggle then
-        UIElements.InfiniteStaminaToggle.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-        UIElements.InfiniteStaminaStatus.Text = "OFF"
-    end
-    if UIElements.InvisibilityToggle then
-        UIElements.InvisibilityToggle.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-        UIElements.InvisibilityStatus.Text = "OFF"
-    end
-end
-
--- This script does not return CrimLib. It modifies the global CrimLib table.
--- This matches the user's request to make it modular like Rayfield.lua
+return CrimsonLibrary
